@@ -1,4 +1,4 @@
-package com.ibsam588lgtm.delivery_dash
+package com.corsairlabs.delivery_dash
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

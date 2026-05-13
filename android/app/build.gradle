@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.ibsam588lgtm.delivery_dash"
+    namespace = "com.corsairlabs.delivery_dash"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -34,7 +34,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.ibsam588lgtm.delivery_dash"
+        applicationId = "com.corsairlabs.delivery_dash"
         minSdk = 21
         targetSdk = 34
         versionCode = flutter.versionCode
