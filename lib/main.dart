@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'screens/main_menu_screen.dart';
 import 'screens/game_screen.dart';
 import 'screens/game_over_screen.dart';
+import 'services/ad_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  await AdService.instance.initialize();
   runApp(const DeliveryDashApp());
 }
 

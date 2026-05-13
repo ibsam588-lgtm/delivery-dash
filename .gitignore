@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Signing
+/android/app/delivery-dash-release.jks
+/android/key.properties
+/keystore_b64.txt

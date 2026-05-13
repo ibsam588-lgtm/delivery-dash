@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/ad_service.dart';
 import '../services/score_service.dart';
 
 class MainMenuScreen extends StatefulWidget {
@@ -47,6 +48,11 @@ class _MainMenuScreenState extends State<MainMenuScreen>
             builder: (context, _) => CustomPaint(
               painter: _MenuBackgroundPainter(_houseController.value),
             ),
+          ),
+          // Bottom banner ad
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: SafeArea(child: AdService.instance.bannerAd()),
           ),
           // Content
           SafeArea(

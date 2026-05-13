@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/ad_service.dart';
 
 class GameOverScreen extends StatelessWidget {
   const GameOverScreen({super.key});
@@ -21,56 +22,64 @@ class GameOverScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'GAME',
-                  style: GoogleFonts.pressStart2p(
-                    fontSize: 32,
-                    color: Colors.redAccent,
-                    shadows: const [Shadow(color: Colors.black, blurRadius: 6)],
-                  ),
-                ),
-                Text(
-                  'OVER',
-                  style: GoogleFonts.pressStart2p(
-                    fontSize: 32,
-                    color: Colors.redAccent,
-                    shadows: const [Shadow(color: Colors.black, blurRadius: 6)],
-                  ),
-                ),
-                const SizedBox(height: 40),
-                if (isNewRecord) ...[
-                  Text(
-                    '★ NEW RECORD! ★',
-                    style: GoogleFonts.pressStart2p(
-                      fontSize: 14,
-                      color: Colors.yellowAccent,
+          child: Stack(
+            children: [
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'GAME',
+                      style: GoogleFonts.pressStart2p(
+                        fontSize: 32,
+                        color: Colors.redAccent,
+                        shadows: const [Shadow(color: Colors.black, blurRadius: 6)],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                _ScoreBox(label: 'SCORE', value: score, color: Colors.white),
-                const SizedBox(height: 12),
-                _ScoreBox(label: 'BEST', value: highScore, color: Colors.yellowAccent),
-                const SizedBox(height: 48),
-                _MenuButton(
-                  label: 'PLAY AGAIN',
-                  color: const Color(0xFFFF6F00),
-                  onTap: () => Navigator.of(context)
-                      .pushReplacementNamed('/game'),
+                    Text(
+                      'OVER',
+                      style: GoogleFonts.pressStart2p(
+                        fontSize: 32,
+                        color: Colors.redAccent,
+                        shadows: const [Shadow(color: Colors.black, blurRadius: 6)],
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    if (isNewRecord) ...[
+                      Text(
+                        '★ NEW RECORD! ★',
+                        style: GoogleFonts.pressStart2p(
+                          fontSize: 14,
+                          color: Colors.yellowAccent,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    _ScoreBox(label: 'SCORE', value: score, color: Colors.white),
+                    const SizedBox(height: 12),
+                    _ScoreBox(label: 'BEST', value: highScore, color: Colors.yellowAccent),
+                    const SizedBox(height: 48),
+                    _MenuButton(
+                      label: 'PLAY AGAIN',
+                      color: const Color(0xFFFF6F00),
+                      onTap: () => Navigator.of(context)
+                          .pushReplacementNamed('/game'),
+                    ),
+                    const SizedBox(height: 16),
+                    _MenuButton(
+                      label: 'MENU',
+                      color: const Color(0xFF37474F),
+                      onTap: () => Navigator.of(context)
+                          .pushNamedAndRemoveUntil('/', (r) => false),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                _MenuButton(
-                  label: 'MENU',
-                  color: const Color(0xFF37474F),
-                  onTap: () => Navigator.of(context)
-                      .pushNamedAndRemoveUntil('/', (r) => false),
-                ),
-              ],
-            ),
+              ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: AdService.instance.bannerAd(),
+              ),
+            ],
           ),
         ),
       ),
