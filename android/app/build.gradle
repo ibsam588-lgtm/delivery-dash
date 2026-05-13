@@ -1,0 +1,54 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace = "com.ibsam588lgtm.delivery_dash"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_1_8
+    }
+
+    signingConfigs {
+        release {
+            def keystorePropertiesFile = rootProject.file("key.properties")
+            if (keystorePropertiesFile.exists()) {
+                def props = new Properties()
+                props.load(new FileInputStream(keystorePropertiesFile))
+                keyAlias = props['keyAlias']
+                keyPassword = props['keyPassword']
+                storeFile = file(props['storeFile'])
+                storePassword = props['storePassword']
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId = "com.ibsam588lgtm.delivery_dash"
+        minSdk = 21
+        targetSdk = 34
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.release
+            minifyEnabled = false
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
