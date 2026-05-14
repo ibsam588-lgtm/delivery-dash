@@ -32,7 +32,7 @@ class PaperComponent extends SpriteComponent
 
   @override
   Future<void> onLoad() async {
-    sprite = await gameRef.loadSprite('mailbox_red.png');
+    sprite = Sprite(gameRef.images.fromCache('mailbox_red.png'));
     add(RectangleHitbox(size: size * 0.8, position: size * 0.1));
     _acquireTarget();
   }

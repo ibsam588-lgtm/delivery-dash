@@ -134,7 +134,7 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
     );
     add(_coinText!);
 
-    final paperSprite = await gameRef.loadSprite('mailbox_red.png');
+    final paperSprite = Sprite(gameRef.images.fromCache('mailbox_red.png'));
     final maxLives = gameRef.lives;
     final icons = <SpriteComponent>[];
     final iconY = h - bottomBarHeight + 16;

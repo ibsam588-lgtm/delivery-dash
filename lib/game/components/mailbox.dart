@@ -11,7 +11,8 @@ class MailboxComponent extends SpriteComponent
 
   @override
   Future<void> onLoad() async {
-    sprite = await gameRef.loadSprite(isBlue ? 'car_0.png' : 'car_1.png');
+    sprite = Sprite(
+        gameRef.images.fromCache(isBlue ? 'car_0.png' : 'car_1.png'));
     add(RectangleHitbox(
       size: size * 0.85,
       position: size * 0.075,

@@ -70,7 +70,7 @@ class ObstacleComponent extends SpriteComponent
 
   @override
   Future<void> onLoad() async {
-    sprite = await gameRef.loadSprite(_spriteName);
+    sprite = Sprite(gameRef.images.fromCache(_spriteName));
     position = Vector2(gameRef.laneManager.laneX(lane), -size.y);
     const hbInset = 0.14;
     add(RectangleHitbox(

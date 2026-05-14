@@ -21,7 +21,7 @@ class PlayerComponent extends SpriteComponent
 
   @override
   Future<void> onLoad() async {
-    sprite = await gameRef.loadSprite('mailbox_blue.png');
+    sprite = Sprite(gameRef.images.fromCache('mailbox_blue.png'));
     if (isVip) {
       paint = Paint()
         ..colorFilter = const ColorFilter.mode(vipTint, BlendMode.srcATop);

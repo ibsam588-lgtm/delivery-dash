@@ -77,7 +77,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   }
 
   Future<void> _preloadAssets() async {
-    await images.loadAll([
+    const files = [
       'mailbox_blue.png',
       'mailbox_red.png',
       'car_0.png',
@@ -93,8 +93,19 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       'house_1.png',
       'house_2.png',
       'house_3.png',
-    ]);
-    await AudioService.instance.init();
+    ];
+    // Load each individually so a single missing/corrupt file does not
+    // abort the whole load and leave the game without sprites.
+    for (final f in files) {
+      try {
+        await images.load(f);
+      } catch (e) {
+        debugPrint('Failed to preload $f: $e');
+      }
+    }
+    try {
+      await AudioService.instance.init();
+    } catch (_) {}
   }
 
   void _initGame() {
