@@ -1,26 +1,31 @@
 import 'dart:math';
+import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import '../services/audio_service.dart';
 import '../services/score_service.dart';
-import 'components/player.dart';
-import 'components/paper.dart';
+import '../services/store_service.dart';
 import 'components/floating_text.dart';
-import 'components/hud.dart';
 import 'components/house.dart';
+import 'components/hud.dart';
+import 'components/paper.dart';
+import 'components/player.dart';
 import 'components/road_background.dart';
+import 'difficulty.dart';
 import 'systems/lane_manager.dart';
 import 'systems/spawner.dart';
 
 enum GameState { playing, gameOver }
 
 class DeliveryDashGame extends FlameGame with HasCollisionDetection {
-  // Public state read by components and screens
+  final GameConfig config;
+
   GameState state = GameState.playing;
   int score = 0;
   int lives = 3;
   int comboCount = 0;
-  double speedMultiplier = 1.0;
+  int coinsThisRun = 0;
+  double currentSpeed = 200;
   bool isInvincible = false;
   double invincibilityTimer = 0;
 
@@ -28,23 +33,23 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   late PlayerComponent player;
   late Hud hud;
 
-  // Camera shake
   bool _isShaking = false;
   double _shakeTimer = 0;
   static const double _shakeDuration = 0.2;
-  static const double _shakeIntensity = 5.0;
+  static const double _shakeIntensity = 6.0;
   final Random _rng = Random();
 
-  // Tutorial
   static bool _hasShownTutorial = false;
 
-  // Callback set by GameScreen
-  void Function(int score, int highScore, bool isNewRecord)? onGameOver;
+  void Function(int score, int highScore, bool isNewRecord, int coinsEarned)?
+      onGameOver;
 
-  double get scrollSpeed => 200.0 * speedMultiplier;
+  DeliveryDashGame({this.config = const GameConfig()});
+
+  double get scrollSpeed => currentSpeed;
 
   @override
-  Color backgroundColor() => const Color(0xFF2E7D32);
+  Color backgroundColor() => const Color(0xFF1E1E1E);
 
   @override
   Future<void> onLoad() async {
@@ -78,37 +83,47 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   }
 
   void _initGame() {
+    final diff = config.difficultyConfig;
+
     score = 0;
-    lives = 3;
+    lives = 3 + (config.hasShield ? 1 : 0);
     comboCount = 0;
-    speedMultiplier = 1.0;
+    coinsThisRun = 0;
+    currentSpeed = diff.startSpeed + (config.speedBoostStart ? 60 : 0);
     isInvincible = false;
     state = GameState.playing;
 
-    // Road background
     add(RoadBackground(gameSize: size));
 
-    // Scrolling houses on both sides
-    for (int i = 0; i < 7; i++) {
+    const houseSpacing = 128.0;
+    final rng = Random();
+    final rowsPerSide = (size.y / houseSpacing).ceil() + 2;
+    for (int i = 0; i < rowsPerSide; i++) {
       add(HouseComponent(
         side: HouseSide.left,
-        initialY: i * 140.0 - 200,
-        houseIndex: i % 4,
+        initialY: i * houseSpacing - houseSpacing,
+        variant: rng.nextInt(4),
       ));
       add(HouseComponent(
         side: HouseSide.right,
-        initialY: i * 140.0 - 240,
-        houseIndex: (i + 2) % 4,
+        initialY: i * houseSpacing - houseSpacing / 2,
+        variant: rng.nextInt(4),
       ));
     }
 
-    player = PlayerComponent();
+    player = PlayerComponent(isVip: config.vipSkin);
     add(player);
 
     hud = Hud();
     add(hud);
+    hud.updateLives(lives);
+    hud.updateCoins(0);
+    hud.updateScore(0);
+    hud.updateSpeed(currentSpeed);
 
     add(Spawner());
+
+    AudioService.instance.playBgm();
 
     if (!_hasShownTutorial) {
       _hasShownTutorial = true;
@@ -124,7 +139,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     super.update(dt);
     if (state != GameState.playing) return;
 
-    // Invincibility countdown
     if (isInvincible) {
       invincibilityTimer -= dt;
       if (invincibilityTimer <= 0) {
@@ -133,7 +147,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       }
     }
 
-    // Screen shake
     if (_isShaking) {
       _shakeTimer -= dt;
       if (_shakeTimer <= 0) {
@@ -147,14 +160,14 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       }
     }
 
-    // Speed ramps up every 500 points
-    final targetSpeed = 1.0 + (score / 500.0) * 0.25;
-    if (targetSpeed > speedMultiplier) {
-      speedMultiplier = targetSpeed.clamp(1.0, 3.0);
-    }
+    // Speed ramps over time
+    final diff = config.difficultyConfig;
+    final maxSpeed = diff.startSpeed * 3.0;
+    currentSpeed = (currentSpeed + diff.speedRamp * dt).clamp(0, maxSpeed);
+    hud.updateSpeed(currentSpeed);
   }
 
-  // ── Input handlers called by GameScreen ──────────────────────────────────
+  // ── Input ────────────────────────────────────────────────────────────────
 
   void onSwipeLeft() {
     if (state != GameState.playing) return;
@@ -172,8 +185,16 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   }
 
   void _throwPaper() {
-    add(PaperComponent(startPosition: player.position.clone()));
-    AudioService.instance.playThrow();
+    if (config.paperBlitz) {
+      for (final a in const [-12.0, 0.0, 12.0]) {
+        add(PaperComponent(
+          startPosition: player.position.clone(),
+          angleDeg: a,
+        ));
+      }
+    } else {
+      add(PaperComponent(startPosition: player.position.clone()));
+    }
   }
 
   // ── Game events ──────────────────────────────────────────────────────────
@@ -184,12 +205,17 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       final bonus = comboCount >= 3 ? 20 : 10;
       _addScore(bonus, position, isBlue: true);
       hud.updateCombo(comboCount);
-      AudioService.instance.playHit();
+
+      int coins = comboCount;
+      if (config.doubleCoins) coins *= 2;
+      coinsThisRun += coins;
+      hud.updateCoins(coinsThisRun);
+
+      AudioService.instance.playDelivery();
     } else {
       comboCount = 0;
       _addScore(-5, position, isBlue: false);
       hud.updateCombo(0);
-      AudioService.instance.playMiss();
     }
   }
 
@@ -208,7 +234,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   }
 
   void onPlayerHitObstacle() {
-    if (isInvincible) return;
+    if (isInvincible || state != GameState.playing) return;
 
     lives--;
     isInvincible = true;
@@ -218,7 +244,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     hud.updateLives(lives);
 
     _triggerShake();
-    AudioService.instance.playHurt();
+    AudioService.instance.playHit();
 
     if (lives <= 0) {
       _endGame();
@@ -233,11 +259,14 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   Future<void> _endGame() async {
     state = GameState.gameOver;
     AudioService.instance.playGameOver();
+    AudioService.instance.stopBgm();
 
     final isNewRecord = await ScoreService.instance.submitScore(score);
     final highScore = await ScoreService.instance.getHighScore();
+    final earned = coinsThisRun;
+    await StoreService.instance.addCoins(earned);
 
-    // Defer to avoid calling navigator from within the game update loop
-    Future.microtask(() => onGameOver?.call(score, highScore, isNewRecord));
+    Future.microtask(
+        () => onGameOver?.call(score, highScore, isNewRecord, earned));
   }
 }

@@ -1,30 +1,42 @@
 import 'dart:math';
 import 'package:flame/components.dart';
 import '../delivery_dash_game.dart';
+import '../systems/lane_manager.dart';
 
 enum HouseSide { left, right }
 
 class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
-  final HouseSide side;
-  int _houseIndex;
-  final double _initialY;
-  final Random _rng = Random();
+  static const double _houseSize = 88.0;
+  static const double _scrollFactor = 1.0;
+  static const double rowSpacing = 128.0;
 
-  static const double _scrollFactor = 0.5;
+  final HouseSide side;
+  final double _initialY;
+  int _variant;
+  final Random _rng = Random();
 
   HouseComponent({
     required this.side,
     required double initialY,
-    required int houseIndex,
-  })  : _houseIndex = houseIndex,
-        _initialY = initialY,
-        super(size: Vector2(80, 120), anchor: Anchor.topLeft);
+    required int variant,
+  })  : _initialY = initialY,
+        _variant = variant,
+        super(
+          size: Vector2.all(_houseSize),
+          anchor: Anchor.topLeft,
+          priority: -5,
+        );
 
   @override
   Future<void> onLoad() async {
-    sprite = Sprite(gameRef.images.fromCache('house_$_houseIndex.png'));
-    position.y = _initialY;
-    position.x = side == HouseSide.left ? 0 : gameRef.size.x - size.x;
+    sprite = Sprite(gameRef.images.fromCache('house_$_variant.png'));
+    position
+      ..y = _initialY
+      ..x = side == HouseSide.left
+          ? (LaneManager.sidewalkWidth - _houseSize) / 2
+          : gameRef.size.x -
+              LaneManager.sidewalkWidth +
+              (LaneManager.sidewalkWidth - _houseSize) / 2;
   }
 
   @override
@@ -35,9 +47,10 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
     position.y += gameRef.scrollSpeed * _scrollFactor * dt;
 
     if (position.y > gameRef.size.y) {
-      position.y = -size.y;
-      _houseIndex = _rng.nextInt(4);
-      sprite = Sprite(gameRef.images.fromCache('house_$_houseIndex.png'));
+      final rows = (gameRef.size.y / rowSpacing).ceil() + 2;
+      position.y -= rows * rowSpacing;
+      _variant = _rng.nextInt(4);
+      sprite = Sprite(gameRef.images.fromCache('house_$_variant.png'));
     }
   }
 }

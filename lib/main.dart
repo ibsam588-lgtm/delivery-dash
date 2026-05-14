@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'screens/main_menu_screen.dart';
-import 'screens/game_screen.dart';
 import 'screens/game_over_screen.dart';
+import 'screens/game_screen.dart';
+import 'screens/main_menu_screen.dart';
+import 'screens/store_screen.dart';
+import 'services/store_service.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  await StoreService.instance.init();
   runApp(const DeliveryDashApp());
 }
 
@@ -20,7 +23,10 @@ class DeliveryDashApp extends StatelessWidget {
       title: 'Delivery Dash',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.orange,
+          brightness: Brightness.dark,
+        ),
         useMaterial3: true,
       ),
       initialRoute: '/',
@@ -28,6 +34,7 @@ class DeliveryDashApp extends StatelessWidget {
         '/': (context) => const MainMenuScreen(),
         '/game': (context) => const GameScreen(),
         '/gameover': (context) => const GameOverScreen(),
+        '/store': (context) => const StoreScreen(),
       },
     );
   }

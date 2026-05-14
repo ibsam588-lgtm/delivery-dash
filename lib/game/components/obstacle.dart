@@ -1,48 +1,68 @@
+import 'dart:math';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import '../delivery_dash_game.dart';
 import 'player.dart';
 
-enum ObstacleType { car0, car1, car2, car3, dog, worker, cone, barrier, pothole }
+enum ObstacleType { car, dog, worker, cone, barrier, pothole }
 
 class ObstacleComponent extends SpriteComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
   final ObstacleType type;
   final int lane;
+  final int carVariant;
+  bool _hasHitPlayer = false;
 
-  ObstacleComponent({required this.type, required this.lane})
-      : super(size: _sizeFor(type), anchor: Anchor.center);
+  ObstacleComponent({
+    required this.type,
+    required this.lane,
+    int? carVariant,
+  })  : carVariant = carVariant ?? Random().nextInt(4),
+        super(size: _sizeFor(type), anchor: Anchor.center, priority: 3);
 
-  static Vector2 _sizeFor(ObstacleType t) => switch (t) {
-        ObstacleType.car0 ||
-        ObstacleType.car1 ||
-        ObstacleType.car2 ||
-        ObstacleType.car3 =>
-          Vector2(52, 76),
-        ObstacleType.dog => Vector2(44, 36),
-        ObstacleType.worker => Vector2(36, 60),
-        ObstacleType.cone => Vector2(28, 44),
-        ObstacleType.barrier => Vector2(60, 28),
-        ObstacleType.pothole => Vector2(44, 28),
-      };
+  static Vector2 _sizeFor(ObstacleType t) {
+    switch (t) {
+      case ObstacleType.car:
+        return Vector2(64, 96);
+      case ObstacleType.dog:
+        return Vector2(64, 52);
+      case ObstacleType.worker:
+        return Vector2(52, 72);
+      case ObstacleType.cone:
+        return Vector2(42, 54);
+      case ObstacleType.barrier:
+        return Vector2(84, 42);
+      case ObstacleType.pothole:
+        return Vector2(64, 40);
+    }
+  }
 
-  static String _spriteFor(ObstacleType t) => switch (t) {
-        ObstacleType.car0 => 'car_0.png',
-        ObstacleType.car1 => 'car_1.png',
-        ObstacleType.car2 => 'car_2.png',
-        ObstacleType.car3 => 'car_3.png',
-        ObstacleType.dog => 'dog.png',
-        ObstacleType.worker => 'worker.png',
-        ObstacleType.cone => 'cone.png',
-        ObstacleType.barrier => 'barrier.png',
-        ObstacleType.pothole => 'pothole.png',
-      };
+  String get _spriteName {
+    switch (type) {
+      case ObstacleType.car:
+        return 'car_$carVariant.png';
+      case ObstacleType.dog:
+        return 'dog.png';
+      case ObstacleType.worker:
+        return 'worker.png';
+      case ObstacleType.cone:
+        return 'cone.png';
+      case ObstacleType.barrier:
+        return 'barrier.png';
+      case ObstacleType.pothole:
+        return 'pothole.png';
+    }
+  }
 
   @override
   Future<void> onLoad() async {
-    sprite = await gameRef.loadSprite(_spriteFor(type));
+    sprite = await gameRef.loadSprite(_spriteName);
     position = Vector2(gameRef.laneManager.laneX(lane), -size.y);
-    add(RectangleHitbox(size: size * 0.8, position: size * 0.1));
+    final hbInset = 0.1;
+    add(RectangleHitbox(
+      size: size * (1 - 2 * hbInset),
+      position: size * hbInset,
+    ));
   }
 
   @override
@@ -55,9 +75,12 @@ class ObstacleComponent extends SpriteComponent
   }
 
   @override
-  void onCollisionStart(Set<Vector2> intersectionPoints, PositionComponent other) {
+  void onCollisionStart(
+      Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollisionStart(intersectionPoints, other);
+    if (_hasHitPlayer) return;
     if (other is PlayerComponent) {
+      _hasHitPlayer = true;
       gameRef.onPlayerHitObstacle();
     }
   }

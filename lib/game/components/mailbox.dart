@@ -5,27 +5,28 @@ import '../delivery_dash_game.dart';
 class MailboxComponent extends SpriteComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
   final bool isBlue;
-  final int lane;
   final bool onLeft;
 
-  MailboxComponent({
-    required this.isBlue,
-    required this.lane,
-    required this.onLeft,
-  }) : super(size: Vector2(40, 56), anchor: Anchor.center);
+  MailboxComponent({required this.isBlue, required this.onLeft})
+      : super(size: Vector2(52, 64), anchor: Anchor.center, priority: 2);
 
   @override
   Future<void> onLoad() async {
-    sprite = await gameRef.loadSprite(isBlue ? 'mailbox_blue.png' : 'mailbox_red.png');
+    sprite = await gameRef.loadSprite(
+        isBlue ? 'mailbox_blue.png' : 'mailbox_red.png');
 
-    final laneX = gameRef.laneManager.laneX(lane);
-    final halfLane = gameRef.laneManager.laneWidth * 0.5;
-    position = Vector2(
-      onLeft ? laneX - halfLane * 0.5 : laneX + halfLane * 0.5,
-      -size.y,
-    );
+    final lm = gameRef.laneManager;
+    final sidewalkCenter = onLeft
+        ? lm.roadLeft / 2
+        : lm.roadRight + (gameRef.size.x - lm.roadRight) / 2;
+    final inwardNudge = onLeft ? size.x * 0.1 : -size.x * 0.1;
 
-    add(RectangleHitbox(size: size * 0.85, position: size * 0.075));
+    position = Vector2(sidewalkCenter + inwardNudge, -size.y);
+
+    add(RectangleHitbox(
+      size: size * 0.85,
+      position: size * 0.075,
+    ));
   }
 
   @override
