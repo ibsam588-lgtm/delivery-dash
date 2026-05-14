@@ -17,7 +17,7 @@ class PlayerComponent extends SpriteComponent
   MoveByEffect? _moveEffect;
 
   PlayerComponent({this.isVip = false})
-      : super(size: Vector2(60, 90), anchor: Anchor.center, priority: 5);
+      : super(size: Vector2(50, 75), anchor: Anchor.center, priority: 5);
 
   @override
   Future<void> onLoad() async {
@@ -29,8 +29,8 @@ class PlayerComponent extends SpriteComponent
     final lm = gameRef.laneManager;
     position = Vector2(lm.laneX(1), gameRef.size.y * 0.75);
     add(RectangleHitbox(
-      size: Vector2(44, 64),
-      position: Vector2((size.x - 44) / 2, (size.y - 64) / 2),
+      size: Vector2(34, 56),
+      position: Vector2((size.x - 34) / 2, (size.y - 56) / 2),
     ));
   }
 
