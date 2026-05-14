@@ -6,7 +6,7 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
   static const double topBarHeight = 76.0;
 
   TextComponent? _scoreText;
-  TextComponent? _dayText;
+  TextComponent? _levelText;
   TextComponent? _bonusText;
 
   Hud() : super(priority: 100);
@@ -81,20 +81,20 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
     );
     add(_scoreText!);
 
-    // DAY (center)
+    // LEVEL (center)
     add(TextComponent(
-      text: 'DAY',
+      text: 'LEVEL',
       textRenderer: _labelYellowPaint,
       position: Vector2(w / 2, 12),
       anchor: Anchor.topCenter,
     ));
-    _dayText = TextComponent(
+    _levelText = TextComponent(
       text: '1',
       textRenderer: _yellowBigPaint,
       position: Vector2(w / 2, 30),
       anchor: Anchor.topCenter,
     );
-    add(_dayText!);
+    add(_levelText!);
 
     // BONUS (right)
     add(TextComponent(
@@ -113,7 +113,7 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
   }
 
   void updateScore(int score) => _scoreText?.text = '$score';
-  void updateDay(int day) => _dayText?.text = '$day';
+  void updateLevel(int level) => _levelText?.text = '$level';
   void updateBonus(int bonus) => _bonusText?.text = '$bonus';
 }
 

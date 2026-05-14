@@ -8,6 +8,7 @@ import '../services/store_service.dart';
 import 'components/floating_text.dart';
 import 'components/house.dart';
 import 'components/hud.dart';
+import 'components/mailbox.dart';
 import 'components/paper.dart';
 import 'components/player.dart';
 import 'components/road_background.dart';
@@ -15,7 +16,7 @@ import 'difficulty.dart';
 import 'systems/lane_manager.dart';
 import 'systems/spawner.dart';
 
-enum GameState { playing, gameOver }
+enum GameState { playing, paused, gameOver }
 
 class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   final GameConfig config;
@@ -26,7 +27,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   int comboCount = 0;
   int bestComboThisRun = 0;
   int coinsThisRun = 0;
-  int day = 1;
+  int level = 1;
+  int highestLevelThisRun = 1;
   double distanceMeters = 0;
   int papers = 5;
 
@@ -46,6 +48,10 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   static const double _shakeIntensity = 6.0;
   final Random _rng = Random();
 
+  // Drench overlay (blue tint over the whole game).
+  double _drenchTimer = 0;
+  static const double _drenchDuration = 0.4;
+
   static bool _hasShownTutorial = false;
 
   void Function(
@@ -54,7 +60,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     bool isNewRecord,
     int coinsEarned,
     int bestCombo,
-    int daysCompleted,
+    int reachedLevel,
   )? onGameOver;
 
   DeliveryDashGame({this.config = const GameConfig()});
@@ -101,14 +107,15 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     comboCount = 0;
     bestComboThisRun = 0;
     coinsThisRun = 0;
-    day = config.startDay;
+    level = config.startLevel;
+    highestLevelThisRun = level;
     distanceMeters = 0;
-    final dayCfg = DayConfig.of(day);
-    papers = dayCfg.papers;
-    currentSpeed = dayCfg.startSpeed + (config.speedBoostStart ? 60 : 0);
+    final cfg = LevelConfig.of(level);
+    currentSpeed = cfg.startSpeed + (config.speedBoostStart ? 60 : 0);
     isInvincible = false;
     _slowFactor = 1.0;
     _slowTimer = 0;
+    _drenchTimer = 0;
     state = GameState.playing;
 
     add(RoadBackground(gameSize: size));
@@ -127,10 +134,13 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     hud = Hud();
     add(hud);
     hud.updateScore(0);
-    hud.updateDay(day);
+    hud.updateLevel(level);
     hud.updateBonus(0);
 
     add(Spawner());
+
+    // First paper allotment will be re-evaluated once mailboxes mount.
+    papers = cfg.papers;
 
     AudioService.instance.playBgm();
 
@@ -141,6 +151,19 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
         overlays.remove('Tutorial');
       });
     }
+  }
+
+  /// Count visible mailboxes currently within the viewport. Used by
+  /// "smart paper count" logic.
+  int countVisibleMailboxes() {
+    final h = size.y;
+    return descendants()
+        .whereType<MailboxComponent>()
+        .where((m) {
+          final ap = m.absolutePosition;
+          return ap.y >= 0 && ap.y <= h;
+        })
+        .length;
   }
 
   @override
@@ -164,6 +187,10 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       }
     }
 
+    if (_drenchTimer > 0) {
+      _drenchTimer = (_drenchTimer - dt).clamp(0.0, _drenchDuration);
+    }
+
     if (_isShaking) {
       _shakeTimer -= dt;
       if (_shakeTimer <= 0) {
@@ -177,30 +204,49 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       }
     }
 
-    final dayCfg = DayConfig.of(day);
-    final maxSpeed = dayCfg.startSpeed * 1.5;
+    final cfg = LevelConfig.of(level);
+    final maxSpeed = cfg.startSpeed * 1.5;
     currentSpeed = (currentSpeed + 8 * dt).clamp(0, maxSpeed);
 
-    distanceMeters += scrollSpeed * dt / DayConfig.pxPerMeter;
-    if (distanceMeters >= DayConfig.metersPerDay) {
-      _advanceDay();
+    distanceMeters += scrollSpeed * dt / LevelConfig.pxPerMeter;
+    if (distanceMeters >= LevelConfig.metersPerLevel) {
+      _advanceLevel();
     }
   }
 
-  void _advanceDay() {
-    distanceMeters = 0;
-    if (day < DayConfig.days.length) {
-      day += 1;
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    // Drench screen overlay (drawn over everything, including HUD).
+    if (_drenchTimer > 0) {
+      final phase = _drenchTimer / _drenchDuration; // 1 -> 0
+      final alpha = (1 - (phase - 0.5).abs() * 2) * 0.4;
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.x, size.y),
+        Paint()..color = const Color(0xFF42A5F5).withValues(alpha: alpha),
+      );
     }
-    final cfg = DayConfig.of(day);
-    currentSpeed = cfg.startSpeed;
-    papers = cfg.papers;
+  }
 
-    overlays.add('DayUp');
+  void _advanceLevel() {
+    distanceMeters = 0;
+    if (level < LevelConfig.maxLevel) {
+      level += 1;
+      if (level > highestLevelThisRun) highestLevelThisRun = level;
+    }
+    final cfg = LevelConfig.of(level);
+    currentSpeed = cfg.startSpeed;
+
+    // Smart-paper allotment: visible mailboxes + 3 (capped at +5 over base).
+    final visible = countVisibleMailboxes();
+    papers = (visible + 3).clamp(cfg.papers, cfg.papers + 5);
+
+    AudioService.instance.playLevelUp();
+    overlays.add('LevelUp');
     Future.delayed(const Duration(milliseconds: 1200), () {
-      overlays.remove('DayUp');
+      overlays.remove('LevelUp');
     });
-    hud.updateDay(day);
+    hud.updateLevel(level);
   }
 
   // ── Input ─────────────────────────────────────────────────────────────
@@ -215,8 +261,29 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     _throwPaper();
   }
 
+  /// Pause / resume. Used by the back-button dialog.
+  void pauseGame() {
+    if (state == GameState.playing) {
+      state = GameState.paused;
+      AudioService.instance.stopBgm();
+    }
+  }
+
+  void resumeGame() {
+    if (state == GameState.paused) {
+      state = GameState.playing;
+      AudioService.instance.playBgm();
+    }
+  }
+
   void _throwPaper() {
-    if (papers <= 0) return;
+    // Smart paper count: if we have no papers, ensure we factor in visible
+    // mailboxes the first time the player taps. This is a no-op if papers
+    // were just refilled by a level advance.
+    if (papers <= 0) {
+      // Out of papers; tap is wasted.
+      return;
+    }
     papers--;
 
     if (config.paperBlitz) {
@@ -231,13 +298,22 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
   }
 
+  // ── Pickups ───────────────────────────────────────────────────────────
+
+  void onPickupPaperPack(int amount, Vector2 position) {
+    papers += amount;
+    AudioService.instance.playPickup();
+    add(FloatingText(
+      text: '+$amount PAPERS',
+      position: position,
+      color: const Color(0xFFFFD54F),
+    ));
+  }
+
   // ── Events ────────────────────────────────────────────────────────────
 
   void onPaperHitMailbox(bool isBlue, Vector2 position) {
-    if (!isBlue) {
-      // Non-subscriber — no points, but no combo break either.
-      return;
-    }
+    if (!isBlue) return;
     comboCount++;
     if (comboCount > bestComboThisRun) bestComboThisRun = comboCount;
     final mult = comboMultiplier(comboCount);
@@ -285,14 +361,25 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     if (state != GameState.playing) return;
     if (isInvincible) return;
 
-    final dayCfg = DayConfig.of(day);
-    final maxSpeed = dayCfg.startSpeed * 1.5;
+    final cfg = LevelConfig.of(level);
+    final maxSpeed = cfg.startSpeed * 1.5;
     if (currentSpeed >= maxSpeed - 5) {
       onPlayerHitObstacle();
       return;
     }
     _slowFactor = 0.5;
     _slowTimer = 1.5;
+    _triggerShake();
+  }
+
+  void onPlayerDrenched() {
+    if (state != GameState.playing) return;
+    if (isInvincible) return;
+    _slowFactor = 0.5;
+    _slowTimer = 2.0;
+    _drenchTimer = _drenchDuration;
+    player.triggerWetFlash();
+    AudioService.instance.playSplash();
     _triggerShake();
   }
 
@@ -317,7 +404,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
           isNewRecord,
           earned,
           bestComboThisRun,
-          day,
+          highestLevelThisRun,
         ));
   }
 }

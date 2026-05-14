@@ -42,7 +42,7 @@ class _GameScreenState extends State<GameScreen> {
 
     _game = DeliveryDashGame(config: config)
       ..onGameOver = (score, highScore, isNewRecord, coinsEarned, bestCombo,
-          daysCompleted) {
+          reachedLevel) {
         if (!mounted) return;
         Navigator.of(context).pushReplacementNamed(
           '/gameover',
@@ -52,7 +52,7 @@ class _GameScreenState extends State<GameScreen> {
             'isNewRecord': isNewRecord,
             'coinsEarned': coinsEarned,
             'bestCombo': bestCombo,
-            'daysCompleted': daysCompleted,
+            'reachedLevel': reachedLevel,
             'difficulty': difficulty,
           },
         );
@@ -88,6 +88,60 @@ class _GameScreenState extends State<GameScreen> {
     _moved = false;
   }
 
+  Future<bool> _confirmQuit() async {
+    final game = _game;
+    game?.pauseGame();
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFFFC107), width: 1.5),
+        ),
+        title: Text(
+          'QUIT GAME?',
+          style: GoogleFonts.pressStart2p(
+            color: Colors.white,
+            fontSize: 14,
+          ),
+        ),
+        content: const Text(
+          'Your current run will end. Return to the main menu?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'KEEP PLAYING',
+              style: GoogleFonts.pressStart2p(
+                color: const Color(0xFF66BB6A),
+                fontSize: 11,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'QUIT',
+              style: GoogleFonts.pressStart2p(
+                color: const Color(0xFFEF5350),
+                fontSize: 11,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    final shouldQuit = result == true;
+    if (!shouldQuit) {
+      game?.resumeGame();
+    }
+    return shouldQuit;
+  }
+
   @override
   Widget build(BuildContext context) {
     final game = _game;
@@ -97,20 +151,32 @@ class _GameScreenState extends State<GameScreen> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Listener(
-        behavior: HitTestBehavior.opaque,
-        onPointerDown: _handlePointerDown,
-        onPointerMove: _handlePointerMove,
-        onPointerUp: _handlePointerUp,
-        child: GameWidget(
-          game: game,
-          overlayBuilderMap: {
-            'Tutorial': (ctx, g) => const _TutorialOverlay(),
-            'DayUp': (ctx, g) =>
-                _DayUpOverlay(day: (g as DeliveryDashGame).day),
-          },
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final navigator = Navigator.of(context);
+        final shouldQuit = await _confirmQuit();
+        if (!mounted) return;
+        if (shouldQuit) {
+          navigator.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: _handlePointerDown,
+          onPointerMove: _handlePointerMove,
+          onPointerUp: _handlePointerUp,
+          child: GameWidget(
+            game: game,
+            overlayBuilderMap: {
+              'Tutorial': (ctx, g) => const _TutorialOverlay(),
+              'LevelUp': (ctx, g) =>
+                  _LevelUpOverlay(level: (g as DeliveryDashGame).level),
+            },
+          ),
         ),
       ),
     );
@@ -152,9 +218,9 @@ class _TutorialOverlay extends StatelessWidget {
   }
 }
 
-class _DayUpOverlay extends StatelessWidget {
-  final int day;
-  const _DayUpOverlay({required this.day});
+class _LevelUpOverlay extends StatelessWidget {
+  final int level;
+  const _LevelUpOverlay({required this.level});
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +242,7 @@ class _DayUpOverlay extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'DAY $day',
+              'LEVEL $level',
               style: GoogleFonts.pressStart2p(
                 fontSize: 22,
                 color: Colors.white,
@@ -185,7 +251,7 @@ class _DayUpOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'GET READY',
+              'NEW STREET',
               style: GoogleFonts.pressStart2p(
                 fontSize: 11,
                 color: const Color(0xFFFFF59D),

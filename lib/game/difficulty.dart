@@ -1,76 +1,50 @@
 enum Difficulty { easy, medium, hard }
 
-class DayConfig {
-  final int day;
+class LevelConfig {
+  final int level;
   final double startSpeed;
   final double spawnInterval;
   final int papers;
-  final String label;
 
-  const DayConfig({
-    required this.day,
+  const LevelConfig({
+    required this.level,
     required this.startSpeed,
     required this.spawnInterval,
     required this.papers,
-    required this.label,
   });
 
-  static const List<DayConfig> days = [
-    DayConfig(
-      day: 1,
-      startSpeed: 160,
-      spawnInterval: 2.5,
-      papers: 5,
-      label: 'Easy Start',
-    ),
-    DayConfig(
-      day: 2,
-      startSpeed: 200,
-      spawnInterval: 2.0,
-      papers: 5,
-      label: 'More Traffic',
-    ),
-    DayConfig(
-      day: 3,
-      startSpeed: 250,
-      spawnInterval: 1.6,
-      papers: 6,
-      label: 'Faster',
-    ),
-    DayConfig(
-      day: 4,
-      startSpeed: 310,
-      spawnInterval: 1.2,
-      papers: 6,
-      label: 'Hard',
-    ),
-    DayConfig(
-      day: 5,
-      startSpeed: 380,
-      spawnInterval: 0.9,
-      papers: 7,
-      label: 'Expert',
-    ),
+  static const List<LevelConfig> levels = [
+    LevelConfig(level: 1, startSpeed: 140, spawnInterval: 3.0, papers: 5),
+    LevelConfig(level: 2, startSpeed: 170, spawnInterval: 2.6, papers: 5),
+    LevelConfig(level: 3, startSpeed: 200, spawnInterval: 2.2, papers: 6),
+    LevelConfig(level: 4, startSpeed: 235, spawnInterval: 1.9, papers: 6),
+    LevelConfig(level: 5, startSpeed: 270, spawnInterval: 1.6, papers: 7),
+    LevelConfig(level: 6, startSpeed: 310, spawnInterval: 1.4, papers: 7),
+    LevelConfig(level: 7, startSpeed: 350, spawnInterval: 1.2, papers: 8),
+    LevelConfig(level: 8, startSpeed: 395, spawnInterval: 1.0, papers: 8),
+    LevelConfig(level: 9, startSpeed: 440, spawnInterval: 0.85, papers: 9),
+    LevelConfig(level: 10, startSpeed: 490, spawnInterval: 0.7, papers: 9),
   ];
 
-  static DayConfig of(int day) {
-    final idx = (day - 1).clamp(0, days.length - 1);
-    return days[idx];
+  static LevelConfig of(int level) {
+    final idx = (level - 1).clamp(0, levels.length - 1);
+    return levels[idx];
   }
 
-  static const double metersPerDay = 600;
+  static const double metersPerLevel = 600;
   static const double pxPerMeter = 9;
+  static const int maxLevel = 10;
 }
 
 class DifficultyConfig {
-  static int startDayFor(Difficulty d) {
+  static int startLevelFor(Difficulty d) {
     switch (d) {
       case Difficulty.easy:
         return 1;
       case Difficulty.medium:
-        return 2;
-      case Difficulty.hard:
         return 3;
+      case Difficulty.hard:
+        return 6;
     }
   }
 
@@ -132,7 +106,7 @@ class GameConfig {
     this.vipSkin = false,
   });
 
-  int get startDay => DifficultyConfig.startDayFor(difficulty);
+  int get startLevel => DifficultyConfig.startLevelFor(difficulty);
   int get lives => DifficultyConfig.livesFor(difficulty);
   double get coinMultiplier => DifficultyConfig.coinMultiplierFor(difficulty);
 }

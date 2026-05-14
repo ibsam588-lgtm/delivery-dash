@@ -15,10 +15,16 @@ class GameOverScreen extends StatelessWidget {
     final isNewRecord = args?['isNewRecord'] as bool? ?? false;
     final coinsEarned = args?['coinsEarned'] as int? ?? 0;
     final bestCombo = args?['bestCombo'] as int? ?? 0;
-    final daysCompleted = args?['daysCompleted'] as int? ?? 1;
+    final reachedLevel = args?['reachedLevel'] as int? ?? 1;
     final difficulty = args?['difficulty'] as Difficulty? ?? Difficulty.medium;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (r) => false);
+      },
+      child: Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -89,8 +95,8 @@ class GameOverScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         _ScoreBox(
-                          label: 'DAYS',
-                          value: '$daysCompleted',
+                          label: 'LEVEL',
+                          value: '$reachedLevel',
                           color: const Color(0xFF90CAF9),
                           compact: true,
                         ),
@@ -141,6 +147,7 @@ class GameOverScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

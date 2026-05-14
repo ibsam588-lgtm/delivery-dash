@@ -1,37 +1,81 @@
 import 'package:flame/components.dart';
 
-/// Road layout for the Paperboy-style view.
+/// Pseudo-3D road perspective.
 ///
-/// Screen width is split into:
-///   0–30%  left sidewalk (houses + driveways)
-///   30–80% road (50% width)
-///   80–100% right sidewalk (obstacles only)
-///
-/// Players move freely along X within the road bounds.
+/// Y = 0 is at the top (vanishing point), Y = gameSize.y at the bottom.
+/// The road widens linearly from the top toward the bottom.
 class LaneManager {
   final Vector2 gameSize;
 
-  static const double leftSidewalkFraction = 0.30;
-  static const double rightSidewalkFraction = 0.20;
+  // Road bounds as fractions of screen width at top (vp) and bottom.
+  static const double topLeftFrac = 0.35;
+  static const double topRightFrac = 0.65;
+  static const double bottomLeftFrac = 0.15;
+  static const double bottomRightFrac = 0.85;
+
+  // Scale factors at the vanishing point and at the bottom.
+  static const double minScale = 0.35;
+  static const double maxScale = 1.0;
 
   LaneManager({required this.gameSize});
 
-  double get leftSidewalkWidth => gameSize.x * leftSidewalkFraction;
-  double get rightSidewalkWidth => gameSize.x * rightSidewalkFraction;
-  double get roadLeft => leftSidewalkWidth;
-  double get roadRight => gameSize.x - rightSidewalkWidth;
-  double get roadWidth => roadRight - roadLeft;
-  double get roadCenter => roadLeft + roadWidth / 2;
+  /// 0 (top) .. 1 (bottom).
+  double _depthT(double y) => (y / gameSize.y).clamp(0.0, 1.0);
 
-  /// Alias retained for compatibility — refers to the left (house-side) walk.
-  double get sidewalkWidth => leftSidewalkWidth;
+  double scaleAt(double y) {
+    final t = _depthT(y);
+    return minScale + (maxScale - minScale) * t;
+  }
+
+  double roadLeftAt(double y) {
+    final t = _depthT(y);
+    return gameSize.x * (topLeftFrac + (bottomLeftFrac - topLeftFrac) * t);
+  }
+
+  double roadRightAt(double y) {
+    final t = _depthT(y);
+    return gameSize.x * (topRightFrac + (bottomRightFrac - topRightFrac) * t);
+  }
+
+  double roadCenterAt(double y) =>
+      (roadLeftAt(y) + roadRightAt(y)) / 2;
+
+  double roadWidthAt(double y) => roadRightAt(y) - roadLeftAt(y);
+
+  /// Convenience: bottom-screen bounds. Used by code that just wants
+  /// "what counts as on the road" near the player.
+  double get roadLeft => roadLeftAt(gameSize.y);
+  double get roadRight => roadRightAt(gameSize.y);
+  double get roadCenter => roadCenterAt(gameSize.y);
+  double get roadWidth => roadWidthAt(gameSize.y);
+
+  // Left sidewalk spans 0..roadLeftAt(y) at any Y.
+  double leftSidewalkRightAt(double y) => roadLeftAt(y);
+  // Right sidewalk spans roadRightAt(y)..gameSize.x at any Y.
+  double rightSidewalkLeftAt(double y) => roadRightAt(y);
+
+  double get leftSidewalkWidth => roadLeftAt(gameSize.y);
+  double get rightSidewalkWidth =>
+      gameSize.x - roadRightAt(gameSize.y);
+
+  /// X within the road from a normalized fraction f in [0..1] (0=left edge).
+  double roadXFromFraction(double f, double y) {
+    return roadLeftAt(y) + roadWidthAt(y) * f.clamp(0.0, 1.0);
+  }
 
   /// Clamp a world X so a centered object of half-width [halfWidth]
-  /// stays fully within the road bounds.
-  double clampToRoad(double x, double halfWidth) {
-    final lo = roadLeft + halfWidth;
-    final hi = roadRight - halfWidth;
-    if (hi < lo) return roadCenter;
+  /// stays fully on the road at the given Y.
+  double clampToRoadAt(double y, double x, double halfWidth) {
+    final lo = roadLeftAt(y) + halfWidth;
+    final hi = roadRightAt(y) - halfWidth;
+    if (hi < lo) return roadCenterAt(y);
     return x.clamp(lo, hi);
   }
+
+  /// Alias used by older callers, evaluated at the bottom (player row).
+  double clampToRoad(double x, double halfWidth) =>
+      clampToRoadAt(gameSize.y, x, halfWidth);
+
+  // Backwards-compat alias.
+  double get sidewalkWidth => leftSidewalkWidth;
 }
