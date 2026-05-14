@@ -286,8 +286,13 @@ class ObstacleComponent extends PositionComponent
         : 0.0;
     final s = scale * (1 + bounce);
 
-    final dx = depthXShift(
-      position.x, position.y, gameRef.laneManager.roadCenter, h,
+    final lm = gameRef.laneManager;
+    final dx = depthXShiftDiag(
+      worldX: position.x,
+      leftRef: lm.roadLeft,
+      widthRef: lm.roadWidth,
+      leftY: lm.roadLeftAt(position.y),
+      widthY: lm.roadWidthAt(position.y),
     );
     final swerveX = (_swerveTimer > 0 && type == ObstacleType.car)
         ? sin(_swervePhase) * 18.0
