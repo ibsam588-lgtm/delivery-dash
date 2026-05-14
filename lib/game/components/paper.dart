@@ -8,8 +8,7 @@ import 'mailbox.dart';
 import 'obstacle.dart';
 import 'parked_car.dart';
 
-/// A flying folded newspaper. Drawn procedurally as a cream rectangle
-/// with faux text lines, so it never depends on a placeholder asset.
+/// Flying folded newspaper — drawn procedurally.
 class PaperComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
   static const double _baseSpeed = 540.0;
@@ -47,7 +46,6 @@ class PaperComponent extends PositionComponent
     MailboxComponent? best;
     double bestDist = _seekRange;
     for (final mb in gameRef.descendants().whereType<MailboxComponent>()) {
-      // Only seek subscriber (blue) mailboxes.
       if (!mb.isBlue) continue;
       final worldPos = mb.absolutePosition;
       final d = (worldPos - position).length;
@@ -103,48 +101,78 @@ class PaperComponent extends PositionComponent
       Paint()..color = const Color(0x55000000),
     );
 
-    // Cream paper body.
-    final body = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, w, h),
-      const Radius.circular(2),
-    );
-    canvas.drawRRect(body, Paint()..color = const Color(0xFFF5F0DC));
+    // Paper body with subtle gradient (off-white / cream).
+    final bodyRect = Rect.fromLTWH(0, 0, w, h);
+    final bodyRRect = RRect.fromRectAndRadius(bodyRect, const Radius.circular(2));
     canvas.drawRRect(
-      body,
+      bodyRRect,
+      Paint()
+        ..shader = Gradient.linear(
+          bodyRect.topLeft,
+          bodyRect.bottomRight,
+          [const Color(0xFFF8F4E0), const Color(0xFFEDE8CC)],
+        ),
+    );
+
+    // Outline.
+    canvas.drawRRect(
+      bodyRRect,
       Paint()
         ..color = const Color(0xFF8A8470)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
 
-    // Center fold line.
-    canvas.drawLine(
-      Offset(0, h * 0.5),
-      Offset(w, h * 0.5),
-      Paint()
-        ..color = const Color(0xFFBFB89E)
-        ..strokeWidth = 1,
+    // Headline strip (darker band at top).
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.08, h * 0.06, w * 0.84, h * 0.13),
+      Paint()..color = const Color(0xFF1A1A1A),
+    );
+    // Bold headline white text simulation.
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.12, h * 0.08, w * 0.50, h * 0.045),
+      Paint()..color = const Color(0xFFFFFFFF),
     );
 
-    // "NEWS" masthead bar at the top.
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.12, h * 0.08, w * 0.76, h * 0.10),
-      Paint()..color = const Color(0xFF222222),
+    // Fold crease — diagonal lighter line across the middle.
+    canvas.drawLine(
+      Offset(0, h * 0.48),
+      Offset(w, h * 0.52),
+      Paint()
+        ..color = const Color(0xFFD8D0B8)
+        ..strokeWidth = 1.2,
     );
 
     // Faux text lines (grey horizontal strokes).
     final textPaint = Paint()
-      ..color = const Color(0xFF6E6A58)
-      ..strokeWidth = 1;
-    final lineYs = [0.26, 0.32, 0.38, 0.60, 0.66, 0.72, 0.78, 0.84];
-    for (final ty in lineYs) {
-      final lineW = w * (0.55 + (ty * 0.4) % 0.25);
+      ..color = const Color(0xFF7A7460)
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.butt;
+    final lineData = [
+      (0.26, 0.76), (0.32, 0.68), (0.38, 0.72),
+      (0.58, 0.78), (0.64, 0.62), (0.70, 0.74), (0.76, 0.58),
+    ];
+    for (final (ty, widthFrac) in lineData) {
+      final lineW = w * widthFrac;
       canvas.drawLine(
         Offset(w * 0.10, h * ty),
         Offset(w * 0.10 + lineW, h * ty),
         textPaint,
       );
     }
+
+    // Small image box (bottom-left quadrant).
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.10, h * 0.56, w * 0.34, h * 0.26),
+      Paint()..color = const Color(0xFFCCC8A8),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.10, h * 0.56, w * 0.34, h * 0.26),
+      Paint()
+        ..color = const Color(0xFF9A9480)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8,
+    );
   }
 
   @override
@@ -175,7 +203,7 @@ class PaperComponent extends PositionComponent
       return;
     }
     if (other is HouseWindow) {
-      if (other.broken) return; // pass through already-broken windows
+      if (other.broken) return;
       _hasHit = true;
       final worldHit = other.absolutePosition.clone();
       gameRef.onPaperHitWindow(other, worldHit);

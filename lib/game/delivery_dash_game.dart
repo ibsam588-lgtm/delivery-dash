@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'package:flame/flame.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import '../services/audio_service.dart';
@@ -116,25 +115,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   }
 
   Future<void> _preloadAssets() async {
-    await Flame.images.loadAll([
-      'mailbox_blue.png',
-      'mailbox_red.png',
-      'car_0.png',
-      'car_1.png',
-      'car_2.png',
-      'car_3.png',
-      'dog.png',
-      'worker.png',
-      'cone.png',
-      'barrier.png',
-      'pothole.png',
-      'house_0.png',
-      'house_1.png',
-      'house_2.png',
-      'house_3.png',
-      'player.png',
-      'paper.png',
-    ]);
+    // All sprites are now drawn procedurally — no PNG assets to load.
     try {
       await AudioService.instance.init();
     } catch (_) {}

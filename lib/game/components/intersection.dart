@@ -2,8 +2,8 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
-import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
+import 'parked_car.dart' show renderTopDownCar;
 import 'player.dart';
 
 /// A horizontal cross-street that scrolls down with the world. While it
@@ -90,8 +90,8 @@ class IntersectionComponent extends PositionComponent
       cx += stripeW + stripeGap;
     }
 
-    // Sidewalk corners (extend the green out into the cross-street).
-    final sw = Paint()..color = const Color(0xFF5B8A3C);
+    // Sidewalk corners (extend the concrete out into the cross-street).
+    final sw = Paint()..color = const Color(0xFFC8B89A);
     canvas.drawRect(Rect.fromLTWH(0, 0, lm.roadLeft, h), sw);
     canvas.drawRect(
       Rect.fromLTWH(lm.roadRight, 0, w - lm.roadRight, h),
@@ -100,9 +100,16 @@ class IntersectionComponent extends PositionComponent
   }
 }
 
-class CrossingCarComponent extends SpriteComponent
+class CrossingCarComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
   static const double speed = 320;
+
+  static const List<Color> _bodyColors = [
+    Color(0xFFE53935),
+    Color(0xFF1565C0),
+    Color(0xFF9E9E9E),
+    Color(0xFFFBC02D),
+  ];
 
   final bool leftToRight;
   final int variant;
@@ -122,11 +129,6 @@ class CrossingCarComponent extends SpriteComponent
 
   @override
   Future<void> onLoad() async {
-    final name = variant == 0 ? 'car_2.png' : 'car_3.png';
-    sprite = Sprite(Flame.images.fromCache(name));
-    paint
-      ..filterQuality = FilterQuality.none
-      ..isAntiAlias = false;
     final startX = leftToRight ? -size.x : gameRef.size.x + size.x;
     position.x = startX;
     angle = leftToRight ? pi / 2 : -pi / 2;
@@ -141,12 +143,18 @@ class CrossingCarComponent extends SpriteComponent
     super.update(dt);
     if (gameRef.state != GameState.playing) return;
     position.x += (leftToRight ? 1 : -1) * speed * dt;
-    // Move down with the world too, since the parent intersection is.
     position.y += gameRef.scrollSpeed * dt;
     if (position.x < -size.x * 2 || position.x > gameRef.size.x + size.x * 2) {
       removeFromParent();
     }
     if (position.y > gameRef.size.y + size.y) removeFromParent();
+  }
+
+  @override
+  void render(Canvas canvas) {
+    renderTopDownCar(
+      canvas, size.x, size.y, _bodyColors[variant % _bodyColors.length],
+    );
   }
 
   @override
