@@ -67,17 +67,14 @@ class ParkedCarComponent extends SpriteComponent
       ),
       Paint()..color = const Color(0x66000000),
     );
-    if (_bounce > 0) {
-      final s = 1 + (_bounce / 0.2) * 0.08;
-      canvas.save();
-      canvas.translate(size.x / 2, size.y / 2);
-      canvas.scale(s);
-      canvas.translate(-size.x / 2, -size.y / 2);
-      super.render(canvas);
-      canvas.restore();
-    } else {
-      super.render(canvas);
-    }
+    final bounceS = _bounce > 0 ? 1 + (_bounce / 0.2) * 0.08 : 1.0;
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+    // Vertical 15% squish for top-down angle.
+    canvas.scale(bounceS, bounceS * 0.85);
+    canvas.translate(-size.x / 2, -size.y / 2);
+    super.render(canvas);
+    canvas.restore();
     if (_hit) {
       // Briefly outline in gold to show bonus.
       canvas.drawRect(

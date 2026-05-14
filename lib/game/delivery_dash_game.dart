@@ -39,8 +39,13 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   double currentSpeed = 200;
   double _slowFactor = 1.0;
   double _slowTimer = 0;
+  double _zoneSlow = 1.0;
   bool isInvincible = false;
   double invincibilityTimer = 0;
+
+  // Paper-hit screen flash (100ms white overlay at 10% opacity).
+  double _hitFlashTimer = 0;
+  static const double _hitFlashDuration = 0.1;
 
   late LaneManager laneManager;
   late PlayerComponent player;
@@ -69,7 +74,19 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   DeliveryDashGame({this.config = const GameConfig()});
 
-  double get scrollSpeed => currentSpeed * _slowFactor;
+  double get scrollSpeed => currentSpeed * _slowFactor * _zoneSlow;
+
+  void applyConstructionSlow() {
+    _zoneSlow = 0.7;
+  }
+
+  void clearConstructionSlow() {
+    _zoneSlow = 1.0;
+  }
+
+  void _triggerHitFlash() {
+    _hitFlashTimer = _hitFlashDuration;
+  }
 
   @override
   Color backgroundColor() => const Color(0xFF101218);
@@ -137,7 +154,9 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     isInvincible = false;
     _slowFactor = 1.0;
     _slowTimer = 0;
+    _zoneSlow = 1.0;
     _drenchTimer = 0;
+    _hitFlashTimer = 0;
     state = GameState.playing;
 
     add(RoadBackground(gameSize: size));
@@ -214,6 +233,10 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       _drenchTimer = (_drenchTimer - dt).clamp(0.0, _drenchDuration);
     }
 
+    if (_hitFlashTimer > 0) {
+      _hitFlashTimer = (_hitFlashTimer - dt).clamp(0.0, _hitFlashDuration);
+    }
+
     if (_isShaking) {
       _shakeTimer -= dt;
       if (_shakeTimer <= 0) {
@@ -247,6 +270,14 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       canvas.drawRect(
         Rect.fromLTWH(0, 0, size.x, size.y),
         Paint()..color = const Color(0xFF42A5F5).withValues(alpha: alpha),
+      );
+    }
+    // Brief white screen flash on paper hits (100ms, 10% opacity).
+    if (_hitFlashTimer > 0) {
+      final alpha = (_hitFlashTimer / _hitFlashDuration) * 0.10;
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.x, size.y),
+        Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: alpha),
       );
     }
   }
@@ -365,6 +396,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
     AudioService.instance.playDelivery();
     hud.updateBonus(bonus);
+    _triggerHitFlash();
   }
 
   /// Paper hit a non-mailbox obstacle. Trigger particle, score popup,
@@ -383,6 +415,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       spread: 90,
     ));
     AudioService.instance.playHit();
+    _triggerHitFlash();
   }
 
   /// Paper hit (and broke) a house window. Light glass burst, small
@@ -400,6 +433,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       pixelSize: 3,
     ));
     AudioService.instance.playHit();
+    _triggerHitFlash();
   }
 
   /// Paper hit a parked car. Bonus points, particle, no penalty.
@@ -415,6 +449,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       spread: 110,
     ));
     AudioService.instance.playPickup();
+    _triggerHitFlash();
   }
 
   void _addScore(int delta, Vector2 position, {required Color color}) {

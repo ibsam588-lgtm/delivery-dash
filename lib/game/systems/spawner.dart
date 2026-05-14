@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flame/components.dart';
+import '../components/construction_zone.dart';
 import '../components/intersection.dart';
 import '../components/obstacle.dart';
 import '../components/paper_pack.dart';
@@ -14,12 +15,14 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   double _lampDistanceMark = 0;
   double _parkedCarDistanceMark = 0;
   double _intersectionDistanceMark = 0;
+  double _zoneDistanceMark = 0;
   final Random _rng = Random();
 
   static const double paperPackDistanceInterval = 300; // meters
   static const double lampDistanceInterval = 90;
   static const double parkedCarDistanceInterval = 220;
   static const double intersectionDistanceInterval = 400;
+  static const double constructionZoneDistanceInterval = 550;
 
   double get _obstacleInterval {
     final cfg = LevelConfig.of(gameRef.level);
@@ -54,6 +57,10 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     if (d - _intersectionDistanceMark >= intersectionDistanceInterval) {
       _intersectionDistanceMark = d;
       _spawnIntersection();
+    }
+    if (d - _zoneDistanceMark >= constructionZoneDistanceInterval) {
+      _zoneDistanceMark = d;
+      if (_rng.nextDouble() < 0.7) _spawnConstructionZone();
     }
   }
 
@@ -191,5 +198,9 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
 
   void _spawnIntersection() {
     gameRef.add(IntersectionComponent());
+  }
+
+  void _spawnConstructionZone() {
+    gameRef.add(ConstructionZoneComponent());
   }
 }

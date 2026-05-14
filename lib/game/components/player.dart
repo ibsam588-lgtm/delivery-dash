@@ -89,6 +89,19 @@ class PlayerComponent extends SpriteComponent
 
   @override
   void render(Canvas canvas) {
+    // Ground shadow beneath the bike.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(size.x / 2, size.y - 2),
+        width: size.x * 0.85,
+        height: 11,
+      ),
+      Paint()..color = const Color(0x66000000),
+    );
+    // Vertical 15% squish to suggest top-down camera angle.
+    canvas.save();
+    canvas.translate(0, size.y * 0.075);
+    canvas.scale(1.0, 0.85);
     super.render(canvas);
     if (_wetTimer > 0) {
       final phase = _wetTimer / _wetDuration;
@@ -98,5 +111,6 @@ class PlayerComponent extends SpriteComponent
         Paint()..color = const Color(0xFF42A5F5).withValues(alpha: alpha),
       );
     }
+    canvas.restore();
   }
 }

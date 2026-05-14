@@ -244,7 +244,9 @@ class ObstacleComponent extends SpriteComponent
 
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
-    canvas.scale(s);
+    // Apply a 15% vertical squish on top of the depth scale to suggest
+    // a slightly tilted top-down camera angle.
+    canvas.scale(s, s * 0.85);
     if (_tipAngle != 0) {
       canvas.rotate(_tipAngle);
     }
