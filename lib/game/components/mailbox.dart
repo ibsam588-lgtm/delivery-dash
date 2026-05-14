@@ -7,7 +7,7 @@ class MailboxComponent extends SpriteComponent
   final bool isBlue;
 
   MailboxComponent({required this.isBlue})
-      : super(size: Vector2(44, 56), anchor: Anchor.center, priority: 4);
+      : super(size: Vector2(40, 60), anchor: Anchor.center, priority: 4);
 
   @override
   Future<void> onLoad() async {

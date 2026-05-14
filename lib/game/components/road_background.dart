@@ -5,18 +5,20 @@ import '../delivery_dash_game.dart';
 class RoadBackground extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
   static const Color roadColor = Color(0xFF2D2D33);
-  static const Color sidewalkColor = Color(0xFF5A8A47);
-  static const Color sidewalkBandColor = Color(0xFF4A7438);
-  static const Color sidewalkEdgeColor = Color(0xFF3D5C30);
-  static const Color curbColor = Color(0xFFE8E8E8);
+  static const Color roadShadeColor = Color(0xFF1F1F25);
+  static const Color sidewalkColor = Color(0xFF4CAF50);
+  static const Color sidewalkBandColor = Color(0xFF3F9E45);
+  static const Color sidewalkEdgeColor = Color(0xFF2E7D32);
+  static const Color curbColor = Color(0xFFFFFFFF);
   static const Color laneLineColor = Color(0xFFFFC107);
 
   static const double _dashLen = 38.0;
   static const double _gapLen = 26.0;
   static const double _cycle = _dashLen + _gapLen;
-  static const double _bandSpacing = 60.0;
+  static const double _bandSpacing = 64.0;
 
   final Paint _roadPaint = Paint()..color = roadColor;
+  final Paint _roadShadePaint = Paint()..color = roadShadeColor;
   final Paint _sidewalkPaint = Paint()..color = sidewalkColor;
   final Paint _sidewalkBandPaint = Paint()..color = sidewalkBandColor;
   final Paint _edgePaint = Paint()..color = sidewalkEdgeColor;
@@ -64,13 +66,20 @@ class RoadBackground extends PositionComponent
       bandY += _bandSpacing;
     }
 
-    canvas.drawRect(Rect.fromLTWH(roadLeft - 6, 0, 6, h), _edgePaint);
-    canvas.drawRect(Rect.fromLTWH(roadRight, 0, 6, h), _edgePaint);
-    canvas.drawRect(Rect.fromLTWH(roadLeft - 2, 0, 2, h), _curbPaint);
-    canvas.drawRect(Rect.fromLTWH(roadRight + 4, 0, 2, h), _curbPaint);
-
     canvas.drawRect(
         Rect.fromLTWH(roadLeft, 0, roadRight - roadLeft, h), _roadPaint);
+
+    final shadeW = (roadRight - roadLeft) * 0.08;
+    canvas.drawRect(
+        Rect.fromLTWH(roadLeft, 0, shadeW, h), _roadShadePaint);
+    canvas.drawRect(
+        Rect.fromLTWH(roadRight - shadeW, 0, shadeW, h), _roadShadePaint);
+
+    canvas.drawRect(Rect.fromLTWH(roadLeft - 4, 0, 4, h), _edgePaint);
+    canvas.drawRect(Rect.fromLTWH(roadRight, 0, 4, h), _edgePaint);
+
+    canvas.drawRect(Rect.fromLTWH(roadLeft - 1, 0, 2, h), _curbPaint);
+    canvas.drawRect(Rect.fromLTWH(roadRight + 3, 0, 2, h), _curbPaint);
 
     for (int lane = 1; lane < 3; lane++) {
       final x = roadLeft + lane * laneWidth;

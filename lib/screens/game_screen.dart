@@ -127,7 +127,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 }
 
-class _ThrowFab extends StatelessWidget {
+class _ThrowFab extends StatefulWidget {
   final int count;
   final int max;
   final VoidCallback onTap;
@@ -139,41 +139,89 @@ class _ThrowFab extends StatelessWidget {
   });
 
   @override
+  State<_ThrowFab> createState() => _ThrowFabState();
+}
+
+class _ThrowFabState extends State<_ThrowFab>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseCtrl;
+  late final Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _pulse = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut),
+    );
+    if (widget.count > 0) {
+      _pulseCtrl.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _ThrowFab old) {
+    super.didUpdateWidget(old);
+    if (widget.count > 0 && !_pulseCtrl.isAnimating) {
+      _pulseCtrl.repeat(reverse: true);
+    } else if (widget.count <= 0 && _pulseCtrl.isAnimating) {
+      _pulseCtrl.stop();
+      _pulseCtrl.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final enabled = count > 0;
+    final enabled = widget.count > 0;
     return GestureDetector(
-      onTap: enabled ? onTap : null,
+      onTap: enabled ? widget.onTap : null,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: enabled
-                    ? const [Color(0xFFFF8A65), Color(0xFFE64A19)]
-                    : const [Color(0xFF424242), Color(0xFF212121)],
-              ),
-              border: Border.all(color: Colors.white, width: 3),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black54,
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-              ],
+          AnimatedBuilder(
+            animation: _pulse,
+            builder: (context, child) => Transform.scale(
+              scale: enabled ? _pulse.value : 1.0,
+              child: child,
             ),
-            child: Center(
-              child: Text(
-                'THROW',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.pressStart2p(
-                  fontSize: 9,
-                  color: Colors.white,
+            child: Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: enabled
+                      ? const [Color(0xFFFF8A65), Color(0xFFE64A19)]
+                      : const [Color(0xFF424242), Color(0xFF212121)],
+                ),
+                border: Border.all(color: Colors.white, width: 3),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black54,
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  'THROW',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.pressStart2p(
+                    fontSize: 9,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -189,7 +237,7 @@ class _ThrowFab extends StatelessWidget {
                 border: Border.all(color: Colors.white70, width: 1.5),
               ),
               child: Text(
-                '$count/$max',
+                '${widget.count}/${widget.max}',
                 style: GoogleFonts.pressStart2p(
                   fontSize: 9,
                   color: enabled ? const Color(0xFFFFD54F) : Colors.white54,

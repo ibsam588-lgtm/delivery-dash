@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:flame/components.dart';
 import '../delivery_dash_game.dart';
 import 'mailbox.dart';
@@ -6,7 +7,7 @@ import 'mailbox.dart';
 enum HouseSide { left, right }
 
 class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
-  static const double rowSpacing = 140.0;
+  static const double rowSpacing = 160.0;
 
   final HouseSide side;
   final double _initialY;
@@ -32,9 +33,10 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
   void _layout() {
     final lm = gameRef.laneManager;
     final sw = lm.sidewalkWidth;
-    // House fills 90% of sidewalk width, capped to a sane range.
-    final houseW = (sw * 0.9).clamp(40.0, 110.0);
-    size = Vector2(houseW, houseW * 1.25);
+    // House fills ~90% of sidewalk width; image is roughly square (370x380)
+    // so we scale uniformly to keep the aspect ratio looking right.
+    final houseW = (sw * 0.9).clamp(40.0, 120.0);
+    size = Vector2(houseW, houseW * (380.0 / 370.0));
     final inset = ((sw - houseW) / 2).clamp(0.0, sw);
     final x = side == HouseSide.left
         ? inset
@@ -63,6 +65,16 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
     mb.position = Vector2(localX, localY);
     add(mb);
     _mailbox = mb;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    // Soft drop shadow underneath the house.
+    canvas.drawRect(
+      Rect.fromLTWH(3, size.y * 0.85, size.x, 6),
+      Paint()..color = const Color(0x55000000),
+    );
+    super.render(canvas);
   }
 
   @override
