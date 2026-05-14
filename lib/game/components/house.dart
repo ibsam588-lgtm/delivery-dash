@@ -1,42 +1,69 @@
 import 'dart:math';
 import 'package:flame/components.dart';
 import '../delivery_dash_game.dart';
-import '../systems/lane_manager.dart';
+import 'mailbox.dart';
 
 enum HouseSide { left, right }
 
 class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
-  static const double _houseSize = 88.0;
-  static const double _scrollFactor = 1.0;
-  static const double rowSpacing = 128.0;
+  static const double houseSize = 96.0;
+  static const double rowSpacing = 140.0;
 
   final HouseSide side;
   final double _initialY;
-  int _variant;
+  int _index;
   final Random _rng = Random();
+
+  MailboxComponent? _mailbox;
 
   HouseComponent({
     required this.side,
     required double initialY,
-    required int variant,
+    required int index,
   })  : _initialY = initialY,
-        _variant = variant,
+        _index = index,
         super(
-          size: Vector2.all(_houseSize),
+          size: Vector2.all(houseSize),
           anchor: Anchor.topLeft,
           priority: -5,
         );
 
+  String _spriteFor(int idx) => idx.isEven ? 'house_2.png' : 'house_3.png';
+
+  double _xForHouse() {
+    final lm = gameRef.laneManager;
+    final sw = lm.sidewalkWidth;
+    final inset = ((sw - houseSize) / 2).clamp(2.0, sw - houseSize - 2.0);
+    if (side == HouseSide.left) {
+      return inset;
+    } else {
+      return gameRef.size.x - sw + inset;
+    }
+  }
+
   @override
   Future<void> onLoad() async {
-    sprite = Sprite(gameRef.images.fromCache('house_$_variant.png'));
-    position
-      ..y = _initialY
-      ..x = side == HouseSide.left
-          ? (LaneManager.sidewalkWidth - _houseSize) / 2
-          : gameRef.size.x -
-              LaneManager.sidewalkWidth +
-              (LaneManager.sidewalkWidth - _houseSize) / 2;
+    sprite = Sprite(gameRef.images.fromCache(_spriteFor(_index)));
+    position = Vector2(_xForHouse(), _initialY);
+    _regenerateMailbox();
+  }
+
+  void _regenerateMailbox() {
+    _mailbox?.removeFromParent();
+    _mailbox = null;
+
+    final r = _rng.nextDouble();
+    if (r > 0.85) return;
+    final isBlue = r > 0.15;
+    final mb = MailboxComponent(isBlue: isBlue);
+
+    final double localX = side == HouseSide.left
+        ? houseSize + 6
+        : -6;
+    const double localY = houseSize * 0.68;
+    mb.position = Vector2(localX, localY);
+    add(mb);
+    _mailbox = mb;
   }
 
   @override
@@ -44,13 +71,14 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
     super.update(dt);
     if (gameRef.state != GameState.playing) return;
 
-    position.y += gameRef.scrollSpeed * _scrollFactor * dt;
+    position.y += gameRef.scrollSpeed * dt;
 
     if (position.y > gameRef.size.y) {
       final rows = (gameRef.size.y / rowSpacing).ceil() + 2;
       position.y -= rows * rowSpacing;
-      _variant = _rng.nextInt(4);
-      sprite = Sprite(gameRef.images.fromCache('house_$_variant.png'));
+      _index += 2;
+      sprite = Sprite(gameRef.images.fromCache(_spriteFor(_index)));
+      _regenerateMailbox();
     }
   }
 }

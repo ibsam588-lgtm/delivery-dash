@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import '../services/audio_service.dart';
@@ -24,14 +23,25 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   int score = 0;
   int lives = 3;
   int comboCount = 0;
+  int bestComboThisRun = 0;
   int coinsThisRun = 0;
+  int level = 1;
+  double distanceMeters = 0;
+  double _lastRefillMeters = 0;
+  int papers = 3;
+  static const int maxPapers = 3;
+
   double currentSpeed = 200;
+  double _slowFactor = 1.0;
+  double _slowTimer = 0;
   bool isInvincible = false;
   double invincibilityTimer = 0;
 
   late LaneManager laneManager;
   late PlayerComponent player;
   late Hud hud;
+
+  final ValueNotifier<int> paperCountNotifier = ValueNotifier<int>(maxPapers);
 
   bool _isShaking = false;
   double _shakeTimer = 0;
@@ -41,15 +51,22 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   static bool _hasShownTutorial = false;
 
-  void Function(int score, int highScore, bool isNewRecord, int coinsEarned)?
-      onGameOver;
+  void Function(
+    int score,
+    int highScore,
+    bool isNewRecord,
+    int coinsEarned,
+    int bestCombo,
+    int reachedLevel,
+  )? onGameOver;
 
   DeliveryDashGame({this.config = const GameConfig()});
 
-  double get scrollSpeed => currentSpeed;
+  double get scrollSpeed => currentSpeed * _slowFactor;
+  int get distanceForLevelTarget => LevelConfig.metersPerLevel.toInt();
 
   @override
-  Color backgroundColor() => const Color(0xFF1E1E1E);
+  Color backgroundColor() => const Color(0xFF101218);
 
   @override
   Future<void> onLoad() async {
@@ -61,8 +78,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   Future<void> _preloadAssets() async {
     await images.loadAll([
-      'player.png',
-      'paper.png',
       'mailbox_blue.png',
       'mailbox_red.png',
       'car_0.png',
@@ -86,28 +101,35 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     final diff = config.difficultyConfig;
 
     score = 0;
-    lives = 3 + (config.hasShield ? 1 : 0);
+    lives = diff.lives + (config.hasShield ? 1 : 0);
     comboCount = 0;
+    bestComboThisRun = 0;
     coinsThisRun = 0;
+    level = 1;
+    distanceMeters = 0;
+    _lastRefillMeters = 0;
+    papers = maxPapers;
+    paperCountNotifier.value = papers;
     currentSpeed = diff.startSpeed + (config.speedBoostStart ? 60 : 0);
     isInvincible = false;
+    _slowFactor = 1.0;
+    _slowTimer = 0;
     state = GameState.playing;
 
     add(RoadBackground(gameSize: size));
 
-    const houseSpacing = 128.0;
-    final rng = Random();
-    final rowsPerSide = (size.y / houseSpacing).ceil() + 2;
+    final rowsPerSide = (size.y / HouseComponent.rowSpacing).ceil() + 2;
     for (int i = 0; i < rowsPerSide; i++) {
       add(HouseComponent(
         side: HouseSide.left,
-        initialY: i * houseSpacing - houseSpacing,
-        variant: rng.nextInt(4),
+        initialY: i * HouseComponent.rowSpacing - HouseComponent.rowSpacing,
+        index: i,
       ));
       add(HouseComponent(
         side: HouseSide.right,
-        initialY: i * houseSpacing - houseSpacing / 2,
-        variant: rng.nextInt(4),
+        initialY: i * HouseComponent.rowSpacing -
+            HouseComponent.rowSpacing / 2,
+        index: i + 1,
       ));
     }
 
@@ -120,6 +142,9 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     hud.updateCoins(0);
     hud.updateScore(0);
     hud.updateSpeed(currentSpeed);
+    hud.updateLevel(level);
+    hud.updateDistance(0, distanceForLevelTarget);
+    hud.updatePaperCount(papers, maxPapers);
 
     add(Spawner());
 
@@ -147,6 +172,14 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       }
     }
 
+    if (_slowTimer > 0) {
+      _slowTimer -= dt;
+      if (_slowTimer <= 0) {
+        _slowTimer = 0;
+        _slowFactor = 1.0;
+      }
+    }
+
     if (_isShaking) {
       _shakeTimer -= dt;
       if (_shakeTimer <= 0) {
@@ -160,14 +193,40 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       }
     }
 
-    // Speed ramps over time
     final diff = config.difficultyConfig;
-    final maxSpeed = diff.startSpeed * 3.0;
+    final levelBonus = LevelConfig.speedBonusForLevel(level);
+    final maxSpeed = diff.startSpeed * 3.0 + levelBonus;
     currentSpeed = (currentSpeed + diff.speedRamp * dt).clamp(0, maxSpeed);
     hud.updateSpeed(currentSpeed);
+
+    distanceMeters += scrollSpeed * dt / LevelConfig.pxPerMeter;
+    hud.updateDistance(distanceMeters.toInt(), distanceForLevelTarget);
+
+    if (distanceMeters >= distanceForLevelTarget) {
+      _advanceLevel();
+    }
+
+    if (distanceMeters - _lastRefillMeters >= LevelConfig.paperRefillMeters) {
+      _lastRefillMeters = distanceMeters;
+      if (papers < maxPapers) {
+        papers++;
+        paperCountNotifier.value = papers;
+        hud.updatePaperCount(papers, maxPapers);
+      }
+    }
   }
 
-  // ── Input ────────────────────────────────────────────────────────────────
+  void _advanceLevel() {
+    distanceMeters = 0;
+    level = (level + 1).clamp(1, LevelConfig.maxLevel);
+    currentSpeed += 20;
+    overlays.add('LevelUp');
+    Future.delayed(const Duration(milliseconds: 1100), () {
+      overlays.remove('LevelUp');
+    });
+    hud.updateLevel(level);
+    hud.updateDistance(0, distanceForLevelTarget);
+  }
 
   void onSwipeLeft() {
     if (state != GameState.playing) return;
@@ -179,14 +238,24 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     player.moveRight();
   }
 
+  void onThrowTapped() {
+    if (state != GameState.playing) return;
+    _throwPaper();
+  }
+
   void onTap() {
     if (state != GameState.playing) return;
     _throwPaper();
   }
 
   void _throwPaper() {
+    if (papers <= 0) return;
+    papers--;
+    paperCountNotifier.value = papers;
+    hud.updatePaperCount(papers, maxPapers);
+
     if (config.paperBlitz) {
-      for (final a in const [-12.0, 0.0, 12.0]) {
+      for (final a in const [-18.0, 0.0, 18.0]) {
         add(PaperComponent(
           startPosition: player.position.clone(),
           angleDeg: a,
@@ -197,39 +266,34 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
   }
 
-  // ── Game events ──────────────────────────────────────────────────────────
-
   void onPaperHitMailbox(bool isBlue, Vector2 position) {
-    if (isBlue) {
-      comboCount++;
-      final bonus = comboCount >= 3 ? 20 : 10;
-      _addScore(bonus, position, isBlue: true);
-      hud.updateCombo(comboCount);
+    comboCount++;
+    if (comboCount > bestComboThisRun) bestComboThisRun = comboCount;
+    final mult = comboMultiplier(comboCount);
+    final base = isBlue ? 10 : 25;
+    final pts = base * mult;
 
-      int coins = comboCount;
-      if (config.doubleCoins) coins *= 2;
-      coinsThisRun += coins;
-      hud.updateCoins(coinsThisRun);
+    final coinsBase = isBlue ? 1 : 3;
+    final coinMult = config.difficultyConfig.coinMultiplier *
+        (config.doubleCoins ? 2 : 1);
+    final coins = (coinsBase * coinMult).round();
 
-      AudioService.instance.playDelivery();
-    } else {
-      comboCount = 0;
-      _addScore(-5, position, isBlue: false);
-      hud.updateCombo(0);
-    }
+    _addScore(pts, position, isBlue: isBlue);
+    coinsThisRun += coins;
+    hud.updateCoins(coinsThisRun);
+    hud.updateCombo(comboCount);
+    AudioService.instance.playDelivery();
   }
 
   void _addScore(int delta, Vector2 position, {required bool isBlue}) {
     score = (score + delta).clamp(0, 999999);
     hud.updateScore(score);
 
-    String label = delta > 0 ? '+$delta' : '$delta';
-    if (comboCount >= 3 && isBlue) label += ' COMBO!';
-
+    final label = delta > 0 ? '+$delta' : '$delta';
     add(FloatingText(
       text: label,
       position: position,
-      color: isBlue ? Colors.greenAccent : Colors.redAccent,
+      color: isBlue ? const Color(0xFF66BB6A) : const Color(0xFFFFB74D),
     ));
   }
 
@@ -251,6 +315,21 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
   }
 
+  void onPlayerHitSlowObstacle() {
+    if (state != GameState.playing) return;
+    if (isInvincible) return;
+
+    final diff = config.difficultyConfig;
+    final maxSpeed = diff.startSpeed * 3.0;
+    if (currentSpeed >= maxSpeed - 5) {
+      onPlayerHitObstacle();
+      return;
+    }
+    _slowFactor = 0.5;
+    _slowTimer = 1.5;
+    _triggerShake();
+  }
+
   void _triggerShake() {
     _isShaking = true;
     _shakeTimer = _shakeDuration;
@@ -266,7 +345,13 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     final earned = coinsThisRun;
     await StoreService.instance.addCoins(earned);
 
-    Future.microtask(
-        () => onGameOver?.call(score, highScore, isNewRecord, earned));
+    Future.microtask(() => onGameOver?.call(
+          score,
+          highScore,
+          isNewRecord,
+          earned,
+          bestComboThisRun,
+          level,
+        ));
   }
 }

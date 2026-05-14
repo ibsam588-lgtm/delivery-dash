@@ -4,10 +4,10 @@ class LaneManager {
   final Vector2 gameSize;
 
   static const int laneCount = 3;
-  static const double sidewalkWidth = 80.0;
 
   LaneManager({required this.gameSize});
 
+  double get sidewalkWidth => gameSize.x * 0.20;
   double get roadLeft => sidewalkWidth;
   double get roadRight => gameSize.x - sidewalkWidth;
   double get roadWidth => roadRight - roadLeft;

@@ -24,7 +24,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
     super.initState();
     _scrollController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8),
+      duration: const Duration(seconds: 7),
     )..repeat();
     _load();
   }
@@ -49,31 +49,55 @@ class _MainMenuScreenState extends State<MainMenuScreen>
     Navigator.of(context).pushNamed(
       '/game',
       arguments: _difficulty,
-    ).then((_) => _refreshCoins());
+    ).then((_) => _refresh());
   }
 
   void _onStore() {
-    Navigator.of(context).pushNamed('/store').then((_) => _refreshCoins());
+    Navigator.of(context).pushNamed('/store').then((_) => _refresh());
   }
 
-  void _refreshCoins() {
+  void _refresh() {
     if (!mounted) return;
-    setState(() => _coins = StoreService.instance.coins);
+    setState(() {
+      _coins = StoreService.instance.coins;
+    });
+    ScoreService.instance.getHighScore().then((hs) {
+      if (!mounted) return;
+      setState(() => _highScore = hs);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0E0E11),
+      backgroundColor: const Color(0xFF101218),
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Positioned.fill(
-            top: MediaQuery.of(context).size.height * 0.5,
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            top: MediaQuery.of(context).size.height * 0.45,
             child: AnimatedBuilder(
               animation: _scrollController,
               builder: (context, _) => CustomPaint(
                 painter: _RoadScrollPainter(_scrollController.value),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: MediaQuery.of(context).size.height * 0.45,
+            child: Container(
+              height: 24,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF101218), Color(0x00101218)],
+                ),
               ),
             ),
           ),
@@ -82,8 +106,8 @@ class _MainMenuScreenState extends State<MainMenuScreen>
               padding: const EdgeInsets.only(bottom: 56),
               child: Column(
                 children: [
-                  _CoinBar(coins: _coins),
-                  const Spacer(flex: 2),
+                  _TopBar(coins: _coins),
+                  const Spacer(flex: 3),
                   Text(
                     'DELIVERY DASH',
                     textAlign: TextAlign.center,
@@ -91,17 +115,21 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                       fontSize: 26,
                       color: const Color(0xFFFFD54F),
                       shadows: const [
-                        Shadow(color: Colors.black, blurRadius: 8, offset: Offset(3, 3)),
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 10,
+                          offset: Offset(3, 4),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Paper Run',
+                    'PAPER  RUN',
                     style: GoogleFonts.pressStart2p(
-                      fontSize: 13,
+                      fontSize: 12,
                       color: Colors.white,
-                      letterSpacing: 3,
+                      letterSpacing: 4,
                     ),
                   ),
                   const Spacer(flex: 2),
@@ -109,10 +137,10 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                     selected: _difficulty,
                     onChange: (d) => setState(() => _difficulty = d),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 26),
                   _BigButton(
                     label: 'PLAY',
-                    color: const Color(0xFF2E7D32),
+                    color: const Color(0xFF43A047),
                     onTap: _onPlay,
                     width: 220,
                     height: 64,
@@ -124,17 +152,26 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                     color: const Color(0xFF455A64),
                     onTap: _onStore,
                     width: 160,
-                    height: 48,
-                    fontSize: 14,
+                    height: 46,
+                    fontSize: 13,
                   ),
-                  const Spacer(flex: 2),
+                  const Spacer(flex: 3),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      'BEST: $_highScore',
-                      style: GoogleFonts.pressStart2p(
-                        fontSize: 12,
-                        color: Colors.white70,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white24, width: 1),
+                      ),
+                      child: Text(
+                        'BEST  $_highScore',
+                        style: GoogleFonts.pressStart2p(
+                          fontSize: 11,
+                          color: Colors.white70,
+                        ),
                       ),
                     ),
                   ),
@@ -152,38 +189,40 @@ class _MainMenuScreenState extends State<MainMenuScreen>
   }
 }
 
-class _CoinBar extends StatelessWidget {
+class _TopBar extends StatelessWidget {
   final int coins;
-  const _CoinBar({required this.coins});
+  const _TopBar({required this.coins});
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.topRight,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(0, 12, 16, 0),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFFFD54F), width: 1.5),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('🪙', style: TextStyle(fontSize: 18)),
-              const SizedBox(width: 6),
-              Text(
-                '$coins',
-                style: GoogleFonts.pressStart2p(
-                  fontSize: 14,
-                  color: const Color(0xFFFFD54F),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      child: Row(
+        children: [
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFFFD54F), width: 1.5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🪙', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 6),
+                Text(
+                  '$coins',
+                  style: GoogleFonts.pressStart2p(
+                    fontSize: 14,
+                    color: const Color(0xFFFFD54F),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -198,6 +237,12 @@ class _DifficultySelector extends StatelessWidget {
     required this.onChange,
   });
 
+  static const Map<Difficulty, Color> _colors = {
+    Difficulty.easy: Color(0xFF43A047),
+    Difficulty.medium: Color(0xFFFBC02D),
+    Difficulty.hard: Color(0xFFE53935),
+  };
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -208,6 +253,7 @@ class _DifficultySelector extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6),
             child: _DifficultyButton(
               label: DifficultyConfig.label(d),
+              color: _colors[d]!,
               selected: d == selected,
               onTap: () => onChange(d),
             ),
@@ -219,11 +265,13 @@ class _DifficultySelector extends StatelessWidget {
 
 class _DifficultyButton extends StatelessWidget {
   final String label;
+  final Color color;
   final bool selected;
   final VoidCallback onTap;
 
   const _DifficultyButton({
     required this.label,
+    required this.color,
     required this.selected,
     required this.onTap,
   });
@@ -233,23 +281,29 @@ class _DifficultyButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFFFF6F00)
-              : Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
+          color: selected ? color : color.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected ? Colors.white : Colors.white24,
-            width: 1.5,
+            width: selected ? 2 : 1,
           ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.5),
+                    blurRadius: 12,
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
           style: GoogleFonts.pressStart2p(
             fontSize: 11,
-            color: selected ? Colors.white : Colors.white70,
+            color: Colors.white,
           ),
         ),
       ),
@@ -282,16 +336,31 @@ class _BigButton extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(14),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              color,
+              Color.lerp(color, Colors.black, 0.35)!,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white24, width: 1.5),
           boxShadow: const [
-            BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 4)),
+            BoxShadow(
+              color: Colors.black54,
+              blurRadius: 10,
+              offset: Offset(0, 5),
+            ),
           ],
         ),
         child: Center(
           child: Text(
             label,
-            style: GoogleFonts.pressStart2p(fontSize: fontSize, color: Colors.white),
+            style: GoogleFonts.pressStart2p(
+              fontSize: fontSize,
+              color: Colors.white,
+            ),
           ),
         ),
       ),
@@ -304,59 +373,88 @@ class _RoadScrollPainter extends CustomPainter {
 
   _RoadScrollPainter(this.progress);
 
-  static final _roadPaint = Paint()..color = const Color(0xFF1E1E1E);
-  static final _sidewalkPaint = Paint()..color = const Color(0xFF5C5C5C);
+  static final _roadPaint = Paint()..color = const Color(0xFF2D2D33);
+  static final _sidewalkPaint = Paint()..color = const Color(0xFF5A8A47);
+  static final _sidewalkBandPaint = Paint()..color = const Color(0xFF4A7438);
+  static final _curbPaint = Paint()..color = const Color(0xFFE8E8E8);
+  static final _edgePaint = Paint()..color = const Color(0xFF3D5C30);
   static final _linePaint = Paint()
-    ..color = Colors.white
-    ..strokeWidth = 4;
-  static final _housePaints = [
-    Paint()..color = const Color(0xFFD7CCC8),
-    Paint()..color = const Color(0xFFBCAAA4),
-    Paint()..color = const Color(0xFFA5D6A7),
-    Paint()..color = const Color(0xFFFFCC80),
-  ];
+    ..color = const Color(0xFFFFC107)
+    ..strokeWidth = 4
+    ..strokeCap = StrokeCap.square;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    const sidewalk = 70.0;
+    final sidewalk = w * 0.20;
+    final roadLeft = sidewalk;
+    final roadRight = w - sidewalk;
+    final laneWidth = (roadRight - roadLeft) / 3;
 
     canvas.drawRect(Rect.fromLTWH(0, 0, sidewalk, h), _sidewalkPaint);
-    canvas.drawRect(Rect.fromLTWH(w - sidewalk, 0, sidewalk, h), _sidewalkPaint);
-    canvas.drawRect(Rect.fromLTWH(sidewalk, 0, w - 2 * sidewalk, h), _roadPaint);
+    canvas.drawRect(
+        Rect.fromLTWH(roadRight, 0, sidewalk, h), _sidewalkPaint);
 
-    final laneWidth = (w - 2 * sidewalk) / 3;
-    final scroll = progress * 60;
+    const bandSpacing = 60.0;
+    var by = -(bandSpacing) + (progress * bandSpacing);
+    while (by < h) {
+      canvas.drawRect(
+          Rect.fromLTWH(0, by, sidewalk, 4), _sidewalkBandPaint);
+      canvas.drawRect(
+          Rect.fromLTWH(roadRight, by, sidewalk, 4), _sidewalkBandPaint);
+      by += bandSpacing;
+    }
+
+    canvas.drawRect(Rect.fromLTWH(roadLeft - 6, 0, 6, h), _edgePaint);
+    canvas.drawRect(Rect.fromLTWH(roadRight, 0, 6, h), _edgePaint);
+    canvas.drawRect(Rect.fromLTWH(roadLeft - 2, 0, 2, h), _curbPaint);
+    canvas.drawRect(Rect.fromLTWH(roadRight + 4, 0, 2, h), _curbPaint);
+
+    canvas.drawRect(Rect.fromLTWH(roadLeft, 0, roadRight - roadLeft, h),
+        _roadPaint);
+
+    const cycle = 64.0;
+    const dashLen = 36.0;
+    final scroll = progress * cycle;
     for (int lane = 1; lane < 3; lane++) {
-      final x = sidewalk + lane * laneWidth;
-      var y = -60.0 + scroll;
+      final x = roadLeft + lane * laneWidth;
+      var y = -cycle + scroll;
       while (y < h) {
-        canvas.drawLine(Offset(x, y), Offset(x, y + 30), _linePaint);
-        y += 60;
+        canvas.drawLine(Offset(x, y), Offset(x, y + dashLen), _linePaint);
+        y += cycle;
       }
     }
 
-    final houseScroll = progress * h * 1.2;
-    for (int i = 0; i < 6; i++) {
-      final cycleH = h + 100;
+    final houseScroll = progress * h;
+    for (int i = 0; i < 5; i++) {
+      final cycleH = h + 110;
       final baseY = (i * (cycleH / 4) + houseScroll) % cycleH - 100;
-      final paintIdx = i % 4;
-      _drawHouse(canvas, 4, baseY, 60, 80, _housePaints[paintIdx]);
-      _drawHouse(canvas, w - 64, baseY + 30, 60, 80,
-          _housePaints[(paintIdx + 2) % 4]);
+      final houseSize = sidewalk * 0.7;
+      final inset = (sidewalk - houseSize) / 2;
+      _drawHouse(canvas, inset, baseY, houseSize,
+          i.isEven ? const Color(0xFFE53935) : const Color(0xFF1E88E5));
+      _drawHouse(canvas, w - sidewalk + inset, baseY + cycleH * 0.5 / 4,
+          houseSize,
+          i.isEven ? const Color(0xFF1E88E5) : const Color(0xFFE53935));
     }
   }
 
-  void _drawHouse(
-      Canvas canvas, double x, double y, double width, double height, Paint p) {
-    canvas.drawRect(Rect.fromLTWH(x, y + height * 0.3, width, height * 0.7), p);
-    final roof = Path()
-      ..moveTo(x - 4, y + height * 0.3)
-      ..lineTo(x + width / 2, y)
-      ..lineTo(x + width + 4, y + height * 0.3)
+  void _drawHouse(Canvas canvas, double x, double y, double s, Color roof) {
+    final body = Paint()..color = const Color(0xFFEFEBE9);
+    final roofPaint = Paint()..color = roof;
+    final door = Paint()..color = const Color(0xFF5D4037);
+
+    canvas.drawRect(
+        Rect.fromLTWH(x, y + s * 0.35, s, s * 0.65), body);
+    final roofPath = Path()
+      ..moveTo(x - 4, y + s * 0.35)
+      ..lineTo(x + s / 2, y)
+      ..lineTo(x + s + 4, y + s * 0.35)
       ..close();
-    canvas.drawPath(roof, Paint()..color = const Color(0xFF8D6E63));
+    canvas.drawPath(roofPath, roofPaint);
+    canvas.drawRect(
+        Rect.fromLTWH(x + s * 0.4, y + s * 0.7, s * 0.2, s * 0.3), door);
   }
 
   @override
