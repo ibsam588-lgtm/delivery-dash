@@ -50,11 +50,13 @@ class PaperPackComponent extends PositionComponent
     if (_collected) return;
     final h = gameRef.size.y;
     final s = depthScale(position.y, h);
-    final dx = depthXShift(
-      position.x,
-      position.y,
-      gameRef.laneManager.roadCenter,
-      h,
+    final lm = gameRef.laneManager;
+    final dx = depthXShiftDiag(
+      worldX: position.x,
+      leftRef: lm.roadLeft,
+      widthRef: lm.roadWidth,
+      leftY: lm.roadLeftAt(position.y),
+      widthY: lm.roadWidthAt(position.y),
     );
     canvas.translate(dx, 0);
 

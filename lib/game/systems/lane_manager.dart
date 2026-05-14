@@ -1,52 +1,86 @@
 import 'package:flame/components.dart';
 
-/// Flat top-down road layout.
+/// Diagonal isometric road layout — Paperboy perspective.
 ///
-/// No perspective. Road is a fixed-width vertical strip at 25%-75% of
-/// screen width. Sidewalks fill the rest on each side. All Y-related
-/// helpers ignore Y because the layout doesn't change with depth.
+/// The road runs diagonally from lower-left (bottom of screen) toward
+/// upper-right (horizon), matching the classic Paperboy arcade look.
+///
+///   y = gameSize.y (foreground) → road spans [0.16W .. 0.64W], width 0.48W
+///   y = 0           (horizon)   → road spans [0.48W .. 0.80W], width 0.32W
+///
+/// t = 1 − y/H   (0 at bottom, 1 at top)
+/// leftFrac(t)  = 0.16 + 0.32·t
+/// rightFrac(t) = 0.64 + 0.16·t
 class LaneManager {
   final Vector2 gameSize;
 
-  static const double roadLeftFrac = 0.25;
-  static const double roadRightFrac = 0.75;
+  // Diagonal road edge fractions.
+  static const double _leftBase = 0.16;
+  static const double _leftSlope = 0.32;
+  static const double _rightBase = 0.64;
+  static const double _rightSlope = 0.16;
+
+  // Reference depth for backward-compat flat getters (≈ player Y fraction).
+  static const double _refFrac = 0.82;
 
   LaneManager({required this.gameSize});
 
-  double get roadLeft => gameSize.x * roadLeftFrac;
-  double get roadRight => gameSize.x * roadRightFrac;
-  double get roadWidth => roadRight - roadLeft;
-  double get roadCenter => roadLeft + roadWidth / 2;
+  double _t(double y) => (1.0 - y / gameSize.y).clamp(0.0, 1.0);
+
+  // ── Y-dependent accessors ────────────────────────────────────────────────
+
+  double roadLeftAt(double y) =>
+      gameSize.x * (_leftBase + _leftSlope * _t(y));
+
+  double roadRightAt(double y) =>
+      gameSize.x * (_rightBase + _rightSlope * _t(y));
+
+  double roadCenterAt(double y) =>
+      (roadLeftAt(y) + roadRightAt(y)) * 0.5;
+
+  double roadWidthAt(double y) => roadRightAt(y) - roadLeftAt(y);
+
+  // ── Backward-compat flat getters (evaluated at player reference depth) ───
+
+  double get _refY => gameSize.y * _refFrac;
+
+  double get roadLeft => roadLeftAt(_refY);
+  double get roadRight => roadRightAt(_refY);
+  double get roadCenter => roadCenterAt(_refY);
+  double get roadWidth => roadWidthAt(_refY);
+
+  // ── Sidewalk helpers ─────────────────────────────────────────────────────
 
   double get leftSidewalkWidth => roadLeft;
   double get rightSidewalkWidth => gameSize.x - roadRight;
+  double get sidewalkWidth => leftSidewalkWidth;
 
-  /// Compatibility shims for callers that still pass a Y.
-  double roadLeftAt(double y) => roadLeft;
-  double roadRightAt(double y) => roadRight;
-  double roadCenterAt(double y) => roadCenter;
-  double roadWidthAt(double y) => roadWidth;
+  // ── Compat shims for callers that still pass a Y ─────────────────────────
+
+  double leftSidewalkRightAt(double y) => roadLeftAt(y);
+  double rightSidewalkLeftAt(double y) => roadRightAt(y);
   double scaleAt(double y) => 1.0;
-  double leftSidewalkRightAt(double y) => roadLeft;
-  double rightSidewalkLeftAt(double y) => roadRight;
 
-  /// Map a fraction in [0..1] across the road to a world X.
+  // ── Road fraction mapping ────────────────────────────────────────────────
+
+  /// Map a fraction [0..1] across the road to a world X.
+  /// Uses [y] if provided, otherwise the player reference depth.
   double roadXFromFraction(double f, [double? y]) {
-    return roadLeft + roadWidth * f.clamp(0.0, 1.0);
+    final ry = y ?? _refY;
+    return roadLeftAt(ry) + roadWidthAt(ry) * f.clamp(0.0, 1.0);
   }
 
-  /// Clamp [x] so a centered object of half-width [halfWidth] stays
-  /// fully on the road.
-  double clampToRoad(double x, double halfWidth) {
-    final lo = roadLeft + halfWidth;
-    final hi = roadRight - halfWidth;
-    if (hi < lo) return roadCenter;
+  // ── Clamping ─────────────────────────────────────────────────────────────
+
+  /// Clamp [x] so a centred object of half-width [halfWidth] stays on road.
+  /// Uses the player reference depth.
+  double clampToRoad(double x, double halfWidth) =>
+      clampToRoadAt(_refY, x, halfWidth);
+
+  double clampToRoadAt(double y, double x, double halfWidth) {
+    final lo = roadLeftAt(y) + halfWidth;
+    final hi = roadRightAt(y) - halfWidth;
+    if (hi < lo) return roadCenterAt(y);
     return x.clamp(lo, hi);
   }
-
-  double clampToRoadAt(double y, double x, double halfWidth) =>
-      clampToRoad(x, halfWidth);
-
-  // Backwards-compat aliases (older code referenced these).
-  double get sidewalkWidth => leftSidewalkWidth;
 }

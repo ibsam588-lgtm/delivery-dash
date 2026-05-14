@@ -6,6 +6,10 @@ import '../delivery_dash_game.dart';
 import '../perspective.dart';
 import 'bike_trail.dart';
 
+/// Player bicycle courier — drawn in a 3/4 diagonal perspective matching the
+/// classic Paperboy arcade look. The bike faces upper-right (into the screen),
+/// so you see the left-side profile with the front wheel at upper-right and
+/// rear wheel at lower-left.
 class PlayerComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
   static const Color vipTint = Color(0x88FFD54F);
@@ -18,7 +22,6 @@ class PlayerComponent extends PositionComponent
   static const double _swayAmplitudeDeg = 2.0;
   static const double _swayHz = 1.5;
 
-  // Throw-arm flash.
   static const double _throwArmDuration = 0.20;
 
   final bool isVip;
@@ -40,7 +43,6 @@ class PlayerComponent extends PositionComponent
   double get opacity => _opacity;
   set opacity(double v) => _opacity = v.clamp(0.0, 1.0);
 
-  /// Called by game when a paper is thrown.
   void triggerThrowArm() {
     _throwArmTimer = _throwArmDuration;
   }
@@ -68,7 +70,7 @@ class PlayerComponent extends PositionComponent
   void update(double dt) {
     super.update(dt);
 
-    _wheelAngle += dt * 14.0;
+    _wheelAngle += dt * 12.0;
     _swayTimer += dt;
 
     _pedalTimer += dt;
@@ -113,14 +115,19 @@ class PlayerComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
+    final lm = gameRef.laneManager;
     final h = gameRef.size.y;
     final s = depthScale(position.y, h);
-    final dx = depthXShift(
-      position.x, position.y, gameRef.laneManager.roadCenter, h,
+    final dx = depthXShiftDiag(
+      worldX: position.x,
+      leftRef: lm.roadLeft,
+      widthRef: lm.roadWidth,
+      leftY: lm.roadLeftAt(position.y),
+      widthY: lm.roadWidthAt(position.y),
     );
     canvas.translate(dx, 0);
 
-    // Ground shadow.
+    // Ground shadow (oval under bike).
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(size.x / 2, size.y - 2),
@@ -130,7 +137,7 @@ class PlayerComponent extends PositionComponent
       Paint()..color = const Color(0x66000000),
     );
 
-    // Speed lines when going fast (level 5+).
+    // Speed lines at high levels.
     if (gameRef.level >= 5) {
       _renderSpeedLines(canvas, s);
     }
@@ -138,18 +145,19 @@ class PlayerComponent extends PositionComponent
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
 
-    // Sway angle: ±2° at 1.5 Hz.
+    // Sway oscillation.
     final swayRad = (_swayAmplitudeDeg * pi / 180) *
         sin(_swayTimer * 2 * pi * _swayHz);
     canvas.rotate(swayRad);
 
-    canvas.scale(s, s * 0.85);
+    canvas.scale(s, s * 0.88);
     canvas.translate(-size.x / 2, -size.y / 2);
 
     if (_opacity < 1.0) {
       canvas.saveLayer(
         Rect.fromLTWH(0, 0, size.x, size.y),
-        Paint()..color = Color.fromARGB((_opacity * 255).round(), 255, 255, 255),
+        Paint()
+          ..color = Color.fromARGB((_opacity * 255).round(), 255, 255, 255),
       );
     }
 
@@ -170,18 +178,14 @@ class PlayerComponent extends PositionComponent
   }
 
   void _renderSpeedLines(Canvas canvas, double scale) {
-    final linePaint = Paint()
-      ..color = const Color(0x88FFFFFF)
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
     final speedFraction =
         ((gameRef.scrollSpeed - 300) / 200).clamp(0.0, 1.0);
     if (speedFraction <= 0) return;
-    final alpha = speedFraction * 0.7;
-    linePaint.color = const Color(0xFFFFFFFF).withValues(alpha: alpha);
-
-    const numLines = 4;
-    for (int i = 0; i < numLines; i++) {
+    final linePaint = Paint()
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: speedFraction * 0.7)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 4; i++) {
       final lineY = size.y * (0.30 + i * 0.12);
       final lineLen = (20 + i * 8) * scale;
       canvas.drawLine(
@@ -192,124 +196,144 @@ class PlayerComponent extends PositionComponent
     }
   }
 
+  // ── 3/4 Diagonal bike rendering (Paperboy-style) ──────────────────────────
+
   void _renderBike(Canvas canvas) {
     final w = size.x;
     final h = size.y;
 
-    // Motion blur ovals behind rear wheel.
+    // Rear wheel (lower-left — closer to viewer).
+    // Front wheel (upper-right — further into screen, slightly smaller).
+    const rearX = 0.35;
+    const rearY = 0.76;
+    const frontX = 0.65;
+    const frontY = 0.26;
+    const rearR = 10.0;
+    const frontR = 8.5; // slightly smaller = appears further away
+
+    final rearCenter = Offset(w * rearX, h * rearY);
+    final frontCenter = Offset(w * frontX, h * frontY);
+
+    // Motion-blur ovals behind rear wheel.
     for (int i = 1; i <= 3; i++) {
       canvas.drawOval(
         Rect.fromCenter(
-          center: Offset(w * 0.50, h * 0.78 + i * 4.0),
-          width: w * 0.22,
-          height: 5.5,
+          center: Offset(rearCenter.dx, rearCenter.dy + i * 3.5),
+          width: rearR * 2 * 0.9,
+          height: 5.0,
         ),
-        Paint()..color = Color.fromARGB(40 - i * 10, 120, 120, 120),
+        Paint()..color = Color.fromARGB(35 - i * 9, 100, 100, 100),
       );
     }
 
-    final wheelPaint = Paint()..color = const Color(0xFF1A1A1A);
-    final hubPaint = Paint()..color = const Color(0xFFCCCCCC);
+    final wheelFill = Paint()..color = const Color(0xFF111111);
     final tirePaint = Paint()
-      ..color = const Color(0xFF1A1A1A)
+      ..color = const Color(0xFF111111)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5;
-
-    const rearWheelX = 0.50;
-    const rearWheelY = 0.74;
-    const frontWheelY = 0.24;
-    const wheelR = 9.0;
-
-    final rear = Offset(w * rearWheelX, h * rearWheelY);
-    final front = Offset(w * rearWheelX, h * frontWheelY);
-
-    canvas.drawCircle(rear, wheelR, wheelPaint);
-    canvas.drawCircle(front, wheelR, wheelPaint);
-    canvas.drawCircle(rear, wheelR + 1.5, tirePaint);
-    canvas.drawCircle(front, wheelR + 1.5, tirePaint);
-    canvas.drawCircle(rear, 2.8, hubPaint);
-    canvas.drawCircle(front, 2.8, hubPaint);
-
-    // 4-spoke cross pattern.
+      ..strokeWidth = 3.0;
+    final hubPaint = Paint()..color = const Color(0xFFCCCCCC);
     final spokePaint = Paint()
-      ..color = const Color(0xFF777777)
-      ..strokeWidth = 1.2;
-    for (final center in [rear, front]) {
+      ..color = const Color(0xFF666666)
+      ..strokeWidth = 1.1;
+
+    void drawWheel(Offset center, double r) {
+      canvas.drawCircle(center, r, wheelFill);
+      canvas.drawCircle(center, r + 1.2, tirePaint);
+      canvas.drawCircle(center, 2.5, hubPaint);
       canvas.save();
       canvas.translate(center.dx, center.dy);
       canvas.rotate(_wheelAngle);
-      canvas.drawLine(const Offset(0, -wheelR * 0.88), const Offset(0, wheelR * 0.88), spokePaint);
+      canvas.drawLine(Offset(0, -r * 0.85), Offset(0, r * 0.85), spokePaint);
       canvas.rotate(pi / 2);
-      canvas.drawLine(const Offset(0, -wheelR * 0.88), const Offset(0, wheelR * 0.88), spokePaint);
+      canvas.drawLine(Offset(0, -r * 0.85), Offset(0, r * 0.85), spokePaint);
       canvas.restore();
     }
 
-    // Bike diamond frame.
-    final framePaint = Paint()
-      ..color = const Color(0xFF9E9E9E)
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-    final bb = Offset(w * 0.50, h * 0.52);
-    final seat = Offset(w * 0.50, h * 0.36);
-    canvas.drawLine(rear, bb, framePaint);
-    canvas.drawLine(front, bb, framePaint);
-    canvas.drawLine(seat, bb, framePaint);
-    canvas.drawLine(front, seat, framePaint);
-    canvas.drawLine(rear, seat, framePaint..strokeWidth = 2.0);
+    drawWheel(rearCenter, rearR);
+    drawWheel(frontCenter, frontR);
 
-    // Handlebars.
+    // Bike frame — diagonal from rear to front (3/4 side profile).
+    final framePaint = Paint()
+      ..color = const Color(0xFF888888)
+      ..strokeWidth = 2.8
+      ..strokeCap = StrokeCap.round;
+
+    // Bottom bracket (where pedals are).
+    final bb = Offset(w * 0.52, h * 0.56);
+    // Seat tube top.
+    final seatTop = Offset(w * 0.44, h * 0.38);
+
+    // Chain stays (rear wheel → bb).
+    canvas.drawLine(rearCenter, bb, framePaint);
+    // Seat stays (rear wheel → seat top).
+    canvas.drawLine(rearCenter, seatTop, framePaint..strokeWidth = 1.8);
+    // Down tube (front wheel → bb).
+    canvas.drawLine(frontCenter, bb, framePaint..strokeWidth = 2.8);
+    // Top tube / seat tube.
+    canvas.drawLine(seatTop, bb, framePaint..strokeWidth = 2.4);
+    // Fork (bb area → front wheel).
     canvas.drawLine(
-      Offset(w * 0.28, h * 0.20),
-      Offset(w * 0.72, h * 0.20),
+      Offset(w * 0.58, h * 0.42),
+      frontCenter,
+      framePaint..strokeWidth = 2.4,
+    );
+
+    // Handlebars (at front wheel, going slightly left = toward viewer).
+    canvas.drawLine(
+      Offset(w * 0.56, h * 0.22),
+      Offset(w * 0.74, h * 0.22),
       Paint()
-        ..color = const Color(0xFF333333)
+        ..color = const Color(0xFF444444)
         ..strokeWidth = 3.0
         ..strokeCap = StrokeCap.round,
     );
 
-    // Delivery bag.
-    final bagRect = Rect.fromLTWH(w * 0.20, h * 0.74, w * 0.60, h * 0.13);
+    // Delivery bag (on rear rack, lower-left area).
+    final bagRect = Rect.fromLTWH(w * 0.10, h * 0.74, w * 0.50, h * 0.12);
     canvas.drawRRect(
       RRect.fromRectAndRadius(bagRect, const Radius.circular(3)),
       Paint()..color = const Color(0xFFFDD835),
     );
     canvas.drawLine(
-      Offset(w * 0.50, h * 0.74),
-      Offset(w * 0.50, h * 0.87),
+      Offset(w * 0.35, h * 0.74),
+      Offset(w * 0.35, h * 0.86),
       Paint()..color = const Color(0xFFE65100)..strokeWidth = 1.5,
     );
 
-    // Pedalling legs.
+    // Pedalling legs (visible from the side profile).
     final legPaint = Paint()..color = const Color(0xFF1A3A88);
-    final leftBottom = _pedalPhase ? h * 0.64 : h * 0.72;
-    final rightBottom = _pedalPhase ? h * 0.72 : h * 0.64;
+    final leftBottom = _pedalPhase ? h * 0.66 : h * 0.74;
+    final rightBottom = _pedalPhase ? h * 0.74 : h * 0.66;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTRB(w * 0.28, h * 0.54, w * 0.42, leftBottom),
+        Rect.fromLTRB(w * 0.34, h * 0.54, w * 0.46, leftBottom),
         const Radius.circular(3),
       ),
       legPaint,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTRB(w * 0.58, h * 0.54, w * 0.72, rightBottom),
+        Rect.fromLTRB(w * 0.58, h * 0.54, w * 0.70, rightBottom),
         const Radius.circular(3),
       ),
       legPaint,
     );
     final shoePaint = Paint()..color = const Color(0xFF111111);
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(w * 0.35, leftBottom), width: 8, height: 4),
+      Rect.fromCenter(
+          center: Offset(w * 0.40, leftBottom), width: 9, height: 4),
       shoePaint,
     );
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(w * 0.65, rightBottom), width: 8, height: 4),
+      Rect.fromCenter(
+          center: Offset(w * 0.64, rightBottom), width: 9, height: 4),
       shoePaint,
     );
 
-    // Torso.
-    final torsoRect = Rect.fromLTWH(w * 0.20, h * 0.34, w * 0.60, h * 0.26);
-    final torsoRRect = RRect.fromRectAndRadius(torsoRect, const Radius.circular(5));
+    // Torso — leaning forward toward the handlebar.
+    final torsoRect = Rect.fromLTWH(w * 0.30, h * 0.34, w * 0.50, h * 0.24);
+    final torsoRRect =
+        RRect.fromRectAndRadius(torsoRect, const Radius.circular(5));
     canvas.drawRRect(
       torsoRRect,
       Paint()
@@ -319,24 +343,21 @@ class PlayerComponent extends PositionComponent
           [const Color(0xFF1E6BCC), const Color(0xFF0A3D8A)],
         ),
     );
-    if (isVip) {
-      canvas.drawRRect(torsoRRect, Paint()..color = vipTint);
-    }
+    if (isVip) canvas.drawRRect(torsoRRect, Paint()..color = vipTint);
 
-    // Throw-arm extension: left arm swings out to throw position.
+    // Throw-arm: left arm extends forward (toward road left) on throw.
     if (_throwArmTimer > 0) {
-      final t = _throwArmTimer / _throwArmDuration; // 1→0
-      final armX = w * 0.20 - t * 14;
-      final armY = h * 0.40;
+      final t = _throwArmTimer / _throwArmDuration;
+      final armX = w * 0.28 - t * 16;
+      final armY = h * 0.38;
       canvas.drawLine(
-        Offset(w * 0.22, h * 0.42),
+        Offset(w * 0.30, h * 0.40),
         Offset(armX, armY),
         Paint()
           ..color = const Color(0xFF1E6BCC)
-          ..strokeWidth = 4.0
+          ..strokeWidth = 4.5
           ..strokeCap = StrokeCap.round,
       );
-      // Fist/hand dot.
       canvas.drawCircle(
         Offset(armX, armY),
         3.5,
@@ -344,41 +365,42 @@ class PlayerComponent extends PositionComponent
       );
     }
 
-    // Backpack.
+    // Backpack (visible on rider's back, right side of sprite).
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.62, h * 0.36, w * 0.16, h * 0.18),
+        Rect.fromLTWH(w * 0.58, h * 0.36, w * 0.16, h * 0.18),
         const Radius.circular(3),
       ),
       Paint()..color = const Color(0xFF6D4C41),
     );
 
-    // Head.
+    // Head (3/4 view — slightly offset toward front).
     canvas.drawCircle(
-      Offset(w * 0.50, h * 0.23),
+      Offset(w * 0.53, h * 0.23),
       6.5,
       Paint()..color = const Color(0xFFFFCC80),
     );
 
-    // Helmet.
+    // Helmet (red, 3/4 view).
     final helmetPaint = Paint()
       ..shader = Gradient.linear(
-        Offset(w * 0.34, h * 0.13),
-        Offset(w * 0.66, h * 0.22),
+        Offset(w * 0.38, h * 0.12),
+        Offset(w * 0.68, h * 0.22),
         [const Color(0xFFEF5350), const Color(0xFFB71C1C)],
       );
-    final helmetPath = Path()
-      ..addOval(Rect.fromCenter(
-        center: Offset(w * 0.50, h * 0.17),
-        width: 16,
-        height: 10,
-      ));
-    canvas.drawPath(helmetPath, helmetPaint);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.53, h * 0.17),
+        width: 17,
+        height: 11,
+      ),
+      helmetPaint,
+    );
 
     // Visor glare.
     canvas.drawArc(
       Rect.fromCenter(
-        center: Offset(w * 0.43, h * 0.15),
+        center: Offset(w * 0.46, h * 0.14),
         width: 7,
         height: 4.5,
       ),
@@ -386,7 +408,7 @@ class PlayerComponent extends PositionComponent
       pi * 0.45,
       false,
       Paint()
-        ..color = const Color(0x99FFFFFF)
+        ..color = const Color(0x88FFFFFF)
         ..strokeWidth = 1.6
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round,
@@ -394,7 +416,7 @@ class PlayerComponent extends PositionComponent
 
     // Visor brim.
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.30, h * 0.215, w * 0.40, 2.5),
+      Rect.fromLTWH(w * 0.34, h * 0.215, w * 0.38, 2.5),
       Paint()..color = const Color(0xFF8B0000),
     );
   }
