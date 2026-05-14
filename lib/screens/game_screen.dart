@@ -1,6 +1,8 @@
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import '../game/delivery_dash_game.dart';
+import '../game/difficulty.dart';
+import '../services/store_service.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -10,26 +12,44 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  late final DeliveryDashGame _game;
+  DeliveryDashGame? _game;
 
   Offset? _panStart;
   bool _panIsDrag = false;
 
   @override
-  void initState() {
-    super.initState();
-    _game = DeliveryDashGame();
-    _game.onGameOver = (score, highScore, isNewRecord) {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed(
-        '/gameover',
-        arguments: {
-          'score': score,
-          'highScore': highScore,
-          'isNewRecord': isNewRecord,
-        },
-      );
-    };
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_game != null) return;
+
+    final arg = ModalRoute.of(context)?.settings.arguments;
+    final difficulty =
+        arg is Difficulty ? arg : Difficulty.medium;
+
+    final store = StoreService.instance;
+    final config = GameConfig(
+      difficulty: difficulty,
+      hasShield: store.shieldOwned,
+      speedBoostStart: store.speedBoostOwned,
+      doubleCoins: store.doubleCoinsOwned,
+      paperBlitz: store.paperBlitzOwned,
+      vipSkin: store.vipSkinOwned,
+    );
+
+    _game = DeliveryDashGame(config: config)
+      ..onGameOver = (score, highScore, isNewRecord, coinsEarned) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed(
+          '/gameover',
+          arguments: {
+            'score': score,
+            'highScore': highScore,
+            'isNewRecord': isNewRecord,
+            'coinsEarned': coinsEarned,
+            'difficulty': difficulty,
+          },
+        );
+      };
   }
 
   void _onPanStart(DragStartDetails d) {
@@ -44,16 +64,16 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _onPanEnd(DragEndDetails d) {
-    if (_panStart == null) return;
+    if (_panStart == null || _game == null) return;
     if (_panIsDrag) {
       final vx = d.velocity.pixelsPerSecond.dx;
       if (vx < -180) {
-        _game.onSwipeLeft();
+        _game!.onSwipeLeft();
       } else if (vx > 180) {
-        _game.onSwipeRight();
+        _game!.onSwipeRight();
       }
     } else {
-      _game.onTap();
+      _game!.onTap();
     }
     _panStart = null;
     _panIsDrag = false;
@@ -61,6 +81,13 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final game = _game;
+    if (game == null) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
@@ -68,9 +95,9 @@ class _GameScreenState extends State<GameScreen> {
         onPanUpdate: _onPanUpdate,
         onPanEnd: _onPanEnd,
         child: GameWidget(
-          game: _game,
+          game: game,
           overlayBuilderMap: {
-            'Tutorial': (ctx, game) => const _TutorialOverlay(),
+            'Tutorial': (ctx, g) => const _TutorialOverlay(),
           },
         ),
       ),
@@ -88,7 +115,7 @@ class _TutorialOverlay extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 40),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.75),
+          color: Colors.black.withValues(alpha: 0.78),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.orangeAccent, width: 2),
         ),
@@ -99,33 +126,29 @@ class _TutorialOverlay extends StatelessWidget {
               '← SWIPE →',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 6),
-            Text(
-              'change lanes',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            SizedBox(height: 16),
+            SizedBox(height: 4),
+            Text('change lanes',
+                style: TextStyle(color: Colors.white70, fontSize: 13)),
+            SizedBox(height: 14),
             Text(
               'TAP',
               style: TextStyle(
                 color: Colors.orangeAccent,
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 6),
+            SizedBox(height: 4),
+            Text('throw newspaper',
+                style: TextStyle(color: Colors.white70, fontSize: 13)),
+            SizedBox(height: 14),
             Text(
-              'throw newspaper',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Hit BLUE mailboxes!',
-              style: TextStyle(color: Colors.lightBlueAccent, fontSize: 16),
+              'BLUE = deliver  •  RED = avoid',
+              style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13),
             ),
           ],
         ),

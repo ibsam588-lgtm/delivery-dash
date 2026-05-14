@@ -1,8 +1,8 @@
 import 'dart:math';
 import 'package:flame/components.dart';
-import '../delivery_dash_game.dart';
-import '../components/obstacle.dart';
 import '../components/mailbox.dart';
+import '../components/obstacle.dart';
+import '../delivery_dash_game.dart';
 
 class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   double _obstacleTimer = 0;
@@ -11,8 +11,14 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
 
   static const List<ObstacleType> _types = ObstacleType.values;
 
-  double get _obstacleInterval => (2.2 / gameRef.speedMultiplier).clamp(0.6, 2.2);
-  double get _mailboxInterval => (1.8 / gameRef.speedMultiplier).clamp(0.9, 1.8);
+  double get _obstacleInterval {
+    final base = gameRef.config.difficultyConfig.spawnInterval;
+    final factor = gameRef.config.difficultyConfig.startSpeed /
+        gameRef.scrollSpeed;
+    return (base * factor).clamp(0.5, base);
+  }
+
+  double get _mailboxInterval => _obstacleInterval * 1.1;
 
   @override
   void update(double dt) {
@@ -40,11 +46,11 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   }
 
   void _spawnMailbox() {
-    final lane = _rng.nextInt(3);
-    // Red mailbox chance grows with speed (max 40% at top speed)
-    final redChance = ((gameRef.speedMultiplier - 1.0) * 0.2).clamp(0.0, 0.4);
+    final speedRatio =
+        gameRef.scrollSpeed / gameRef.config.difficultyConfig.startSpeed;
+    final redChance = ((speedRatio - 1.0) * 0.2).clamp(0.0, 0.45);
     final isBlue = _rng.nextDouble() > redChance;
     final onLeft = _rng.nextBool();
-    gameRef.add(MailboxComponent(isBlue: isBlue, lane: lane, onLeft: onLeft));
+    gameRef.add(MailboxComponent(isBlue: isBlue, onLeft: onLeft));
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../game/difficulty.dart';
 import '../services/ad_service.dart';
 
 class GameOverScreen extends StatelessWidget {
@@ -7,10 +8,13 @@ class GameOverScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     final score = args?['score'] as int? ?? 0;
     final highScore = args?['highScore'] as int? ?? 0;
     final isNewRecord = args?['isNewRecord'] as bool? ?? false;
+    final coinsEarned = args?['coinsEarned'] as int? ?? 0;
+    final difficulty = args?['difficulty'] as Difficulty? ?? Difficulty.medium;
 
     return Scaffold(
       body: Container(
@@ -18,7 +22,7 @@ class GameOverScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A237E), Color(0xFF283593)],
+            colors: [Color(0xFF0E0E11), Color(0xFF1A1A24)],
           ),
         ),
         child: SafeArea(
@@ -44,31 +48,43 @@ class GameOverScreen extends StatelessWidget {
                         shadows: const [Shadow(color: Colors.black, blurRadius: 6)],
                       ),
                     ),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 30),
                     if (isNewRecord) ...[
                       Text(
                         '★ NEW RECORD! ★',
                         style: GoogleFonts.pressStart2p(
-                          fontSize: 14,
-                          color: Colors.yellowAccent,
+                          fontSize: 13,
+                          color: const Color(0xFFFFD54F),
                         ),
                       ),
                       const SizedBox(height: 12),
                     ],
                     _ScoreBox(label: 'SCORE', value: score, color: Colors.white),
-                    const SizedBox(height: 12),
-                    _ScoreBox(label: 'BEST', value: highScore, color: Colors.yellowAccent),
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 10),
+                    _ScoreBox(
+                      label: 'BEST',
+                      value: highScore,
+                      color: const Color(0xFFFFD54F),
+                    ),
+                    const SizedBox(height: 10),
+                    _ScoreBox(
+                      label: '🪙 COINS EARNED',
+                      value: coinsEarned,
+                      color: const Color(0xFFFFD54F),
+                    ),
+                    const SizedBox(height: 30),
                     _MenuButton(
                       label: 'PLAY AGAIN',
-                      color: const Color(0xFFFF6F00),
-                      onTap: () => Navigator.of(context)
-                          .pushReplacementNamed('/game'),
+                      color: const Color(0xFF2E7D32),
+                      onTap: () => Navigator.of(context).pushReplacementNamed(
+                        '/game',
+                        arguments: difficulty,
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     _MenuButton(
                       label: 'MENU',
-                      color: const Color(0xFF37474F),
+                      color: const Color(0xFF455A64),
                       onTap: () => Navigator.of(context)
                           .pushNamedAndRemoveUntil('/', (r) => false),
                     ),
@@ -92,26 +108,27 @@ class _ScoreBox extends StatelessWidget {
   final int value;
   final Color color;
 
-  const _ScoreBox({required this.label, required this.value, required this.color});
+  const _ScoreBox(
+      {required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.4),
+        color: Colors.black.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
           Text(
             label,
-            style: GoogleFonts.pressStart2p(fontSize: 11, color: Colors.white60),
+            style: GoogleFonts.pressStart2p(fontSize: 10, color: Colors.white60),
           ),
           const SizedBox(height: 6),
           Text(
             '$value',
-            style: GoogleFonts.pressStart2p(fontSize: 26, color: color),
+            style: GoogleFonts.pressStart2p(fontSize: 22, color: color),
           ),
         ],
       ),
@@ -124,7 +141,8 @@ class _MenuButton extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _MenuButton({required this.label, required this.color, required this.onTap});
+  const _MenuButton(
+      {required this.label, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -132,18 +150,18 @@ class _MenuButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: 220,
-        height: 56,
+        height: 54,
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(12),
           boxShadow: const [
-            BoxShadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 3)),
+            BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 4)),
           ],
         ),
         child: Center(
           child: Text(
             label,
-            style: GoogleFonts.pressStart2p(fontSize: 16, color: Colors.white),
+            style: GoogleFonts.pressStart2p(fontSize: 15, color: Colors.white),
           ),
         ),
       ),
