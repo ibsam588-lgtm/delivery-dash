@@ -3,6 +3,7 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
+import 'bike_trail.dart';
 
 /// Sprite-based player. Fixed size, flat top-down, drag-to-move.
 class PlayerComponent extends SpriteComponent
@@ -10,10 +11,12 @@ class PlayerComponent extends SpriteComponent
   static const Color vipTint = Color(0xCCFFD54F);
   static const double _followSpeed = 8.0;
   static const double _flashInterval = 0.1;
+  static const double _trailInterval = 0.06;
 
   final bool isVip;
   double _targetX = 0;
   double _flashTimer = 0;
+  double _trailTimer = 0;
 
   // Wet flash overlay.
   double _wetTimer = 0;
@@ -24,7 +27,7 @@ class PlayerComponent extends SpriteComponent
 
   @override
   Future<void> onLoad() async {
-    sprite = Sprite(Flame.images.fromCache('mailbox_blue.png'));
+    sprite = Sprite(Flame.images.fromCache('player.png'));
     paint
       ..filterQuality = FilterQuality.none
       ..isAntiAlias = false;
@@ -70,6 +73,17 @@ class PlayerComponent extends SpriteComponent
     } else {
       _flashTimer = 0;
       if (opacity != 1.0) opacity = 1.0;
+    }
+
+    // Emit a dust puff at the rear wheel periodically while playing.
+    if (gameRef.state == GameState.playing) {
+      _trailTimer += dt;
+      if (_trailTimer >= _trailInterval) {
+        _trailTimer = 0;
+        gameRef.add(BikeTrailPuff(
+          position: position + Vector2(0, size.y * 0.35),
+        ));
+      }
     }
   }
 

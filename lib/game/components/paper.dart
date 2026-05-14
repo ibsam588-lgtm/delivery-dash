@@ -5,6 +5,8 @@ import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
 import 'mailbox.dart';
+import 'obstacle.dart';
+import 'parked_car.dart';
 
 class PaperComponent extends SpriteComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
@@ -100,6 +102,21 @@ class PaperComponent extends SpriteComponent
       gameRef.onPaperHitMailbox(other.isBlue, worldHit);
       other.removeFromParent();
       removeFromParent();
+      return;
+    }
+    if (other is ObstacleComponent) {
+      _hasHit = true;
+      final worldHit = other.absolutePosition.clone();
+      gameRef.onPaperHitObstacle(other, worldHit);
+      removeFromParent();
+      return;
+    }
+    if (other is ParkedCarComponent) {
+      _hasHit = true;
+      final worldHit = other.absolutePosition.clone();
+      gameRef.onPaperHitParkedCar(other, worldHit);
+      removeFromParent();
+      return;
     }
   }
 }
