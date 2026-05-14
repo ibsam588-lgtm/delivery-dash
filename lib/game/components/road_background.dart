@@ -1,33 +1,29 @@
 import 'dart:ui';
 import 'package:flame/components.dart';
 import '../delivery_dash_game.dart';
-import '../systems/lane_manager.dart';
 
-/// Draws a perspective trapezoid road that widens from a vanishing
-/// point at the top center to a wide base at the bottom.
+/// Perspective road with textured asphalt, white-curb + thin-gray rumble
+/// strips, brightly foreshortened center dashes, and faint tire tracks
+/// along each lane.
 class RoadBackground extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  static const Color roadColor = Color(0xFF2C2C2C);
-  static const Color roadShadeColor = Color(0xFF1B1B1B);
+  static const Color roadColor = Color(0xFF1A1A1A);
+  static const Color asphaltNoiseColor = Color(0xFF222222);
+  static const Color tireTrackColor = Color(0xFF101010);
   static const Color sidewalkColor = Color(0xFF4CAF50);
   static const Color sidewalkBandColor = Color(0xFF3F9E45);
-  static const Color skyColor = Color(0xFF1B2032);
-  static const Color curbColor = Color(0xFFFFFFFF);
+  static const Color curbWhite = Color(0xFFFFFFFF);
+  static const Color rumbleGray = Color(0xFF6A6A6A);
   static const Color laneLineColor = Color(0xFFFFD700);
 
-  static const int dashCount = 14;
+  static const int dashCount = 18;
   static const double bandSpacing = 64.0;
 
   final Paint _roadPaint = Paint()..color = roadColor;
-  final Paint _roadShadePaint = Paint()..color = roadShadeColor;
   final Paint _sidewalkPaint = Paint()..color = sidewalkColor;
   final Paint _sidewalkBandPaint = Paint()..color = sidewalkBandColor;
-  final Paint _skyPaint = Paint()..color = skyColor;
-  final Paint _curbPaint = Paint()..color = curbColor..strokeWidth = 3;
-  final Paint _linePaint = Paint()
-    ..color = laneLineColor
-    ..strokeWidth = 5
-    ..strokeCap = StrokeCap.square;
+  final Paint _noisePaint = Paint()..color = asphaltNoiseColor;
+  final Paint _tirePaint = Paint()..color = tireTrackColor;
 
   double _dashOffset = 0;
   double _bandOffset = 0;
@@ -48,75 +44,60 @@ class RoadBackground extends PositionComponent
     final h = size.y;
     final lm = gameRef.laneManager;
 
-    // Sky: small gradient strip from top down to where the road meets
-    // the horizon-ish region (we just fill below the entire screen with
-    // sidewalk and road, but a darker tint at the top sells the depth).
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h * 0.06), _skyPaint);
+    final topL = Offset(lm.roadLeftAt(0), 0);
+    final topR = Offset(lm.roadRightAt(0), 0);
+    final botL = Offset(lm.roadLeftAt(h), h);
+    final botR = Offset(lm.roadRightAt(h), h);
 
-    final topLeft = Offset(lm.roadLeftAt(0), 0);
-    final topRight = Offset(lm.roadRightAt(0), 0);
-    final bottomLeft = Offset(lm.roadLeftAt(h), h);
-    final bottomRight = Offset(lm.roadRightAt(h), h);
-
-    // Left sidewalk trapezoid: 0..topLeft at top, 0..bottomLeft at bottom.
+    // ── Grass sidewalks ──────────────────────────────────────────────
     final leftSidewalk = Path()
       ..moveTo(0, 0)
-      ..lineTo(topLeft.dx, 0)
-      ..lineTo(bottomLeft.dx, h)
+      ..lineTo(topL.dx, 0)
+      ..lineTo(botL.dx, h)
       ..lineTo(0, h)
       ..close();
     canvas.drawPath(leftSidewalk, _sidewalkPaint);
-
-    // Right sidewalk trapezoid.
     final rightSidewalk = Path()
-      ..moveTo(topRight.dx, 0)
+      ..moveTo(topR.dx, 0)
       ..lineTo(w, 0)
       ..lineTo(w, h)
-      ..lineTo(bottomRight.dx, h)
+      ..lineTo(botR.dx, h)
       ..close();
     canvas.drawPath(rightSidewalk, _sidewalkPaint);
 
-    // Scrolling mow bands on grass. Drawn as full-width horizontal lines
-    // then clipped to the sidewalk paths visually by drawing on top of
-    // the sidewalk fill but masking against sidewalk Y-only rectangles.
+    // Mow bands on the grass.
     _drawSidewalkBands(canvas, h);
 
-    // Road trapezoid.
+    // ── Asphalt ──────────────────────────────────────────────────────
     final road = Path()
-      ..moveTo(topLeft.dx, 0)
-      ..lineTo(topRight.dx, 0)
-      ..lineTo(bottomRight.dx, h)
-      ..lineTo(bottomLeft.dx, h)
+      ..moveTo(topL.dx, 0)
+      ..lineTo(topR.dx, 0)
+      ..lineTo(botR.dx, h)
+      ..lineTo(botL.dx, h)
       ..close();
     canvas.drawPath(road, _roadPaint);
 
-    // Subtle inner shading along road edges (thin trapezoids).
-    const shadeFrac = 0.10;
-    final leftShade = Path()
-      ..moveTo(topLeft.dx, 0)
-      ..lineTo(
-          topLeft.dx + (lm.roadWidthAt(0) * shadeFrac), 0)
-      ..lineTo(
-          bottomLeft.dx + (lm.roadWidthAt(h) * shadeFrac), h)
-      ..lineTo(bottomLeft.dx, h)
-      ..close();
-    canvas.drawPath(leftShade, _roadShadePaint);
-    final rightShade = Path()
-      ..moveTo(
-          topRight.dx - (lm.roadWidthAt(0) * shadeFrac), 0)
-      ..lineTo(topRight.dx, 0)
-      ..lineTo(bottomRight.dx, h)
-      ..lineTo(
-          bottomRight.dx - (lm.roadWidthAt(h) * shadeFrac), h)
-      ..close();
-    canvas.drawPath(rightShade, _roadShadePaint);
+    // Subtle 2x2 noise dots, dithered along the road, scrolling.
+    _drawAsphaltNoise(canvas, h, lm);
 
-    // White curb lines at the road edges (converging toward vp).
-    canvas.drawLine(topLeft, bottomLeft, _curbPaint);
-    canvas.drawLine(topRight, bottomRight, _curbPaint);
+    // Faint worn tire tracks along each "lane" (left and right thirds).
+    _drawTireTracks(canvas, h, lm);
 
-    // Center dashed line with perspective foreshortening.
-    _drawCenterDashes(canvas, h);
+    // ── Road edge: thick white + gap + thin gray rumble strip ──────
+    canvas.drawLine(topL, botL, Paint()
+      ..color = curbWhite
+      ..strokeWidth = 3);
+    canvas.drawLine(topR, botR, Paint()
+      ..color = curbWhite
+      ..strokeWidth = 3);
+    // Thin gray rumble strip just inside the white.
+    _drawInsetLine(canvas, h, lm, fromEdge: 5, color: rumbleGray, width: 1.4,
+        leftSide: true);
+    _drawInsetLine(canvas, h, lm, fromEdge: 5, color: rumbleGray, width: 1.4,
+        leftSide: false);
+
+    // ── Bright yellow center dashes ─────────────────────────────────
+    _drawCenterDashes(canvas, h, lm);
   }
 
   void _drawSidewalkBands(Canvas canvas, double h) {
@@ -126,7 +107,6 @@ class RoadBackground extends PositionComponent
     var y = -spacing + offset;
     while (y < h) {
       if (y >= 0) {
-        // Left sidewalk band: from x=0 to roadLeftAt(y).
         canvas.drawRect(
           Rect.fromLTWH(0, y, lm.roadLeftAt(y), 4),
           _sidewalkBandPaint,
@@ -141,31 +121,84 @@ class RoadBackground extends PositionComponent
     }
   }
 
-  void _drawCenterDashes(Canvas canvas, double h) {
-    // Lay dashes along the road on a depth-uniform schedule so they
-    // shrink and pack together toward the vanishing point.
-    //
-    // We accumulate dashes from y = h upward. Each dash occupies a chunk
-    // of "depth" proportional to the current Y. The scroll offset shifts
-    // every dash forward.
-    final lm = gameRef.laneManager;
-    const dashWorld = 56.0; // dash length in "ground units" at bottom
-    const cycleWorld = 90.0; // dash + gap at bottom
-    final scrollPhase = _dashOffset % cycleWorld;
+  void _drawAsphaltNoise(Canvas canvas, double h, dynamic lm) {
+    // Static dot grid that scrolls with the road. Cheap, draws ~200 dots.
+    const stepX = 18.0;
+    const stepY = 28.0;
+    final phase = _dashOffset % stepY;
+    for (var y = -stepY + phase; y < h; y += stepY) {
+      if (y < 0) continue;
+      final left = lm.roadLeftAt(y);
+      final right = lm.roadRightAt(y);
+      // Slight pattern offset every other row.
+      final shift = ((y ~/ stepY).isEven ? 0.0 : stepX / 2);
+      for (var x = left + 6 + shift; x < right - 6; x += stepX) {
+        canvas.drawRect(Rect.fromLTWH(x, y, 2, 2), _noisePaint);
+      }
+    }
+  }
 
+  void _drawTireTracks(Canvas canvas, double h, dynamic lm) {
+    // Two faint dark strips per lane third, drawn as perspective lines.
+    for (final laneFrac in const [0.30, 0.70]) {
+      final topX = lm.roadLeftAt(0) +
+          lm.roadWidthAt(0) * laneFrac;
+      final botX = lm.roadLeftAt(h) +
+          lm.roadWidthAt(h) * laneFrac;
+      for (final offsetFrac in const [-0.04, 0.04]) {
+        final topOff = topX + lm.roadWidthAt(0) * offsetFrac;
+        final botOff = botX + lm.roadWidthAt(h) * offsetFrac;
+        canvas.drawLine(
+          Offset(topOff, 0),
+          Offset(botOff, h),
+          _tirePaint
+            ..strokeWidth = 4
+            ..strokeCap = StrokeCap.round,
+        );
+      }
+    }
+  }
+
+  void _drawInsetLine(
+    Canvas canvas,
+    double h,
+    dynamic lm, {
+    required double fromEdge,
+    required Color color,
+    required double width,
+    required bool leftSide,
+  }) {
+    final topX = leftSide
+        ? lm.roadLeftAt(0) + fromEdge
+        : lm.roadRightAt(0) - fromEdge;
+    final botX = leftSide
+        ? lm.roadLeftAt(h) + fromEdge
+        : lm.roadRightAt(h) - fromEdge;
+    canvas.drawLine(
+      Offset(topX, 0),
+      Offset(botX, h),
+      Paint()
+        ..color = color
+        ..strokeWidth = width,
+    );
+  }
+
+  void _drawCenterDashes(Canvas canvas, double h, dynamic lm) {
+    const dashWorld = 56.0;
+    const cycleWorld = 90.0;
+    final scrollPhase = _dashOffset % cycleWorld;
     var ground = -scrollPhase;
     while (ground < dashCount * cycleWorld) {
       final yA = h - ground - dashWorld;
       final yB = h - ground;
       if (yB < 0) break;
-      // Skip dashes whose body sits past the horizon.
       if (yA < h * 0.04) {
         ground += cycleWorld;
         continue;
       }
       final cx1 = lm.roadCenterAt(yA);
       final cx2 = lm.roadCenterAt(yB);
-      final thickness = (lm.scaleAt(yB) * 5).clamp(1.0, 6.0);
+      final thickness = (lm.scaleAt(yB) * 5).clamp(1.5, 6.0);
       canvas.drawLine(
         Offset(cx1, yA),
         Offset(cx2, yB),
@@ -176,14 +209,5 @@ class RoadBackground extends PositionComponent
       );
       ground += cycleWorld;
     }
-    // Reference _linePaint so its initializer isn't reported as dead code
-    // — we may need it again if we ever switch back to non-perspective.
-    canvas.save();
-    canvas.restore();
-    // ignore: unused_local_variable
-    final _ = _linePaint;
   }
-
-  // Expose perspective helpers for components that want them.
-  LaneManager get perspective => gameRef.laneManager;
 }

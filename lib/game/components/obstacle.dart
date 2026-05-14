@@ -1,8 +1,8 @@
 import 'dart:math';
-import 'dart:ui';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
+import 'package:flutter/material.dart';
 import '../delivery_dash_game.dart';
 import 'player.dart';
 
@@ -16,9 +16,6 @@ enum ObstacleType {
   hydrant,
 }
 
-/// Base size for each obstacle type at scale 1.0 (i.e. when at the
-/// bottom of the screen). Actual rendered size shrinks toward the
-/// vanishing point.
 Vector2 _baseSizeFor(ObstacleType t) {
   switch (t) {
     case ObstacleType.car:
@@ -41,25 +38,25 @@ Vector2 _baseSizeFor(ObstacleType t) {
 class ObstacleComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
   final ObstacleType type;
-  final double laneFraction; // 0..1 across road, or special values
+  final double laneFraction;
   final int carVariant;
   final bool onRightSidewalk;
 
-  // Behavior parameters set in constructor.
   final double _speedFactor;
   final bool _isOvertaker;
 
-  // Sprite is null for hydrant (drawn procedurally).
   Sprite? _sprite;
+  final Paint _spritePaint = Paint()
+    ..filterQuality = FilterQuality.none
+    ..isAntiAlias = false;
 
   bool _hasHitPlayer = false;
   final Vector2 _baseSize;
 
-  // For animated obstacles.
   final double _animPhase = Random().nextDouble() * 2 * pi;
   double _life = 0;
   final double _zigzagSeed = Random().nextDouble() * 2 * pi;
-  final double _zigzagDir = 1; // for dogs that run across the road
+  final double _zigzagDir = 1;
   double _dogStartX = 0;
 
   ObstacleComponent({
@@ -96,7 +93,7 @@ class ObstacleComponent extends PositionComponent
             return 'worker.png';
         }
       case ObstacleType.dog:
-        return 'cone.png';
+        return null; // drawn procedurally
       case ObstacleType.worker:
         return 'barrier.png';
       case ObstacleType.cone:
@@ -106,7 +103,7 @@ class ObstacleComponent extends PositionComponent
       case ObstacleType.pothole:
         return 'house_1.png';
       case ObstacleType.hydrant:
-        return null;
+        return null; // drawn procedurally
     }
   }
 
@@ -118,8 +115,6 @@ class ObstacleComponent extends PositionComponent
     }
     size = _baseSize.clone();
 
-    // Initial position: just above the screen at depth ~ -size.y, X chosen
-    // by lane fraction or sidewalk position.
     final lm = gameRef.laneManager;
     const initialY = -10.0;
     final scale = lm.scaleAt(initialY);
@@ -151,7 +146,6 @@ class ObstacleComponent extends PositionComponent
     final lm = gameRef.laneManager;
     final road = gameRef.scrollSpeed;
 
-    // Vertical movement: scrolling speed with optional overtake bonus.
     double vy;
     if (type == ObstacleType.car) {
       final base = road * _speedFactor;
@@ -161,16 +155,13 @@ class ObstacleComponent extends PositionComponent
     }
     position.y += vy * dt;
 
-    // Rescale based on current depth so size shrinks toward the horizon.
     final scale = lm.scaleAt(position.y);
     final newSize = _baseSize * scale;
-    // Keep hitbox proportional.
     if ((newSize - size).length > 0.5) {
       size = newSize;
       _resizeHitbox();
     }
 
-    // Recompute X so we stay aligned with the converging road/sidewalk.
     if (onRightSidewalk) {
       final sidewalkLeft = lm.roadRightAt(position.y);
       final sidewalkRight = gameRef.size.x;
@@ -180,19 +171,15 @@ class ObstacleComponent extends PositionComponent
       position.x = lm.roadXFromFraction(laneFraction, position.y);
     }
 
-    // Per-type behaviors layered on top.
     switch (type) {
       case ObstacleType.worker:
-        // Bob up/down 4px at ~1.5 Hz.
         final bob = sin((_life + _animPhase) * 2 * pi * 1.5) * 4 * scale;
-        position.y += bob * dt; // small drift, but main motion is scroll
+        position.y += bob * dt;
         break;
       case ObstacleType.dog:
-        // Run laterally across the road in a sine pattern.
         final amplitude = lm.roadWidthAt(position.y) * 0.45;
         final phase = _life * 1.6 + _zigzagSeed;
         position.x = _dogStartX + sin(phase) * amplitude * _zigzagDir;
-        // Allow dogs to wander into either sidewalk slightly.
         position.x = position.x.clamp(
           lm.roadLeftAt(position.y) - 20,
           lm.roadRightAt(position.y) + 20,
@@ -216,29 +203,41 @@ class ObstacleComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    if (_sprite != null) {
-      _sprite!.render(
-        canvas,
-        size: size,
+    // Drop shadow under everything that's a "ground" object.
+    if (type == ObstacleType.car ||
+        type == ObstacleType.worker ||
+        type == ObstacleType.cone ||
+        type == ObstacleType.barrier ||
+        type == ObstacleType.pothole) {
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(size.x / 2, size.y - 3),
+          width: size.x * 0.85,
+          height: size.y * 0.10,
+        ),
+        Paint()..color = const Color(0x66000000),
       );
+    }
+
+    if (_sprite != null) {
+      _sprite!.render(canvas, size: size, overridePaint: _spritePaint);
     } else if (type == ObstacleType.hydrant) {
       _renderHydrant(canvas);
+    } else if (type == ObstacleType.dog) {
+      _renderDog(canvas);
     }
   }
 
   void _renderHydrant(Canvas canvas) {
-    // Body: red rounded rect.
     final bodyRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(size.x * 0.18, size.y * 0.30, size.x * 0.64, size.y * 0.65),
       Radius.circular(size.x * 0.18),
     );
     canvas.drawRRect(bodyRect, Paint()..color = const Color(0xFFD32F2F));
-    // Cap on top.
     canvas.drawOval(
       Rect.fromLTWH(size.x * 0.10, size.y * 0.20, size.x * 0.80, size.y * 0.20),
       Paint()..color = const Color(0xFFB71C1C),
     );
-    // Side nozzles.
     canvas.drawOval(
       Rect.fromLTWH(0, size.y * 0.45, size.x * 0.22, size.y * 0.20),
       Paint()..color = const Color(0xFFB71C1C),
@@ -248,9 +247,7 @@ class ObstacleComponent extends PositionComponent
       Paint()..color = const Color(0xFFB71C1C),
     );
 
-    // Water burst: 3 blue arcs above the cap, oscillating scale 0.8..1.0.
-    final pulse =
-        0.8 + 0.2 * (0.5 + 0.5 * sin(_life * 2 * pi * 3));
+    final pulse = 0.8 + 0.2 * (0.5 + 0.5 * sin(_life * 2 * pi * 3));
     final centerX = size.x / 2;
     final baseY = size.y * 0.18;
     final blue = Paint()
@@ -271,9 +268,106 @@ class ObstacleComponent extends PositionComponent
         );
       canvas.drawPath(p, blue);
     }
-    // Light water dots near the cap.
-    final dotPaint = Paint()..color = const Color(0xFFBBDEFB);
-    canvas.drawCircle(Offset(centerX, baseY - 4), 2 * pulse, dotPaint);
+    canvas.drawCircle(
+      Offset(centerX, baseY - 4),
+      2 * pulse,
+      Paint()..color = const Color(0xFFBBDEFB),
+    );
+  }
+
+  /// Procedurally-drawn brown dog. 4 legs animated by a sine, head with
+  /// triangle ears, wagging tail.
+  void _renderDog(Canvas canvas) {
+    final w = size.x;
+    final h = size.y;
+    const brown = Color(0xFF8B4513);
+    const dark = Color(0xFF5D2F0A);
+    const pink = Color(0xFFE6A0A0);
+
+    // Body: oval, low to the ground.
+    canvas.drawOval(
+      Rect.fromLTWH(w * 0.10, h * 0.30, w * 0.70, h * 0.55),
+      Paint()..color = brown,
+    );
+
+    // Running leg phase — front pair / back pair alternate.
+    final legPhase = sin(_life * 2 * pi * 4);
+    final legOffsetA = legPhase > 0 ? 4.0 : 0.0;
+    final legOffsetB = legPhase > 0 ? 0.0 : 4.0;
+    final legPaint = Paint()..color = dark;
+    canvas.drawRect(
+        Rect.fromLTWH(w * 0.20, h * 0.78, 4, h * 0.18 + legOffsetA), legPaint);
+    canvas.drawRect(
+        Rect.fromLTWH(w * 0.30, h * 0.78, 4, h * 0.18 + legOffsetB), legPaint);
+    canvas.drawRect(
+        Rect.fromLTWH(w * 0.56, h * 0.78, 4, h * 0.18 + legOffsetB), legPaint);
+    canvas.drawRect(
+        Rect.fromLTWH(w * 0.66, h * 0.78, 4, h * 0.18 + legOffsetA), legPaint);
+
+    // Head — circle on the front (top, since obstacles face downward at us).
+    final headCenter = Offset(w * 0.78, h * 0.28);
+    canvas.drawCircle(headCenter, h * 0.22, Paint()..color = brown);
+    // Ears.
+    final earPaint = Paint()..color = dark;
+    final ear1 = Path()
+      ..moveTo(headCenter.dx - h * 0.18, headCenter.dy - h * 0.04)
+      ..lineTo(headCenter.dx - h * 0.06, headCenter.dy - h * 0.26)
+      ..lineTo(headCenter.dx - h * 0.02, headCenter.dy - h * 0.10)
+      ..close();
+    final ear2 = Path()
+      ..moveTo(headCenter.dx + h * 0.18, headCenter.dy - h * 0.04)
+      ..lineTo(headCenter.dx + h * 0.06, headCenter.dy - h * 0.26)
+      ..lineTo(headCenter.dx + h * 0.02, headCenter.dy - h * 0.10)
+      ..close();
+    canvas.drawPath(ear1, earPaint);
+    canvas.drawPath(ear2, earPaint);
+
+    // Eyes.
+    final eyeWhite = Paint()..color = Colors.white;
+    final eyeBlack = Paint()..color = Colors.black;
+    canvas.drawCircle(
+        Offset(headCenter.dx - 4, headCenter.dy - 2), 2, eyeWhite);
+    canvas.drawCircle(
+        Offset(headCenter.dx + 4, headCenter.dy - 2), 2, eyeWhite);
+    canvas.drawCircle(
+        Offset(headCenter.dx - 4, headCenter.dy - 2), 1, eyeBlack);
+    canvas.drawCircle(
+        Offset(headCenter.dx + 4, headCenter.dy - 2), 1, eyeBlack);
+
+    // Nose.
+    canvas.drawCircle(
+      Offset(headCenter.dx, headCenter.dy + 5),
+      2.5,
+      Paint()..color = Colors.black,
+    );
+    // Tongue.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(headCenter.dx, headCenter.dy + 8),
+        width: 4,
+        height: 3,
+      ),
+      Paint()..color = pink,
+    );
+
+    // Wagging tail — sine wave on Y end.
+    final tailWag = sin(_life * 2 * pi * 2) * 4;
+    final tailPath = Path()
+      ..moveTo(w * 0.10, h * 0.40)
+      ..quadraticBezierTo(
+        w * 0.02,
+        h * 0.20 + tailWag,
+        w * -0.05,
+        h * 0.05 + tailWag,
+      );
+    canvas.drawPath(
+      tailPath,
+      Paint()
+        ..color = brown
+        ..strokeWidth = 4
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   @override

@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
@@ -35,6 +36,9 @@ class PaperComponent extends SpriteComponent
   @override
   Future<void> onLoad() async {
     sprite = Sprite(Flame.images.fromCache('mailbox_red.png'));
+    paint
+      ..filterQuality = FilterQuality.none
+      ..isAntiAlias = false;
     add(RectangleHitbox(size: size * 0.8, position: size * 0.1));
     _acquireTarget();
   }

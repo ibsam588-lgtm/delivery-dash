@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
@@ -18,6 +19,9 @@ class MailboxComponent extends SpriteComponent
   Future<void> onLoad() async {
     sprite =
         Sprite(Flame.images.fromCache(isBlue ? 'car_0.png' : 'car_1.png'));
+    paint
+      ..filterQuality = FilterQuality.none
+      ..isAntiAlias = false;
     add(RectangleHitbox(
       size: size * 0.85,
       position: size * 0.075,

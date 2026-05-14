@@ -176,7 +176,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       invincibilityTimer -= dt;
       if (invincibilityTimer <= 0) {
         isInvincible = false;
-        player.opacity = 1.0;
+        // PlayerComponent watches isInvincible and clears its own
+        // flash opacity in its update() — no need to poke it here.
       }
     }
 

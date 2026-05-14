@@ -218,49 +218,95 @@ class _TutorialOverlay extends StatelessWidget {
   }
 }
 
-class _LevelUpOverlay extends StatelessWidget {
+class _LevelUpOverlay extends StatefulWidget {
   final int level;
   const _LevelUpOverlay({required this.level});
 
   @override
+  State<_LevelUpOverlay> createState() => _LevelUpOverlayState();
+}
+
+class _LevelUpOverlayState extends State<_LevelUpOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _flashCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _flashCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _flashCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 22),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFFFA000), Color(0xFFE65100)],
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Full-screen neon green flash that fades out over ~300 ms.
+        AnimatedBuilder(
+          animation: _flashCtrl,
+          builder: (context, _) {
+            // 0 -> 0.15 -> 0 alpha
+            final t = _flashCtrl.value;
+            final a = t < 0.5 ? t * 0.3 : (1 - t) * 0.3;
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFF00E676).withValues(alpha: a),
+              ),
+            );
+          },
+        ),
+        Center(
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 32, vertical: 22),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A2E),
+              borderRadius: BorderRadius.circular(18),
+              border:
+                  Border.all(color: const Color(0xFF00E676), width: 2),
+              boxShadow: const [
+                BoxShadow(color: Color(0x8000E676), blurRadius: 32),
+                BoxShadow(color: Colors.black87, blurRadius: 24),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'LEVEL UP!',
+                  style: GoogleFonts.pressStart2p(
+                    fontSize: 22,
+                    color: const Color(0xFF00E676),
+                    letterSpacing: 3,
+                    shadows: const [
+                      Shadow(color: Color(0x8000E676), blurRadius: 14),
+                      Shadow(color: Colors.black, blurRadius: 4),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '→ LEVEL ${widget.level}',
+                  style: GoogleFonts.pressStart2p(
+                    fontSize: 14,
+                    color: Colors.white,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
           ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: const [
-            BoxShadow(color: Colors.black87, blurRadius: 18),
-          ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'LEVEL $level',
-              style: GoogleFonts.pressStart2p(
-                fontSize: 22,
-                color: Colors.white,
-                shadows: const [Shadow(color: Colors.black, blurRadius: 6)],
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'NEW STREET',
-              style: GoogleFonts.pressStart2p(
-                fontSize: 11,
-                color: const Color(0xFFFFF59D),
-                letterSpacing: 2,
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

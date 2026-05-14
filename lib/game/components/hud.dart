@@ -1,199 +1,244 @@
 import 'package:flame/components.dart';
-import 'package:flame/flame.dart';
 import 'package:flutter/material.dart';
 import '../delivery_dash_game.dart';
 
-/// Top-only HUD. A semi-transparent dark slab with three sections:
-///   left  : SCORE label + big number, then row of life icons under it
-///   middle: gold LVL pill
-///   right : coin icon + count
+/// Modern minimal HUD.
+///
+/// One dark slab at the top (56 px) with a neon-green hairline below it.
+///   - Left  : SCORE pill (#1A1A2E surface, gold "SCORE" label, big white number)
+///   - Middle: LEVEL chip (neon green outline + glow, "LVL n")
+///   - Right : coin count and heart icons stacked compactly
 class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
-  static const double topBarHeight = 88.0;
+  static const double topBarHeight = 56.0;
 
-  TextComponent? _scoreText;
-  TextComponent? _levelText;
-  TextComponent? _coinText;
-
-  _LevelPill? _levelPill;
-  _LivesRow? _livesRow;
+  _ScorePill? _scorePill;
+  _LevelChip? _levelChip;
+  _RightInfo? _rightInfo;
 
   Hud() : super(priority: 100);
-
-  static final _labelPaint = TextPaint(
-    style: const TextStyle(
-      color: Color(0xFF9CA3AF),
-      fontSize: 10,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 1.4,
-    ),
-  );
-  static final _scoreBig = TextPaint(
-    style: const TextStyle(
-      color: Colors.white,
-      fontSize: 26,
-      fontWeight: FontWeight.w900,
-      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-    ),
-  );
-  static final _coinBig = TextPaint(
-    style: const TextStyle(
-      color: Color(0xFFFFD54F),
-      fontSize: 20,
-      fontWeight: FontWeight.w900,
-      shadows: [Shadow(color: Colors.black, blurRadius: 3)],
-    ),
-  );
-  static final _coinLabel = TextPaint(
-    style: const TextStyle(
-      color: Color(0xFFFFD54F),
-      fontSize: 20,
-    ),
-  );
 
   @override
   Future<void> onLoad() async {
     size = gameRef.size;
     final w = gameRef.size.x;
 
-    // Background slab (no hard border, soft drop shadow line at the bottom).
-    add(_HudBar(barWidth: w, barHeight: topBarHeight));
+    add(_HudBar(width: w, height: topBarHeight));
 
-    // SCORE label.
-    add(TextComponent(
-      text: 'SCORE',
-      textRenderer: _labelPaint,
-      position: Vector2(16, 10),
-    ));
-    _scoreText = TextComponent(
-      text: '0',
-      textRenderer: _scoreBig,
-      position: Vector2(16, 24),
-    );
-    add(_scoreText!);
+    _scorePill = _ScorePill(position: Vector2(10, 6));
+    add(_scorePill!);
 
-    // Lives row under the score.
-    _livesRow = _LivesRow(
-      position: Vector2(16, 58),
-      total: gameRef.lives,
-    );
-    add(_livesRow!);
+    _levelChip = _LevelChip(center: Vector2(w / 2, topBarHeight / 2));
+    add(_levelChip!);
 
-    // LVL pill centered.
-    _levelPill = _LevelPill(
-      center: Vector2(w / 2, topBarHeight / 2),
+    _rightInfo = _RightInfo(
+      anchorPoint: Vector2(w - 10, 6),
+      lives: gameRef.lives,
     );
-    _levelText = _levelPill!.text;
-    add(_levelPill!);
-
-    // COIN icon + number top-right.
-    add(TextComponent(
-      text: '🪙',
-      textRenderer: _coinLabel,
-      position: Vector2(w - 76, 14),
-    ));
-    _coinText = TextComponent(
-      text: '0',
-      textRenderer: _coinBig,
-      position: Vector2(w - 16, 18),
-      anchor: Anchor.topRight,
-    );
-    add(_coinText!);
+    add(_rightInfo!);
   }
 
-  void updateScore(int score) => _scoreText?.text = '$score';
-  void updateLevel(int level) => _levelText?.text = 'LVL $level';
-  void updateCoins(int coins) => _coinText?.text = '$coins';
-  void updateLives(int lives) => _livesRow?.setActive(lives);
+  void updateScore(int score) => _scorePill?.setValue(score);
+  void updateLevel(int level) => _levelChip?.setLevel(level);
+  void updateCoins(int coins) => _rightInfo?.setCoins(coins);
+  void updateLives(int lives) => _rightInfo?.setLives(lives);
 
-  // No-op kept so older call sites don't break.
+  // Kept for back-compat with any old call site.
   void updateBonus(int bonus) {}
-}
-
-class _LevelPill extends PositionComponent {
-  final TextComponent text;
-
-  _LevelPill({required Vector2 center})
-      : text = TextComponent(
-          text: 'LVL 1',
-          anchor: Anchor.center,
-          textRenderer: TextPaint(
-            style: const TextStyle(
-              color: Color(0xFF1A1410),
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.4,
-            ),
-          ),
-        ),
-        super(position: center, anchor: Anchor.center, size: Vector2(90, 32)) {
-    text.position = Vector2(size.x / 2, size.y / 2);
-    add(text);
-  }
-
-  @override
-  void render(Canvas canvas) {
-    final r = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, size.x, size.y),
-      const Radius.circular(20),
-    );
-    canvas.drawRRect(r, Paint()..color = const Color(0xFFFFD54F));
-    canvas.drawRRect(
-      r,
-      Paint()
-        ..color = const Color(0xFFFFA000)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
-    );
-  }
-}
-
-class _LivesRow extends PositionComponent {
-  final int total;
-  late final List<SpriteComponent> _icons;
-
-  _LivesRow({required Vector2 position, required this.total})
-      : super(position: position);
-
-  @override
-  Future<void> onLoad() async {
-    final paperSprite =
-        Sprite(Flame.images.fromCache('mailbox_red.png'));
-    _icons = List.generate(total, (i) {
-      final c = SpriteComponent(
-        sprite: paperSprite,
-        size: Vector2(18, 22),
-        position: Vector2(i * 22.0, 0),
-      );
-      add(c);
-      return c;
-    });
-  }
-
-  void setActive(int n) {
-    if (!isMounted) return;
-    for (var i = 0; i < _icons.length; i++) {
-      _icons[i].opacity = i < n ? 1.0 : 0.18;
-    }
-  }
 }
 
 class _HudBar extends PositionComponent {
   final double barWidth;
   final double barHeight;
 
-  final Paint _bgPaint = Paint()..color = const Color(0xB3000000); // rgba(0,0,0,0.7)
-  final Paint _shadowPaint = Paint()..color = const Color(0x88000000);
+  final Paint _bgPaint = Paint()..color = const Color(0xD90D0D0D); // 85%
+  final Paint _accent = Paint()..color = const Color(0xFF00E676);
 
-  _HudBar({required this.barWidth, required this.barHeight})
-      : super(priority: -1);
+  _HudBar({required double width, required double height})
+      : barWidth = width,
+        barHeight = height,
+        super(priority: -1);
 
   @override
   void render(Canvas canvas) {
     canvas.drawRect(Rect.fromLTWH(0, 0, barWidth, barHeight), _bgPaint);
-    // Subtle bottom drop shadow line — softer than a hard border.
-    canvas.drawRect(
-      Rect.fromLTWH(0, barHeight, barWidth, 6),
-      _shadowPaint,
+    canvas.drawRect(Rect.fromLTWH(0, barHeight - 1, barWidth, 1), _accent);
+  }
+}
+
+class _ScorePill extends PositionComponent {
+  TextComponent? _label;
+  TextComponent? _value;
+
+  _ScorePill({required Vector2 position})
+      : super(position: position, size: Vector2(110, 44));
+
+  static final _labelPaint = TextPaint(
+    style: const TextStyle(
+      color: Color(0xFFFFD600),
+      fontSize: 8,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 1.5,
+    ),
+  );
+  static final _valuePaint = TextPaint(
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 22,
+      fontWeight: FontWeight.w900,
+      letterSpacing: -0.5,
+    ),
+  );
+
+  @override
+  Future<void> onLoad() async {
+    _label = TextComponent(
+      text: 'SCORE',
+      textRenderer: _labelPaint,
+      position: Vector2(10, 5),
     );
+    add(_label!);
+    _value = TextComponent(
+      text: '0',
+      textRenderer: _valuePaint,
+      position: Vector2(10, 16),
+    );
+    add(_value!);
+  }
+
+  void setValue(int v) => _value?.text = '$v';
+
+  @override
+  void render(Canvas canvas) {
+    final r = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.x, size.y),
+      const Radius.circular(10),
+    );
+    canvas.drawRRect(r, Paint()..color = const Color(0xFF1A1A2E));
+  }
+}
+
+class _LevelChip extends PositionComponent {
+  TextComponent? _text;
+
+  _LevelChip({required Vector2 center})
+      : super(
+          position: center,
+          anchor: Anchor.center,
+          size: Vector2(80, 30),
+        );
+
+  static final _paint = TextPaint(
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 13,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 1.4,
+    ),
+  );
+
+  @override
+  Future<void> onLoad() async {
+    _text = TextComponent(
+      text: 'LVL 1',
+      textRenderer: _paint,
+      anchor: Anchor.center,
+      position: Vector2(size.x / 2, size.y / 2),
+    );
+    add(_text!);
+  }
+
+  void setLevel(int level) => _text?.text = 'LVL $level';
+
+  @override
+  void render(Canvas canvas) {
+    final r = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.x, size.y),
+      const Radius.circular(15),
+    );
+    // Soft glow.
+    canvas.drawRRect(
+      r.inflate(2),
+      Paint()
+        ..color = const Color(0x6600E676)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+    );
+    // Surface.
+    canvas.drawRRect(r, Paint()..color = const Color(0xFF1A1A2E));
+    // Neon outline.
+    canvas.drawRRect(
+      r,
+      Paint()
+        ..color = const Color(0xFF00E676)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+  }
+}
+
+class _RightInfo extends PositionComponent {
+  int _lives;
+  TextComponent? _coinText;
+
+  _RightInfo({required Vector2 anchorPoint, required int lives})
+      : _lives = lives,
+        super(position: anchorPoint, size: Vector2(120, 44), anchor: Anchor.topRight);
+
+  static final _coinPaint = TextPaint(
+    style: const TextStyle(
+      color: Color(0xFFFFD600),
+      fontSize: 16,
+      fontWeight: FontWeight.w900,
+      letterSpacing: -0.5,
+    ),
+  );
+
+  @override
+  Future<void> onLoad() async {
+    _coinText = TextComponent(
+      text: '🪙 0',
+      textRenderer: _coinPaint,
+      position: Vector2(size.x, 4),
+      anchor: Anchor.topRight,
+    );
+    add(_coinText!);
+  }
+
+  void setCoins(int coins) => _coinText?.text = '🪙 $coins';
+  void setLives(int lives) {
+    _lives = lives;
+  }
+
+  @override
+  void render(Canvas canvas) {
+    // Hearts row below coin text. Drawn directly instead of using emoji
+    // (more compact and renders consistently across devices).
+    const iconSize = 10.0;
+    const spacing = 14.0;
+    final totalW = (_lives.clamp(0, 9)) * spacing;
+    final startX = size.x - totalW;
+    final y = size.y - iconSize - 4;
+    final paint = Paint()..color = const Color(0xFFFF1744);
+    for (var i = 0; i < _lives.clamp(0, 9); i++) {
+      _drawHeart(canvas, startX + i * spacing, y, iconSize, paint);
+    }
+  }
+
+  void _drawHeart(Canvas canvas, double x, double y, double s, Paint paint) {
+    final path = Path();
+    final w = s;
+    final h = s;
+    path.moveTo(x + w / 2, y + h);
+    path.cubicTo(
+      x + w * 1.2, y + h * 0.6,
+      x + w * 0.9, y - h * 0.1,
+      x + w / 2, y + h * 0.3,
+    );
+    path.cubicTo(
+      x + w * 0.1, y - h * 0.1,
+      x - w * 0.2, y + h * 0.6,
+      x + w / 2, y + h,
+    );
+    path.close();
+    canvas.drawPath(path, paint);
   }
 }
