@@ -9,7 +9,10 @@ import 'components/floating_text.dart';
 import 'components/house.dart';
 import 'components/hud.dart';
 import 'components/mailbox.dart';
+import 'components/obstacle.dart';
 import 'components/paper.dart';
+import 'components/parked_car.dart';
+import 'components/particle_burst.dart';
 import 'components/player.dart';
 import 'components/road_background.dart';
 import 'difficulty.dart';
@@ -44,8 +47,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   bool _isShaking = false;
   double _shakeTimer = 0;
+  double _shakeIntensity = 6.0;
   static const double _shakeDuration = 0.2;
-  static const double _shakeIntensity = 6.0;
   final Random _rng = Random();
 
   // Drench overlay (blue tint over the whole game).
@@ -111,6 +114,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       'house_1.png',
       'house_2.png',
       'house_3.png',
+      'player.png',
+      'paper.png',
     ]);
     try {
       await AudioService.instance.init();
@@ -153,6 +158,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     hud.updateLevel(level);
     hud.updateCoins(0);
     hud.updateLives(lives);
+    hud.updateCombo(0, 1);
 
     add(Spawner());
 
@@ -192,8 +198,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       invincibilityTimer -= dt;
       if (invincibilityTimer <= 0) {
         isInvincible = false;
-        // PlayerComponent watches isInvincible and clears its own
-        // flash opacity in its update() — no need to poke it here.
       }
     }
 
@@ -295,11 +299,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   }
 
   void _throwPaper() {
-    // Smart paper count: if we have no papers, ensure we factor in visible
-    // mailboxes the first time the player taps. This is a no-op if papers
-    // were just refilled by a level advance.
     if (papers <= 0) {
-      // Out of papers; tap is wasted.
       return;
     }
     papers--;
@@ -344,10 +344,17 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
         config.coinMultiplier * (config.doubleCoins ? 2 : 1);
     final coins = (coinsBase * coinMult).round();
 
-    _addScore(pts, position, isBlue: true);
+    _addScore(pts, position, color: const Color(0xFF66BB6A));
     coinsThisRun += coins;
     hud.updateCoins(coinsThisRun);
-    // Surface the combo bonus as a transient floating chip on big combos.
+    hud.updateCombo(comboCount, mult);
+    add(ParticleBurst(
+      position: position,
+      color: const Color(0xFFFFEB3B),
+      color2: const Color(0xFF66BB6A),
+      count: 14,
+      spread: 140,
+    ));
     if (bonus > 0) {
       add(FloatingText(
         text: '+$bonus BONUS',
@@ -356,17 +363,49 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       ));
     }
     AudioService.instance.playDelivery();
-    // Keep updateBonus a no-op compatibility call.
     hud.updateBonus(bonus);
   }
 
-  void _addScore(int delta, Vector2 position, {required bool isBlue}) {
+  /// Paper hit a non-mailbox obstacle. Trigger particle, score popup,
+  /// stagger animation on the obstacle, and SFX.
+  void onPaperHitObstacle(ObstacleComponent obstacle, Vector2 position) {
+    obstacle.onHitByPaper();
+    final pts = obstacle.paperHitPoints;
+    if (pts > 0) {
+      _addScore(pts, position, color: const Color(0xFFFFB74D));
+    }
+    add(ParticleBurst(
+      position: position,
+      color: const Color(0xFFFFFFFF),
+      color2: const Color(0xFFFFD600),
+      count: 8,
+      spread: 90,
+    ));
+    AudioService.instance.playHit();
+  }
+
+  /// Paper hit a parked car. Bonus points, particle, no penalty.
+  void onPaperHitParkedCar(ParkedCarComponent car, Vector2 position) {
+    car.onPaperHit();
+    _addScore(ParkedCarComponent.bonusPoints, position,
+        color: const Color(0xFFFFD600));
+    add(ParticleBurst(
+      position: position,
+      color: const Color(0xFFFFD600),
+      color2: const Color(0xFFFFFFFF),
+      count: 12,
+      spread: 110,
+    ));
+    AudioService.instance.playPickup();
+  }
+
+  void _addScore(int delta, Vector2 position, {required Color color}) {
     score = (score + delta).clamp(0, 999999);
     hud.updateScore(score);
     add(FloatingText(
       text: delta > 0 ? '+$delta' : '$delta',
       position: position,
-      color: isBlue ? const Color(0xFF66BB6A) : const Color(0xFFFFB74D),
+      color: color,
     ));
   }
 
@@ -378,8 +417,9 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     invincibilityTimer = 1.5;
     comboCount = 0;
     hud.updateLives(lives);
+    hud.updateCombo(0, 1);
 
-    _triggerShake();
+    _triggerShake(intensity: 8.0);
     AudioService.instance.playHit();
 
     if (lives <= 0) _endGame();
@@ -397,7 +437,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
     _slowFactor = 0.5;
     _slowTimer = 1.5;
-    _triggerShake();
+    _triggerShake(intensity: 5.0);
   }
 
   void onPlayerDrenched() {
@@ -408,12 +448,13 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     _drenchTimer = _drenchDuration;
     player.triggerWetFlash();
     AudioService.instance.playSplash();
-    _triggerShake();
+    _triggerShake(intensity: 5.0);
   }
 
-  void _triggerShake() {
+  void _triggerShake({double intensity = 6.0}) {
     _isShaking = true;
     _shakeTimer = _shakeDuration;
+    _shakeIntensity = intensity;
   }
 
   Future<void> _endGame() async {

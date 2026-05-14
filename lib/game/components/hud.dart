@@ -8,12 +8,14 @@ import '../delivery_dash_game.dart';
 ///   - Left  : SCORE pill (#1A1A2E surface, gold "SCORE" label, big white number)
 ///   - Middle: LEVEL chip (neon green outline + glow, "LVL n")
 ///   - Right : coin count and heart icons stacked compactly
+///   - Below : combo multiplier chip (only visible when combo >= 2)
 class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
   static const double topBarHeight = 56.0;
 
   _ScorePill? _scorePill;
   _LevelChip? _levelChip;
   _RightInfo? _rightInfo;
+  _ComboChip? _comboChip;
 
   Hud() : super(priority: 100);
 
@@ -35,12 +37,17 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
       lives: gameRef.lives,
     );
     add(_rightInfo!);
+
+    _comboChip = _ComboChip(center: Vector2(w / 2, topBarHeight + 22));
+    add(_comboChip!);
   }
 
   void updateScore(int score) => _scorePill?.setValue(score);
   void updateLevel(int level) => _levelChip?.setLevel(level);
   void updateCoins(int coins) => _rightInfo?.setCoins(coins);
   void updateLives(int lives) => _rightInfo?.setLives(lives);
+  void updateCombo(int combo, int multiplier) =>
+      _comboChip?.setCombo(combo, multiplier);
 
   // Kept for back-compat with any old call site.
   void updateBonus(int bonus) {}
@@ -172,6 +179,87 @@ class _LevelChip extends PositionComponent {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );
+  }
+}
+
+class _ComboChip extends PositionComponent {
+  static const Color glow = Color(0xFFFFD600);
+
+  int _combo = 0;
+  int _mult = 1;
+  double _pulse = 0;
+  TextComponent? _text;
+
+  _ComboChip({required Vector2 center})
+      : super(
+          position: center,
+          anchor: Anchor.center,
+          size: Vector2(120, 26),
+          priority: 10,
+        );
+
+  static final _paint = TextPaint(
+    style: const TextStyle(
+      color: glow,
+      fontSize: 12,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 1.5,
+      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+    ),
+  );
+
+  @override
+  Future<void> onLoad() async {
+    _text = TextComponent(
+      text: '',
+      textRenderer: _paint,
+      anchor: Anchor.center,
+      position: Vector2(size.x / 2, size.y / 2),
+    );
+    add(_text!);
+  }
+
+  void setCombo(int combo, int mult) {
+    final boosted = mult > _mult;
+    _combo = combo;
+    _mult = mult;
+    if (boosted) _pulse = 0.4;
+    _text?.text = combo > 0 ? 'x$mult  •  COMBO $combo' : '';
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (_pulse > 0) _pulse = (_pulse - dt).clamp(0.0, 0.4);
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (_combo <= 0) return;
+    final pulseScale = 1 + (_pulse / 0.4) * 0.18;
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+    canvas.scale(pulseScale);
+    canvas.translate(-size.x / 2, -size.y / 2);
+    final r = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.x, size.y),
+      const Radius.circular(13),
+    );
+    canvas.drawRRect(
+      r.inflate(2),
+      Paint()
+        ..color = glow.withValues(alpha: 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+    );
+    canvas.drawRRect(r, Paint()..color = const Color(0xFF1A1A2E));
+    canvas.drawRRect(
+      r,
+      Paint()
+        ..color = glow
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+    canvas.restore();
   }
 }
 

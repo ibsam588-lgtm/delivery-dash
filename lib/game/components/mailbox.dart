@@ -17,8 +17,8 @@ class MailboxComponent extends SpriteComponent
 
   @override
   Future<void> onLoad() async {
-    sprite =
-        Sprite(Flame.images.fromCache(isBlue ? 'car_0.png' : 'car_1.png'));
+    sprite = Sprite(
+        Flame.images.fromCache(isBlue ? 'mailbox_blue.png' : 'mailbox_red.png'));
     paint
       ..filterQuality = FilterQuality.none
       ..isAntiAlias = false;

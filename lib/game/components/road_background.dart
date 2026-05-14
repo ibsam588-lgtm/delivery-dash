@@ -1,9 +1,14 @@
-import 'dart:ui';
 import 'package:flame/components.dart';
+import 'package:flutter/painting.dart';
 import '../delivery_dash_game.dart';
 
-/// Flat top-down road. Sidewalks on both sides, single yellow dashed
-/// center line, white curbs. No perspective.
+/// Pseudo-3D top-down road. The road itself is still a vertical strip
+/// (so the LaneManager and collisions stay flat and predictable), but
+/// the background is dressed up to suggest depth:
+///   - A darker "horizon" gradient at the top.
+///   - Two faint perspective lines that converge toward a vanishing
+///     point above the screen, drawn over the asphalt.
+///   - A subtle bottom vignette to anchor the foreground.
 class RoadBackground extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
   static const Color roadColor = Color(0xFF2A2A2A);
@@ -69,12 +74,43 @@ class RoadBackground extends PositionComponent
     canvas.drawRect(
         Rect.fromLTWH(roadLeft, 0, roadRight - roadLeft, h), _roadPaint);
 
-    // White curbs.
+    // ── Pseudo-3D dressing ─────────────────────────────────────────
+    final centerX = (roadLeft + roadRight) / 2;
+    final vanishY = -h * 0.4;
+
+    // Horizon haze near the top of the road (suggests distance).
+    final horizonRect = Rect.fromLTWH(roadLeft, 0, roadRight - roadLeft, h * 0.35);
+    canvas.drawRect(
+      horizonRect,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF101218), Color(0x002A2A2A)],
+        ).createShader(horizonRect),
+    );
+
+    // Two converging perspective lines drawn over the asphalt.
+    final perspPaint = Paint()
+      ..color = const Color(0x33FFFFFF)
+      ..strokeWidth = 2;
+    final inset = (roadRight - roadLeft) * 0.20;
+    canvas.drawLine(
+      Offset(roadLeft + inset, h),
+      Offset(centerX, vanishY),
+      perspPaint,
+    );
+    canvas.drawLine(
+      Offset(roadRight - inset, h),
+      Offset(centerX, vanishY),
+      perspPaint,
+    );
+
+    // White curbs (slightly chunkier at bottom for a "near" feel).
     canvas.drawRect(Rect.fromLTWH(roadLeft - 1, 0, 3, h), _curbPaint);
     canvas.drawRect(Rect.fromLTWH(roadRight - 2, 0, 3, h), _curbPaint);
 
     // Center dashed line (single).
-    final centerX = (roadLeft + roadRight) / 2;
     var y = -_cycle + _dashOffset;
     while (y < h) {
       canvas.drawLine(
@@ -84,5 +120,17 @@ class RoadBackground extends PositionComponent
       );
       y += _cycle;
     }
+
+    // Bottom vignette to anchor the foreground.
+    final vignette = Rect.fromLTWH(0, h * 0.75, w, h * 0.25);
+    canvas.drawRect(
+      vignette,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x00000000), Color(0x55000000)],
+        ).createShader(vignette),
+    );
   }
 }
