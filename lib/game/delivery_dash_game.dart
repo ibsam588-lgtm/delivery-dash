@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flame/flame.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import '../services/audio_service.dart';
@@ -72,7 +73,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   }
 
   Future<void> _preloadAssets() async {
-    await images.loadAll([
+    await Flame.images.loadAll([
       'mailbox_blue.png',
       'mailbox_red.png',
       'car_0.png',

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
 import 'mailbox.dart';
 
@@ -33,7 +34,7 @@ class PaperComponent extends SpriteComponent
 
   @override
   Future<void> onLoad() async {
-    sprite = Sprite(gameRef.images.fromCache('mailbox_red.png'));
+    sprite = Sprite(Flame.images.fromCache('mailbox_red.png'));
     add(RectangleHitbox(size: size * 0.8, position: size * 0.1));
     _acquireTarget();
   }

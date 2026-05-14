@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:ui';
 import 'package:flame/components.dart';
+import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
 import 'mailbox.dart';
 
@@ -39,7 +40,7 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
 
   @override
   Future<void> onLoad() async {
-    sprite = Sprite(gameRef.images.fromCache(_spriteFor(_index)));
+    sprite = Sprite(Flame.images.fromCache(_spriteFor(_index)));
     _layout();
     _regenerateMailbox();
   }
@@ -79,7 +80,7 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
       final rows = (gameRef.size.y / rowSpacing).ceil() + 2;
       position.y -= rows * rowSpacing;
       _index += 2;
-      sprite = Sprite(gameRef.images.fromCache(_spriteFor(_index)));
+      sprite = Sprite(Flame.images.fromCache(_spriteFor(_index)));
       _regenerateMailbox();
     }
   }

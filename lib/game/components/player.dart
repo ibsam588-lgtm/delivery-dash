@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
 
 class PlayerComponent extends SpriteComponent
@@ -18,7 +19,7 @@ class PlayerComponent extends SpriteComponent
 
   @override
   Future<void> onLoad() async {
-    sprite = Sprite(gameRef.images.fromCache('mailbox_blue.png'));
+    sprite = Sprite(Flame.images.fromCache('mailbox_blue.png'));
     if (isVip) {
       paint = Paint()
         ..colorFilter = const ColorFilter.mode(vipTint, BlendMode.srcATop);

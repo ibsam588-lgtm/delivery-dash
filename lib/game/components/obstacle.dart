@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
 import 'player.dart';
 
@@ -70,7 +71,7 @@ class ObstacleComponent extends SpriteComponent
 
   @override
   Future<void> onLoad() async {
-    sprite = Sprite(gameRef.images.fromCache(_spriteName));
+    sprite = Sprite(Flame.images.fromCache(_spriteName));
     size = _sizeFor(type);
     position = Vector2(spawnX, -size.y);
     const hbInset = 0.14;
