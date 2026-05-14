@@ -34,6 +34,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   int highestLevelThisRun = 1;
   double distanceMeters = 0;
   int papers = 5;
+  int deliveredCount = 0;
 
   double currentSpeed = 200;
   double _slowFactor = 1.0;
@@ -130,6 +131,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     level = config.startLevel;
     highestLevelThisRun = level;
     distanceMeters = 0;
+    deliveredCount = 0;
     final cfg = LevelConfig.of(level);
     currentSpeed = cfg.startSpeed + (config.speedBoostStart ? 60 : 0);
     isInvincible = false;
@@ -144,10 +146,10 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
     final rows = (size.y / HouseComponent.rowSpacing).ceil() + 2;
     for (int i = 0; i < rows; i++) {
-      add(HouseComponent(
-        initialY: i * HouseComponent.rowSpacing - HouseComponent.rowSpacing,
-        index: i,
-      ));
+      final y = i * HouseComponent.rowSpacing - HouseComponent.rowSpacing;
+      // Left-side houses (even index) and right-side houses (odd offset).
+      add(HouseComponent(initialY: y, index: i));
+      add(HouseComponent(initialY: y, index: i + 1, onRight: true));
     }
 
     player = PlayerComponent(isVip: config.vipSkin);
@@ -266,6 +268,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   void _advanceLevel() {
     distanceMeters = 0;
+    deliveredCount = 0;
+    hud.updateDelivery(0);
     if (level < LevelConfig.maxLevel) {
       level += 1;
       if (level > highestLevelThisRun) highestLevelThisRun = level;
@@ -319,6 +323,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
     papers--;
     hud.updatePapers(papers);
+    player.triggerThrowArm();
 
     if (config.paperBlitz) {
       for (final a in const [-18.0, 0.0, 18.0]) {
@@ -350,6 +355,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   void onPaperHitMailbox(bool isBlue, Vector2 position) {
     if (!isBlue) return;
     comboCount++;
+    deliveredCount++;
+    hud.updateDelivery(deliveredCount);
     if (comboCount > bestComboThisRun) bestComboThisRun = comboCount;
     final mult = comboMultiplier(comboCount);
     const base = 10;
@@ -406,7 +413,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   /// Paper hit (and broke) a house window. Glass shard burst + light
   /// particle burst, small score bonus, no combo impact.
   void onPaperHitWindow(HouseWindow window, Vector2 position) {
-    window.breakWindow();
+    window.breakWindow(position);
     _addScore(HouseWindow.bonusPoints, position,
         color: const Color(0xFFB3E5FC));
     add(GlassShardBurst(position: position));

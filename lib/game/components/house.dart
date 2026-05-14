@@ -21,9 +21,13 @@ class HouseComponent extends PositionComponent
   static const double fixedWidth = 100.0;
   static const double fixedHeight = 110.0;
 
+  // Houses scroll at 90% of road speed for a parallax depth feel.
+  static const double _parallaxFactor = 0.90;
+
   final double _initialY;
   int _index;
   final Random _rng = Random();
+  final bool onRight;
 
   bool _isTall = false;
 
@@ -33,6 +37,7 @@ class HouseComponent extends PositionComponent
   HouseComponent({
     required double initialY,
     required int index,
+    this.onRight = false,
   })  : _initialY = initialY,
         _index = index,
         super(
@@ -51,15 +56,25 @@ class HouseComponent extends PositionComponent
 
   void _alignToSidewalk() {
     final lm = gameRef.laneManager;
-    final roadLeft = lm.roadLeft;
-    final fitWidth = (roadLeft - 8).clamp(40.0, fixedWidth);
-    final sizeChanged = (fitWidth - size.x).abs() > 0.5;
-    if (sizeChanged) {
-      size = Vector2(fitWidth, fitWidth * (fixedHeight / fixedWidth));
-      _layoutWindows();
+    if (onRight) {
+      final sw = gameRef.size.x - lm.roadRight;
+      final fitWidth = (sw - 8).clamp(40.0, fixedWidth);
+      final sizeChanged = (fitWidth - size.x).abs() > 0.5;
+      if (sizeChanged) {
+        size = Vector2(fitWidth, fitWidth * (fixedHeight / fixedWidth));
+        _layoutWindows();
+      }
+      position.x = lm.roadRight + 4;
+    } else {
+      final fitWidth = (lm.roadLeft - 8).clamp(40.0, fixedWidth);
+      final sizeChanged = (fitWidth - size.x).abs() > 0.5;
+      if (sizeChanged) {
+        size = Vector2(fitWidth, fitWidth * (fixedHeight / fixedWidth));
+        _layoutWindows();
+      }
+      final x = lm.roadLeft - size.x - 4;
+      position.x = x < 0 ? 0 : x;
     }
-    final x = roadLeft - size.x - 4;
-    position.x = x < 0 ? 0 : x;
   }
 
   @override
@@ -78,7 +93,13 @@ class HouseComponent extends PositionComponent
     if (r < 0.10) return;
     final isBlue = r < 0.80;
     final mb = MailboxComponent(isBlue: isBlue);
-    mb.position = Vector2(size.x + 6, size.y * 0.6);
+    if (onRight) {
+      // Right-side mailbox: on the road-facing (left) edge of the component.
+      mb.position = Vector2(-2, size.y * 0.6);
+    } else {
+      // Left-side mailbox: on the road-facing (right) edge.
+      mb.position = Vector2(size.x + 6, size.y * 0.6);
+    }
     add(mb);
     _mailbox = mb;
   }
@@ -104,19 +125,38 @@ class HouseComponent extends PositionComponent
     final winW = (size.x * 0.17).clamp(11.0, 19.0);
     final winH = (size.y * 0.14).clamp(10.0, 17.0);
     final winSize = Vector2(winW, winH);
-    // Tall houses push the interactive windows up to the upper floor.
     final yFrac = _isTall ? 0.20 : 0.29;
-    _windows[0]
-      ..size = winSize
-      ..position = Vector2(size.x * 0.06, size.y * yFrac);
-    _windows[1]
-      ..size = winSize
-      ..position = Vector2(size.x * 0.36, size.y * yFrac);
+    if (onRight) {
+      // Place windows on the road-facing (left / x≈0) side so their hitboxes
+      // are reachable by papers thrown from the road centre.
+      _windows[0]
+        ..size = winSize
+        ..position = Vector2(size.x * 0.06, size.y * yFrac);
+      _windows[1]
+        ..size = winSize
+        ..position = Vector2(size.x * 0.36, size.y * yFrac);
+    } else {
+      _windows[0]
+        ..size = winSize
+        ..position = Vector2(size.x * 0.06, size.y * yFrac);
+      _windows[1]
+        ..size = winSize
+        ..position = Vector2(size.x * 0.36, size.y * yFrac);
+    }
   }
 
   @override
   void render(Canvas canvas) {
-    _renderHouse(canvas);
+    if (onRight) {
+      // Mirror the house horizontally so the front facade faces the road.
+      canvas.save();
+      canvas.translate(size.x, 0);
+      canvas.scale(-1, 1);
+      _renderHouse(canvas);
+      canvas.restore();
+    } else {
+      _renderHouse(canvas);
+    }
     super.render(canvas);
   }
 
@@ -125,24 +165,23 @@ class HouseComponent extends PositionComponent
     final h = size.y;
     final p = _palette();
 
-    // Color palettes — 3 base + 2 extra roof colour variants.
     late Color wallTop, wallBot, sideColor, roofFront, roofSide, doorColor;
     switch (p) {
-      case 0: // cream / red roof
+      case 0:
         wallTop = const Color(0xFFF5E6C8);
         wallBot = const Color(0xFFE0C89A);
         sideColor = const Color(0xFFCCAA78);
         roofFront = const Color(0xFFB03030);
         roofSide = const Color(0xFF7A1A1A);
         doorColor = const Color(0xFF6D3A20);
-      case 1: // tan / grey roof
+      case 1:
         wallTop = const Color(0xFFD4B896);
         wallBot = const Color(0xFFBCA07A);
         sideColor = const Color(0xFFA88858);
         roofFront = const Color(0xFF7A7A7A);
         roofSide = const Color(0xFF484848);
         doorColor = const Color(0xFF5C3018);
-      default: // white / blue roof
+      default:
         wallTop = const Color(0xFFF2F0E8);
         wallBot = const Color(0xFFDEDAD0);
         sideColor = const Color(0xFFCCC8BC);
@@ -151,12 +190,11 @@ class HouseComponent extends PositionComponent
         doorColor = const Color(0xFF5C3018);
     }
 
-    // Extra palette variation for 4th / 5th index slots.
     if (_index % 7 == 4) {
-      roofFront = const Color(0xFF2E7D32); // forest green roof
+      roofFront = const Color(0xFF2E7D32);
       roofSide = const Color(0xFF1B5E20);
     } else if (_index % 7 == 6) {
-      roofFront = const Color(0xFF6A1B9A); // purple roof
+      roofFront = const Color(0xFF6A1B9A);
       roofSide = const Color(0xFF4A148C);
     }
 
@@ -166,7 +204,6 @@ class HouseComponent extends PositionComponent
       Paint()..color = const Color(0x44000000),
     );
 
-    // --- Isometric layout constants (proportional) ---
     final fRight = w * 0.72;
     final fTop = h * 0.24;
     final fBot = h * 0.95;
@@ -202,18 +239,15 @@ class HouseComponent extends PositionComponent
         Rect.fromLTRB(0, ledgeY - 2, fRight, ledgeY + 2),
         Paint()..color = sideColor,
       );
-      // Lower-floor decorative windows (visual only, non-interactive).
       final lWinW = (w * 0.17).clamp(11.0, 19.0);
       final lWinH = (h * 0.14).clamp(10.0, 17.0);
       final lWinY = h * 0.57;
       final cc = _curtainColor();
       for (final lx in [w * 0.06, w * 0.36]) {
-        // Pane.
         canvas.drawRect(
           Rect.fromLTWH(lx, lWinY, lWinW, lWinH),
           Paint()..color = const Color(0xFFB3E5FC),
         );
-        // Curtains.
         final cw = lWinW * 0.22;
         canvas.drawRect(
           Rect.fromLTWH(lx, lWinY, cw, lWinH),
@@ -223,13 +257,11 @@ class HouseComponent extends PositionComponent
           Rect.fromLTWH(lx + lWinW - cw, lWinY, cw, lWinH),
           Paint()..color = cc.withValues(alpha: 0.55),
         );
-        // Mullion.
         final mp = Paint()
           ..color = const Color(0xFF3E2A1E)
           ..strokeWidth = 1.2;
         canvas.drawLine(Offset(lx + lWinW / 2, lWinY), Offset(lx + lWinW / 2, lWinY + lWinH), mp);
         canvas.drawLine(Offset(lx, lWinY + lWinH / 2), Offset(lx + lWinW, lWinY + lWinH / 2), mp);
-        // Frame.
         canvas.drawRect(
           Rect.fromLTWH(lx, lWinY, lWinW, lWinH),
           Paint()
@@ -240,7 +272,7 @@ class HouseComponent extends PositionComponent
       }
     }
 
-    // Side wall (right face, darker).
+    // Side wall.
     final sidePath = Path()
       ..moveTo(fRight, fTop)
       ..lineTo(sRight, sTop)
@@ -264,20 +296,19 @@ class HouseComponent extends PositionComponent
       ..close();
     canvas.drawPath(roofFrontPath, Paint()..color = roofFront);
 
-    // Roof shingle lines (darker horizontal bands across front triangle).
+    // Shingle lines.
     final shinglePaint = Paint()
       ..color = roofSide.withValues(alpha: 0.5)
       ..strokeWidth = 1.2;
     for (int i = 1; i <= 4; i++) {
       final t = i / 5.0;
       final sy = peakY + (fTop - peakY) * t;
-      // Interpolate x bounds of the triangle at this y.
-      final leftX = peakX * (1 - t); // from peak towards left edge
+      final leftX = peakX * (1 - t);
       final rightX = peakX + (fRight - peakX) * t;
       canvas.drawLine(Offset(leftX, sy), Offset(rightX, sy), shinglePaint);
     }
 
-    // Roof side triangle (darker overhang).
+    // Roof side triangle.
     final roofSidePath = Path()
       ..moveTo(fRight, fTop)
       ..lineTo(sRight, sTop)
@@ -294,24 +325,24 @@ class HouseComponent extends PositionComponent
         ..strokeWidth = 1.0,
     );
 
-    // Chimney on side wall.
-    final chimneyRect = Rect.fromLTWH(w * 0.70, -h * 0.06, w * 0.12, h * 0.16);
-    canvas.drawRect(chimneyRect, Paint()..color = const Color(0xFF8B3A2A));
+    // Chimney.
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.70, -h * 0.06, w * 0.12, h * 0.16),
+      Paint()..color = const Color(0xFF8B3A2A),
+    );
     canvas.drawRect(
       Rect.fromLTWH(w * 0.68, -h * 0.06, w * 0.16, h * 0.025),
       Paint()..color = const Color(0xFF6A2A1A),
     );
-    // Mortar lines.
-    final mortarPaint = Paint()
-      ..color = const Color(0x44000000)
-      ..strokeWidth = 0.8;
     canvas.drawLine(
       Offset(w * 0.70, h * 0.02),
       Offset(w * 0.82, h * 0.02),
-      mortarPaint,
+      Paint()
+        ..color = const Color(0x44000000)
+        ..strokeWidth = 0.8,
     );
 
-    // Chimney smoke puff (grey squiggly path above chimney).
+    // Smoke.
     final smokePaint = Paint()
       ..color = const Color(0x99BBBBBB)
       ..strokeWidth = 2.0
@@ -322,18 +353,16 @@ class HouseComponent extends PositionComponent
     smokePath.quadraticBezierTo(w * 0.70, -h * 0.23, w * 0.76, -h * 0.28);
     canvas.drawPath(smokePath, smokePaint);
 
-    // Door (centred on front facade).
+    // Door.
     final doorL = w * 0.24;
     final doorR = w * 0.50;
     final doorTop = h * 0.63;
     final doorBot = fBot;
     final doorRect = Rect.fromLTRB(doorL, doorTop, doorR, doorBot);
     canvas.drawRect(doorRect, Paint()..color = doorColor);
-    // Arch.
     final archRect = Rect.fromLTWH(doorL, doorTop - (doorR - doorL) * 0.22,
         doorR - doorL, (doorR - doorL) * 0.44);
     canvas.drawOval(archRect, Paint()..color = doorColor);
-    // Frame.
     canvas.drawRRect(
       RRect.fromRectAndCorners(
         doorRect,
@@ -345,7 +374,6 @@ class HouseComponent extends PositionComponent
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );
-    // Handle.
     canvas.drawCircle(
       Offset(doorR - (doorR - doorL) * 0.20, h * 0.78),
       2.5,
@@ -353,21 +381,22 @@ class HouseComponent extends PositionComponent
     );
 
     // Steps.
-    final stepPaint = Paint()..color = const Color(0xFFCCCCCC);
     canvas.drawRect(
-      Rect.fromLTWH(doorL - w * 0.04, fBot - h * 0.04, (doorR - doorL) + w * 0.08, h * 0.04),
-      stepPaint,
+      Rect.fromLTWH(doorL - w * 0.04, fBot - h * 0.04,
+          (doorR - doorL) + w * 0.08, h * 0.04),
+      Paint()..color = const Color(0xFFCCCCCC),
     );
     canvas.drawRect(
-      Rect.fromLTWH(doorL - w * 0.02, fBot - h * 0.07, (doorR - doorL) + w * 0.04, h * 0.03),
+      Rect.fromLTWH(doorL - w * 0.02, fBot - h * 0.07,
+          (doorR - doorL) + w * 0.04, h * 0.03),
       Paint()..color = const Color(0xFFBBBBBB),
     );
 
-    // Flower pots flanking the door.
+    // Flower pots.
     _renderFlowerPot(canvas, Offset(doorL - w * 0.07, fBot - h * 0.05), w);
     _renderFlowerPot(canvas, Offset(doorR + w * 0.07, fBot - h * 0.05), w);
 
-    // Bushes behind the pots.
+    // Bushes.
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(doorL - w * 0.05, fBot - h * 0.09),
@@ -384,7 +413,6 @@ class HouseComponent extends PositionComponent
       ),
       Paint()..color = const Color(0xFF2E6B1E),
     );
-    // Bush highlights.
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(doorL - w * 0.07, fBot - h * 0.12),
@@ -402,14 +430,13 @@ class HouseComponent extends PositionComponent
       Paint()..color = const Color(0x4466CC44),
     );
 
-    // Garden path (tan strip from step base to house bottom edge).
+    // Garden path.
     final pathL = doorL - w * 0.02;
     final pathR = doorR + w * 0.02;
     canvas.drawRect(
       Rect.fromLTRB(pathL, fBot, pathR, h),
       Paint()..color = const Color(0xFFD2B48C),
     );
-    // Path edge lines.
     canvas.drawLine(
       Offset(pathL, fBot),
       Offset(pathL, h),
@@ -421,17 +448,15 @@ class HouseComponent extends PositionComponent
       Paint()..color = const Color(0xFFAA8850)..strokeWidth = 0.8,
     );
 
-    // Picket fence along front edge of property.
+    // Picket fence.
     _renderFence(canvas, w, h, fBot);
   }
 
   void _renderFlowerPot(Canvas canvas, Offset center, double w) {
-    // Terracotta pot body.
     canvas.drawOval(
       Rect.fromCenter(center: center, width: w * 0.10, height: w * 0.08),
       Paint()..color = const Color(0xFFB5541A),
     );
-    // Flower dot on top (alternate pink / yellow per index).
     final flowerColor = _index.isEven
         ? const Color(0xFFFF69B4)
         : const Color(0xFFFFEB3B);
@@ -450,7 +475,6 @@ class HouseComponent extends PositionComponent
     const picketW = 3.5;
     const picketH = 9.0;
     final railY = fBot + 3.0;
-    // Draw pickets from x=0 to x=fRight (front of house), stepping every 8px.
     double px = 2.0;
     final fRight = w * 0.72;
     while (px < fRight - 2) {
@@ -458,7 +482,6 @@ class HouseComponent extends PositionComponent
         Rect.fromLTWH(px, fBot - picketH, picketW, picketH + 4),
         picketPaint,
       );
-      // Pointed top.
       final tipPath = Path()
         ..moveTo(px, fBot - picketH)
         ..lineTo(px + picketW / 2, fBot - picketH - 4)
@@ -467,7 +490,6 @@ class HouseComponent extends PositionComponent
       canvas.drawPath(tipPath, picketPaint);
       px += 8.0;
     }
-    // Horizontal rail.
     canvas.drawLine(Offset(0, railY), Offset(fRight, railY), railPaint);
   }
 
@@ -475,15 +497,18 @@ class HouseComponent extends PositionComponent
   void update(double dt) {
     super.update(dt);
     if (gameRef.state != GameState.playing) return;
-    // Only scroll vertically — position.x is fixed after onLoad.
-    position.y += gameRef.scrollSpeed * dt;
+    position.y += gameRef.scrollSpeed * _parallaxFactor * dt;
+
+    // Y-based depth priority: houses lower on screen draw in front.
+    final newPri = (position.y / 10).clamp(-10, 95).round();
+    if (newPri != priority) priority = newPri;
+
     if (position.y > gameRef.size.y + size.y) {
       final rows = (gameRef.size.y / rowSpacing).ceil() + 2;
       position.y -= rows * rowSpacing;
       _index += 2;
       _setVariant();
       _regenerateMailbox();
-      // Re-layout windows (curtain colour / position may change with index).
       _layoutWindows();
       for (final win in _windows) {
         win.restore();
