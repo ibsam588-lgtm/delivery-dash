@@ -3,6 +3,7 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 import '../delivery_dash_game.dart';
+import '../perspective.dart';
 import 'player.dart';
 
 /// Simple paper-pack pickup. A small yellow card with a darker outline
@@ -46,10 +47,21 @@ class PaperPackComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    // Rotating spin (~90°/s).
+    final h = gameRef.size.y;
+    final s = depthScale(position.y, h);
+    final dx = depthXShift(
+      position.x,
+      position.y,
+      gameRef.laneManager.roadCenter,
+      h,
+    );
+    canvas.translate(dx, 0);
+
+    // Rotating spin (~90°/s) + depth scale.
     final rot = _life * (pi / 2);
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
+    canvas.scale(s);
     canvas.rotate(rot);
     canvas.translate(-size.x / 2, -size.y / 2);
 

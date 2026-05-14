@@ -1,14 +1,13 @@
 import 'package:flame/components.dart';
 import 'package:flutter/painting.dart';
 import '../delivery_dash_game.dart';
+import '../perspective.dart';
 
-/// Pseudo-3D top-down road. The road itself is still a vertical strip
-/// (so the LaneManager and collisions stay flat and predictable), but
-/// the background is dressed up to suggest depth:
-///   - A darker "horizon" gradient at the top.
-///   - Two faint perspective lines that converge toward a vanishing
-///     point above the screen, drawn over the asphalt.
-///   - A subtle bottom vignette to anchor the foreground.
+/// Pseudo-3D top-down road. The road itself is rendered as a trapezoid
+/// (narrow at the top, wide at the bottom) to fake depth. Collisions and
+/// gameplay still use a flat road strip via LaneManager — components apply
+/// the same perspective transform when they draw, so visuals stay aligned
+/// with hitboxes.
 class RoadBackground extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
   static const Color roadColor = Color(0xFF2A2A2A);
@@ -22,9 +21,9 @@ class RoadBackground extends PositionComponent
   static const double _cycle = _dashLen + _gapLen;
   static const double _bandSpacing = 60.0;
 
-  final Paint _roadPaint = Paint()..color = roadColor;
   final Paint _sidewalkPaint = Paint()..color = sidewalkColor;
   final Paint _sidewalkBandPaint = Paint()..color = sidewalkBandColor;
+  final Paint _roadPaint = Paint()..color = roadColor;
   final Paint _curbPaint = Paint()..color = curbColor;
   final Paint _linePaint = Paint()
     ..color = laneLineColor
@@ -46,76 +45,90 @@ class RoadBackground extends PositionComponent
     if (_bandOffset >= _bandSpacing) _bandOffset %= _bandSpacing;
   }
 
+  /// Trapezoid road edges at depth [y]. The shape narrows toward the
+  /// horizon at the top of the screen.
+  double _roadLeftAt(double y) {
+    final lm = gameRef.laneManager;
+    final cx = lm.roadCenter;
+    final halfFlat = lm.roadWidth / 2;
+    final f = roadWidthFactor(y, size.y);
+    return cx - halfFlat * f;
+  }
+
+  double _roadRightAt(double y) {
+    final lm = gameRef.laneManager;
+    final cx = lm.roadCenter;
+    final halfFlat = lm.roadWidth / 2;
+    final f = roadWidthFactor(y, size.y);
+    return cx + halfFlat * f;
+  }
+
   @override
   void render(Canvas canvas) {
     final w = size.x;
     final h = size.y;
-    final lm = gameRef.laneManager;
-    final roadLeft = lm.roadLeft;
-    final roadRight = lm.roadRight;
 
-    // Sidewalks (grass).
-    canvas.drawRect(Rect.fromLTWH(0, 0, roadLeft, h), _sidewalkPaint);
-    canvas.drawRect(
-        Rect.fromLTWH(roadRight, 0, w - roadRight, h), _sidewalkPaint);
+    // Fill the whole frame with grass first; the trapezoid road is
+    // drawn on top.
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), _sidewalkPaint);
 
-    // Horizontal mow bands scrolling.
+    // Horizontal mow bands scrolling on the grass.
     var bandY = -_bandSpacing + _bandOffset;
     while (bandY < h) {
-      canvas.drawRect(
-          Rect.fromLTWH(0, bandY, roadLeft, 4), _sidewalkBandPaint);
-      canvas.drawRect(
-          Rect.fromLTWH(roadRight, bandY, w - roadRight, 4),
-          _sidewalkBandPaint);
+      canvas.drawRect(Rect.fromLTWH(0, bandY, w, 4), _sidewalkBandPaint);
       bandY += _bandSpacing;
     }
 
-    // Asphalt.
-    canvas.drawRect(
-        Rect.fromLTWH(roadLeft, 0, roadRight - roadLeft, h), _roadPaint);
+    // Trapezoidal asphalt.
+    final leftTop = _roadLeftAt(0);
+    final rightTop = _roadRightAt(0);
+    final leftBot = _roadLeftAt(h);
+    final rightBot = _roadRightAt(h);
 
-    // ── Pseudo-3D dressing ─────────────────────────────────────────
-    final centerX = (roadLeft + roadRight) / 2;
-    final vanishY = -h * 0.4;
+    final road = Path()
+      ..moveTo(leftTop, 0)
+      ..lineTo(rightTop, 0)
+      ..lineTo(rightBot, h)
+      ..lineTo(leftBot, h)
+      ..close();
+    canvas.drawPath(road, _roadPaint);
 
-    // Horizon haze near the top of the road (suggests distance).
-    final horizonRect = Rect.fromLTWH(roadLeft, 0, roadRight - roadLeft, h * 0.35);
+    // Horizon haze near the top of the road for added depth.
+    final horizonRect = Rect.fromLTRB(leftTop, 0, rightTop, h * 0.35);
     canvas.drawRect(
       horizonRect,
       Paint()
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF101218), Color(0x002A2A2A)],
+          colors: [Color(0xFF0A0C12), Color(0x002A2A2A)],
         ).createShader(horizonRect),
     );
 
-    // Two converging perspective lines drawn over the asphalt.
-    final perspPaint = Paint()
-      ..color = const Color(0x33FFFFFF)
-      ..strokeWidth = 2;
-    final inset = (roadRight - roadLeft) * 0.20;
-    canvas.drawLine(
-      Offset(roadLeft + inset, h),
-      Offset(centerX, vanishY),
-      perspPaint,
-    );
-    canvas.drawLine(
-      Offset(roadRight - inset, h),
-      Offset(centerX, vanishY),
-      perspPaint,
-    );
+    // White curbs along the trapezoid edges.
+    final curbLeft = Path()
+      ..moveTo(leftTop - 1, 0)
+      ..lineTo(leftTop + 2, 0)
+      ..lineTo(leftBot + 2, h)
+      ..lineTo(leftBot - 1, h)
+      ..close();
+    final curbRight = Path()
+      ..moveTo(rightTop - 2, 0)
+      ..lineTo(rightTop + 1, 0)
+      ..lineTo(rightBot + 1, h)
+      ..lineTo(rightBot - 2, h)
+      ..close();
+    canvas.drawPath(curbLeft, _curbPaint);
+    canvas.drawPath(curbRight, _curbPaint);
 
-    // White curbs (slightly chunkier at bottom for a "near" feel).
-    canvas.drawRect(Rect.fromLTWH(roadLeft - 1, 0, 3, h), _curbPaint);
-    canvas.drawRect(Rect.fromLTWH(roadRight - 2, 0, 3, h), _curbPaint);
-
-    // Center dashed line (single).
+    // Center dashed line follows the trapezoid centerline (vertical,
+    // since the center is the same X at top and bottom).
+    final cx = gameRef.laneManager.roadCenter;
     var y = -_cycle + _dashOffset;
     while (y < h) {
       canvas.drawLine(
-        Offset(centerX, y),
-        Offset(centerX, y + _dashLen),
+        Offset(cx, y),
+        Offset(cx, y + _dashLen),
         _linePaint,
       );
       y += _cycle;

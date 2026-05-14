@@ -4,6 +4,7 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
+import '../perspective.dart';
 import 'player.dart';
 
 enum ObstacleType {
@@ -138,7 +139,6 @@ class ObstacleComponent extends SpriteComponent
       case ObstacleType.pothole:
         return 'pothole.png';
       case ObstacleType.kidBike:
-        return 'player.png';
       case ObstacleType.hydrant:
       case ObstacleType.trashBin:
       case ObstacleType.manhole:
@@ -216,19 +216,24 @@ class ObstacleComponent extends SpriteComponent
     }
   }
 
-  /// Subtle depth scale: smaller far from the player, larger near.
-  double _depthScale() {
-    final h = gameRef.size.y;
-    final t = (position.y / h).clamp(0.0, 1.0);
-    return 0.78 + 0.27 * t; // 0.78 (far) → 1.05 (near)
-  }
-
   @override
   void render(Canvas canvas) {
-    final scale = _depthScale();
+    final h = gameRef.size.y;
+    final scale = depthScale(position.y, h);
     final bounce =
         _reactionTimer > 0 ? sin(_reactionTimer / _reactionDuration * pi) * 0.12 : 0.0;
     final s = scale * (1 + bounce);
+
+    // Apply the trapezoid-road X-shift so the obstacle visually tracks
+    // the perspective road, even though its hitbox stays on the flat
+    // gameplay grid.
+    final dx = depthXShift(
+      position.x,
+      position.y,
+      gameRef.laneManager.roadCenter,
+      h,
+    );
+    canvas.translate(dx, 0);
 
     // Ground shadow under the object — gives a sense of grounded depth.
     if (type != ObstacleType.pothole && type != ObstacleType.manhole) {
@@ -260,8 +265,87 @@ class ObstacleComponent extends SpriteComponent
       _renderTrashBin(canvas);
     } else if (type == ObstacleType.manhole) {
       _renderManhole(canvas);
+    } else if (type == ObstacleType.kidBike) {
+      _renderKidBike(canvas);
     }
     canvas.restore();
+  }
+
+  /// Distinct kid-on-bike: orange shirt, two visible wheels, slight
+  /// diagonal lean. Intentionally different silhouette from the player.
+  void _renderKidBike(Canvas canvas) {
+    final w = size.x;
+    final h = size.y;
+
+    // Two wheels side-by-side at the bottom (top-down view).
+    final wheelPaint = Paint()..color = const Color(0xFF222222);
+    final hubPaint = Paint()..color = const Color(0xFFB0B0B0);
+    final wheelR = w * 0.18;
+    final wheelY = h * 0.78;
+    final wheelLX = w * 0.30;
+    final wheelRX = w * 0.70;
+    canvas.drawCircle(Offset(wheelLX, wheelY), wheelR, wheelPaint);
+    canvas.drawCircle(Offset(wheelRX, wheelY), wheelR, wheelPaint);
+    canvas.drawCircle(Offset(wheelLX, wheelY), wheelR * 0.35, hubPaint);
+    canvas.drawCircle(Offset(wheelRX, wheelY), wheelR * 0.35, hubPaint);
+
+    // Bike frame connecting the two wheels (slightly diagonal lean).
+    final framePaint = Paint()
+      ..color = const Color(0xFFE53935)
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(wheelLX, wheelY),
+      Offset(wheelRX, wheelY),
+      framePaint,
+    );
+    canvas.drawLine(
+      Offset(w * 0.50, h * 0.55),
+      Offset(wheelLX + wheelR * 0.5, wheelY),
+      framePaint,
+    );
+    canvas.drawLine(
+      Offset(w * 0.50, h * 0.55),
+      Offset(wheelRX - wheelR * 0.5, wheelY),
+      framePaint,
+    );
+
+    // Rider torso: orange shirt, smaller than the player.
+    final shirt = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.30, h * 0.30, w * 0.40, h * 0.30),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(shirt, Paint()..color = const Color(0xFFFF9800));
+
+    // Arms reaching forward toward handlebars (light skin tone).
+    final armPaint = Paint()..color = const Color(0xFFFFCC80);
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.20, h * 0.42, w * 0.14, h * 0.08),
+      armPaint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.66, h * 0.42, w * 0.14, h * 0.08),
+      armPaint,
+    );
+
+    // Handlebars — a horizontal black bar across the front of the bike.
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.18, h * 0.48, w * 0.64, 3),
+      Paint()..color = const Color(0xFF111111),
+    );
+
+    // Head: bare (no cap), light skin tone.
+    canvas.drawCircle(
+      Offset(w * 0.50, h * 0.20),
+      w * 0.13,
+      Paint()..color = const Color(0xFFFFCC80),
+    );
+    // Hair (brown patch on top).
+    canvas.drawCircle(
+      Offset(w * 0.50, h * 0.14),
+      w * 0.11,
+      Paint()..color = const Color(0xFF5D4037),
+    );
   }
 
   void _renderHydrant(Canvas canvas) {

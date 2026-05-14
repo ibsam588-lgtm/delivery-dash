@@ -3,6 +3,7 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
+import '../perspective.dart';
 import 'bike_trail.dart';
 
 /// Sprite-based player. Fixed size, flat top-down, drag-to-move.
@@ -89,19 +90,31 @@ class PlayerComponent extends SpriteComponent
 
   @override
   void render(Canvas canvas) {
-    // Ground shadow beneath the bike.
+    final h = gameRef.size.y;
+    final s = depthScale(position.y, h);
+    final dx = depthXShift(
+      position.x,
+      position.y,
+      gameRef.laneManager.roadCenter,
+      h,
+    );
+    canvas.translate(dx, 0);
+
+    // Ground shadow beneath the bike (depth-scaled).
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(size.x / 2, size.y - 2),
-        width: size.x * 0.85,
-        height: 11,
+        width: size.x * 0.85 * s,
+        height: 11 * s,
       ),
       Paint()..color = const Color(0x66000000),
     );
-    // Vertical 15% squish to suggest top-down camera angle.
+
     canvas.save();
-    canvas.translate(0, size.y * 0.075);
-    canvas.scale(1.0, 0.85);
+    // Apply depth scale + a 15% vertical squish for the top-down feel.
+    canvas.translate(size.x / 2, size.y / 2);
+    canvas.scale(s, s * 0.85);
+    canvas.translate(-size.x / 2, -size.y / 2);
     super.render(canvas);
     if (_wetTimer > 0) {
       final phase = _wetTimer / _wetDuration;

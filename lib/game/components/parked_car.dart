@@ -3,6 +3,7 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
+import '../perspective.dart';
 
 /// A parked car on the right sidewalk. Awards bonus points when the
 /// player lands a paper on it (handled by PaperComponent). Does not
@@ -58,20 +59,29 @@ class ParkedCarComponent extends SpriteComponent
 
   @override
   void render(Canvas canvas) {
+    final h = gameRef.size.y;
+    final s = depthScale(position.y, h);
+    final dx = depthXShift(
+      position.x,
+      position.y,
+      gameRef.laneManager.roadCenter,
+      h,
+    );
+    canvas.translate(dx, 0);
+
     // Long ground shadow.
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(size.x / 2 + 4, size.y - 4),
-        width: size.x + 6,
-        height: 12,
+        width: (size.x + 6) * s,
+        height: 12 * s,
       ),
       Paint()..color = const Color(0x66000000),
     );
     final bounceS = _bounce > 0 ? 1 + (_bounce / 0.2) * 0.08 : 1.0;
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
-    // Vertical 15% squish for top-down angle.
-    canvas.scale(bounceS, bounceS * 0.85);
+    canvas.scale(s * bounceS, s * bounceS * 0.85);
     canvas.translate(-size.x / 2, -size.y / 2);
     super.render(canvas);
     canvas.restore();

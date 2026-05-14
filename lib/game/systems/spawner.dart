@@ -67,15 +67,17 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   void _spawnObstacle() {
     final roll = _rng.nextDouble();
     final ObstacleType type;
+    // KidBike halved (8% -> 4%); freed 4% redistributed to cones/barriers
+    // so total still sums to 1.0.
     if (roll < 0.28) {
       type = ObstacleType.car;
     } else if (roll < 0.38) {
       type = ObstacleType.dog;
-    } else if (roll < 0.46) {
+    } else if (roll < 0.42) {
       type = ObstacleType.kidBike;
-    } else if (roll < 0.54) {
+    } else if (roll < 0.50) {
       type = ObstacleType.worker;
-    } else if (roll < 0.64) {
+    } else if (roll < 0.62) {
       type = ObstacleType.cone;
     } else if (roll < 0.72) {
       type = ObstacleType.barrier;
