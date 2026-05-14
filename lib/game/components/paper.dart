@@ -4,6 +4,7 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
+import 'house_window.dart';
 import 'mailbox.dart';
 import 'obstacle.dart';
 import 'parked_car.dart';
@@ -115,6 +116,14 @@ class PaperComponent extends SpriteComponent
       _hasHit = true;
       final worldHit = other.absolutePosition.clone();
       gameRef.onPaperHitParkedCar(other, worldHit);
+      removeFromParent();
+      return;
+    }
+    if (other is HouseWindow) {
+      if (other.broken) return; // pass through already-broken windows
+      _hasHit = true;
+      final worldHit = other.absolutePosition.clone();
+      gameRef.onPaperHitWindow(other, worldHit);
       removeFromParent();
       return;
     }

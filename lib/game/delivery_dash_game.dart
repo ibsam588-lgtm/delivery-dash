@@ -7,6 +7,7 @@ import '../services/score_service.dart';
 import '../services/store_service.dart';
 import 'components/floating_text.dart';
 import 'components/house.dart';
+import 'components/house_window.dart';
 import 'components/hud.dart';
 import 'components/mailbox.dart';
 import 'components/obstacle.dart';
@@ -380,6 +381,23 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       color2: const Color(0xFFFFD600),
       count: 8,
       spread: 90,
+    ));
+    AudioService.instance.playHit();
+  }
+
+  /// Paper hit (and broke) a house window. Light glass burst, small
+  /// score bonus, no combo impact.
+  void onPaperHitWindow(HouseWindow window, Vector2 position) {
+    window.breakWindow();
+    _addScore(HouseWindow.bonusPoints, position,
+        color: const Color(0xFFB3E5FC));
+    add(ParticleBurst(
+      position: position,
+      color: const Color(0xFFB3E5FC),
+      color2: const Color(0xFFFFFFFF),
+      count: 14,
+      spread: 130,
+      pixelSize: 3,
     ));
     AudioService.instance.playHit();
   }
