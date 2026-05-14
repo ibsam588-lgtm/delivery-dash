@@ -9,10 +9,11 @@ import '../difficulty.dart';
 ///
 /// One dark slab at the top (56 px) with a neon-green hairline below it.
 ///   - Left  : SCORE pill (#1A1A2E surface, gold "SCORE" label, big white number)
-///   - Middle: LEVEL chip (neon green outline + glow, "LVL n")
+///   - Middle: DAY chip (neon green outline + glow, "DAY n")
 ///   - Right : coin count and heart icons stacked compactly
 ///   - Below : paper count display (newspaper icon + count)
 ///   - Below : combo multiplier chip (only visible when combo >= 2)
+///   - Below : delivery icons row (tiny houses filled/hollow)
 ///   - Bottom: thin level-progress bar
 class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
   static const double topBarHeight = 56.0;
@@ -23,8 +24,12 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
   _ComboChip? _comboChip;
   _PapersDisplay? _papersDisplay;
   _ProgressBar? _progressBar;
+  _DeliveryIcons? _deliveryIcons;
 
-  Hud() : super(priority: 100);
+  // Border-flash state for combo x3+.
+  double _comboBorderFlash = 0;
+
+  Hud() : super(priority: 1000);
 
   @override
   Future<void> onLoad() async {
@@ -51,6 +56,11 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
     _comboChip = _ComboChip(center: Vector2(w / 2, topBarHeight + 22));
     add(_comboChip!);
 
+    _deliveryIcons = _DeliveryIcons(
+      position: Vector2(10, topBarHeight + 26),
+    );
+    add(_deliveryIcons!);
+
     _progressBar = _ProgressBar(
       screenW: w,
       screenH: gameRef.size.y,
@@ -62,12 +72,42 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
   void updateLevel(int level) => _levelChip?.setLevel(level);
   void updateCoins(int coins) => _rightInfo?.setCoins(coins);
   void updateLives(int lives) => _rightInfo?.setLives(lives);
-  void updateCombo(int combo, int multiplier) =>
-      _comboChip?.setCombo(combo, multiplier);
+  void updateCombo(int combo, int multiplier) {
+    _comboChip?.setCombo(combo, multiplier);
+    if (combo >= 3) {
+      _comboBorderFlash = 0.35;
+    }
+  }
   void updatePapers(int papers) => _papersDisplay?.setPapers(papers);
+  void updateDelivery(int delivered) => _deliveryIcons?.setDelivered(delivered);
 
-  // Kept for back-compat with any old call site.
+  // Kept for back-compat.
   void updateBonus(int bonus) {}
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (_comboBorderFlash > 0) {
+      _comboBorderFlash = (_comboBorderFlash - dt).clamp(0.0, 0.35);
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    // Combo x3+ screen border flash.
+    if (_comboBorderFlash > 0) {
+      final alpha = (_comboBorderFlash / 0.35) * 0.55;
+      final borderPaint = Paint()
+        ..color = const Color(0xFFFFD600).withValues(alpha: alpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6.0;
+      canvas.drawRect(
+        Rect.fromLTWH(3, 3, size.x - 6, size.y - 6),
+        borderPaint,
+      );
+    }
+  }
 }
 
 class _HudBar extends PositionComponent {
@@ -163,7 +203,7 @@ class _LevelChip extends PositionComponent {
   @override
   Future<void> onLoad() async {
     _text = TextComponent(
-      text: 'LVL 1',
+      text: 'DAY 1',
       textRenderer: _paint,
       anchor: Anchor.center,
       position: Vector2(size.x / 2, size.y / 2),
@@ -171,7 +211,7 @@ class _LevelChip extends PositionComponent {
     add(_text!);
   }
 
-  void setLevel(int level) => _text?.text = 'LVL $level';
+  void setLevel(int level) => _text?.text = 'DAY $level';
 
   @override
   void render(Canvas canvas) {
@@ -227,7 +267,6 @@ class _PapersDisplay extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
-    // Dark backing pill.
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(0, 0, size.x, size.y),
@@ -236,7 +275,6 @@ class _PapersDisplay extends PositionComponent {
       Paint()..color = const Color(0xCC1A1A2E),
     );
 
-    // Draw 3 stacked mini newspaper rects.
     final paperPaint = Paint()..color = const Color(0xFFF8F4E0);
     final paperOutline = Paint()
       ..color = const Color(0xFF9A8860)
@@ -249,11 +287,63 @@ class _PapersDisplay extends PositionComponent {
       final oy = 3.0 - i * 1.0;
       final pRect = Rect.fromLTWH(ox, oy, 16, 12);
       canvas.drawRect(pRect, paperPaint);
-      canvas.drawRect(
-        Rect.fromLTWH(ox + 1.5, oy + 1.5, 10, 2),
-        headerPaint,
-      );
+      canvas.drawRect(Rect.fromLTWH(ox + 1.5, oy + 1.5, 10, 2), headerPaint);
       canvas.drawRect(pRect, paperOutline);
+    }
+  }
+}
+
+// ── Delivery icons ──────────────────────────────────────────────────────────
+
+class _DeliveryIcons extends PositionComponent {
+  int _delivered = 0;
+  static const int _maxIcons = 8;
+  static const double _iconSize = 10.0;
+  static const double _iconSpacing = 13.0;
+
+  _DeliveryIcons({required Vector2 position})
+      : super(
+          position: position,
+          size: Vector2(_maxIcons * _iconSpacing + 4, _iconSize + 4),
+        );
+
+  void setDelivered(int d) => _delivered = d;
+
+  @override
+  void render(Canvas canvas) {
+    final filledPaint = Paint()..color = const Color(0xFF00E676);
+    final hollowPaint = Paint()
+      ..color = const Color(0xFF555555)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    for (int i = 0; i < _maxIcons; i++) {
+      final x = i * _iconSpacing + 2.0;
+      final filled = i < (_delivered % (_maxIcons + 1));
+      _drawTinyHouse(canvas, x, 2.0, _iconSize,
+          filled ? filledPaint : hollowPaint, filled);
+    }
+  }
+
+  void _drawTinyHouse(Canvas canvas, double x, double y, double s,
+      Paint paint, bool filled) {
+    // House body rectangle.
+    final bodyRect = Rect.fromLTWH(x, y + s * 0.35, s * 0.85, s * 0.65);
+    if (filled) {
+      canvas.drawRect(bodyRect, paint);
+    } else {
+      canvas.drawRect(bodyRect, paint);
+    }
+    // Roof triangle.
+    final roofPath = Path()
+      ..moveTo(x - 1, y + s * 0.38)
+      ..lineTo(x + s * 0.42, y)
+      ..lineTo(x + s * 0.87, y + s * 0.38)
+      ..close();
+    if (filled) {
+      canvas.drawPath(roofPath, Paint()..color = const Color(0xFF009944));
+    } else {
+      canvas.drawPath(roofPath, paint);
     }
   }
 }
@@ -272,7 +362,7 @@ class _ComboChip extends PositionComponent {
       : super(
           position: center,
           anchor: Anchor.center,
-          size: Vector2(120, 26),
+          size: Vector2(140, 26),
           priority: 10,
         );
 
@@ -302,7 +392,13 @@ class _ComboChip extends PositionComponent {
     _combo = combo;
     _mult = mult;
     if (boosted) _pulse = 0.30;
-    _text?.text = combo > 0 ? 'x$mult  •  COMBO $combo' : '';
+    if (combo >= 3) {
+      _text?.text = 'COMBO x$mult!';
+    } else if (combo > 0) {
+      _text?.text = 'x$mult  •  COMBO $combo';
+    } else {
+      _text?.text = '';
+    }
   }
 
   @override
@@ -314,7 +410,6 @@ class _ComboChip extends PositionComponent {
   @override
   void render(Canvas canvas) {
     if (_combo <= 0) return;
-    // Stronger pulse: 1.0 → 1.15 → 1.0 over 0.3s.
     final t = _pulse > 0 ? sin((_pulse / 0.30) * pi) : 0.0;
     final pulseScale = 1.0 + t * 0.15;
     canvas.save();
@@ -432,13 +527,11 @@ class _ProgressBar extends PositionComponent
     final barY = screenH - 6.0;
     const barH = 4.0;
 
-    // Track.
     canvas.drawRect(
       Rect.fromLTWH(0, barY, screenW, barH),
       Paint()..color = const Color(0x88000000),
     );
 
-    // Fill (neon green → yellow gradient as bar fills).
     if (progress > 0) {
       final fillW = screenW * progress;
       canvas.drawRect(
@@ -452,7 +545,6 @@ class _ProgressBar extends PositionComponent
       );
     }
 
-    // Edge glow dot at progress head.
     if (progress > 0 && progress < 1) {
       canvas.drawCircle(
         Offset(screenW * progress, barY + barH / 2),

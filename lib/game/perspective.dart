@@ -17,7 +17,7 @@ const double _roadBottomFactor = 1.58;
 /// Sprite scale by depth.
 ///   y / h == 0 → 0.55
 ///   y / h == 1 → 1.0
-const double _scaleTop = 0.55;
+const double _scaleTop = 0.40;
 const double _scaleBottom = 1.0;
 
 double _t(double y, double h) {

@@ -88,6 +88,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     if (d - _catDistanceMark >= catDistanceInterval) {
       _catDistanceMark = d;
       if (_rng.nextDouble() < 0.80) _spawnCat();
+      if (_rng.nextDouble() < 0.60) _spawnRightCat();
     }
   }
 
@@ -225,9 +226,17 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
 
   void _spawnCat() {
     final lm = gameRef.laneManager;
-    // Cats sit on the left sidewalk, between road edge and screen edge.
     final maxX = lm.roadLeft - 6;
-    final minX = 16.0;
+    const minX = 16.0;
+    if (maxX <= minX) return;
+    final x = minX + _rng.nextDouble() * (maxX - minX);
+    gameRef.add(CatNpcComponent(position: Vector2(x, -30), rng: _rng));
+  }
+
+  void _spawnRightCat() {
+    final lm = gameRef.laneManager;
+    final minX = lm.roadRight + 6;
+    final maxX = gameRef.size.x - 16;
     if (maxX <= minX) return;
     final x = minX + _rng.nextDouble() * (maxX - minX);
     gameRef.add(CatNpcComponent(position: Vector2(x, -30), rng: _rng));
@@ -250,7 +259,26 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
       final count = 1 + _rng.nextInt(3);
       for (int i = 0; i < count; i++) {
         final maxX = lm.roadLeft - 4;
-        final minX = 6.0;
+        const minX = 6.0;
+        if (maxX <= minX) break;
+        final x = minX + _rng.nextDouble() * (maxX - minX);
+        final y = -10.0 - _rng.nextDouble() * 40;
+        final leafColor = _leafColors[_rng.nextInt(_leafColors.length)];
+        gameRef.add(RoadDecorComponent(
+          decorType: RoadDecorType.leaf,
+          position: Vector2(x, y),
+          leafColor: leafColor,
+          leafAngle: _rng.nextDouble() * 2 * pi,
+        ));
+      }
+    }
+
+    // Fallen leaves on the right sidewalk too.
+    if (_rng.nextDouble() < 0.45) {
+      final count = 1 + _rng.nextInt(2);
+      for (int i = 0; i < count; i++) {
+        final minX = lm.roadRight + 4;
+        final maxX = gameRef.size.x - 6;
         if (maxX <= minX) break;
         final x = minX + _rng.nextDouble() * (maxX - minX);
         final y = -10.0 - _rng.nextDouble() * 40;

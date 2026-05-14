@@ -81,8 +81,20 @@ class RoadBackground extends PositionComponent
     final w = size.x;
     final h = size.y;
 
+    // 0. Sky strip at the very top (top 8% of screen) — horizon atmosphere.
+    final skyH = h * 0.08;
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, w, skyH),
+      Paint()
+        ..shader = Gradient.linear(
+          const Offset(0, 0),
+          Offset(0, skyH),
+          [const Color(0xFF87CEEB), const Color(0xFFD0EEFF)],
+        ),
+    );
+
     // 1. Fill with grass.
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), _grassPaint);
+    canvas.drawRect(Rect.fromLTWH(0, skyH, w, h - skyH), _grassPaint);
 
     // 2. Grass texture dashes (short horizontal strokes, darker green).
     final dashPaint = Paint()
@@ -215,6 +227,43 @@ class RoadBackground extends PositionComponent
       ..lineTo(rightBot - 4, h)
       ..close();
     drawCurb(curbRightWhite, curbRightShadow);
+
+    // 8a. Grass tufts at road edges (scattered short strokes).
+    final tuftPaint = Paint()
+      ..color = const Color(0xFF4A9A3A)
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round;
+    final rng2 = Random(99); // fixed seed for stability
+    for (int i = 0; i < 24; i++) {
+      final t = i / 24.0;
+      final yPos = t * h;
+      final lEdge = _roadLeftAt(yPos);
+      final rEdge = _roadRightAt(yPos);
+      final tuftH = 4.0 + rng2.nextDouble() * 4;
+      final lOff = -2.0 - rng2.nextDouble() * 4;
+      canvas.drawLine(
+        Offset(lEdge + lOff, yPos),
+        Offset(lEdge + lOff, yPos - tuftH),
+        tuftPaint,
+      );
+      final rOff = 2.0 + rng2.nextDouble() * 4;
+      canvas.drawLine(
+        Offset(rEdge + rOff, yPos),
+        Offset(rEdge + rOff, yPos - tuftH),
+        tuftPaint,
+      );
+    }
+
+    // 8b. Faded tyre tracks (two parallel lines inside road lanes).
+    final trackPaint = Paint()
+      ..color = const Color(0x22000000)
+      ..strokeWidth = 3.0;
+    final roadCx = gameRef.laneManager.roadCenter;
+    final roadW = gameRef.laneManager.roadWidth;
+    for (final frac in const [-0.18, 0.18]) {
+      final tx = roadCx + roadW * frac;
+      canvas.drawLine(Offset(tx, 0), Offset(tx, h), trackPaint);
+    }
 
     // 8. Center lane markings — perspective-correct trapezoid dashes.
     // Each dash is wider at the bottom than the top, matching road foreshortening.

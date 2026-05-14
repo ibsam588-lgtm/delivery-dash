@@ -12,7 +12,14 @@ class PlayerComponent extends PositionComponent
   static const double _followSpeed = 8.0;
   static const double _flashInterval = 0.1;
   static const double _trailInterval = 0.06;
-  static const double _pedalInterval = 0.25; // seconds per half-pedal stroke
+  static const double _pedalInterval = 0.25;
+
+  // Sway: ±2° at 1.5 Hz.
+  static const double _swayAmplitudeDeg = 2.0;
+  static const double _swayHz = 1.5;
+
+  // Throw-arm flash.
+  static const double _throwArmDuration = 0.20;
 
   final bool isVip;
   double _targetX = 0;
@@ -22,14 +29,21 @@ class PlayerComponent extends PositionComponent
   double _wetTimer = 0;
   double _wheelAngle = 0;
   double _pedalTimer = 0;
-  bool _pedalPhase = false; // false = left leg down, true = right leg down
+  bool _pedalPhase = false;
+  double _swayTimer = 0;
+  double _throwArmTimer = 0;
   static const double _wetDuration = 0.4;
 
   PlayerComponent({this.isVip = false})
-      : super(size: Vector2(55, 80), anchor: Anchor.center, priority: 5);
+      : super(size: Vector2(55, 80), anchor: Anchor.center, priority: 100);
 
   double get opacity => _opacity;
   set opacity(double v) => _opacity = v.clamp(0.0, 1.0);
+
+  /// Called by game when a paper is thrown.
+  void triggerThrowArm() {
+    _throwArmTimer = _throwArmDuration;
+  }
 
   @override
   Future<void> onLoad() async {
@@ -55,12 +69,16 @@ class PlayerComponent extends PositionComponent
     super.update(dt);
 
     _wheelAngle += dt * 14.0;
+    _swayTimer += dt;
 
-    // Pedal phase toggles every _pedalInterval seconds.
     _pedalTimer += dt;
     if (_pedalTimer >= _pedalInterval) {
       _pedalTimer = 0;
       _pedalPhase = !_pedalPhase;
+    }
+
+    if (_throwArmTimer > 0) {
+      _throwArmTimer = (_throwArmTimer - dt).clamp(0.0, _throwArmDuration);
     }
 
     final dx = _targetX - position.x;
@@ -112,8 +130,19 @@ class PlayerComponent extends PositionComponent
       Paint()..color = const Color(0x66000000),
     );
 
+    // Speed lines when going fast (level 5+).
+    if (gameRef.level >= 5) {
+      _renderSpeedLines(canvas, s);
+    }
+
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
+
+    // Sway angle: ±2° at 1.5 Hz.
+    final swayRad = (_swayAmplitudeDeg * pi / 180) *
+        sin(_swayTimer * 2 * pi * _swayHz);
+    canvas.rotate(swayRad);
+
     canvas.scale(s, s * 0.85);
     canvas.translate(-size.x / 2, -size.y / 2);
 
@@ -138,6 +167,29 @@ class PlayerComponent extends PositionComponent
     }
 
     canvas.restore();
+  }
+
+  void _renderSpeedLines(Canvas canvas, double scale) {
+    final linePaint = Paint()
+      ..color = const Color(0x88FFFFFF)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    final speedFraction =
+        ((gameRef.scrollSpeed - 300) / 200).clamp(0.0, 1.0);
+    if (speedFraction <= 0) return;
+    final alpha = speedFraction * 0.7;
+    linePaint.color = const Color(0xFFFFFFFF).withValues(alpha: alpha);
+
+    const numLines = 4;
+    for (int i = 0; i < numLines; i++) {
+      final lineY = size.y * (0.30 + i * 0.12);
+      final lineLen = (20 + i * 8) * scale;
+      canvas.drawLine(
+        Offset(-lineLen - 4, lineY),
+        Offset(-4, lineY),
+        linePaint,
+      );
+    }
   }
 
   void _renderBike(Canvas canvas) {
@@ -178,7 +230,7 @@ class PlayerComponent extends PositionComponent
     canvas.drawCircle(rear, 2.8, hubPaint);
     canvas.drawCircle(front, 2.8, hubPaint);
 
-    // 4-spoke cross pattern on each wheel.
+    // 4-spoke cross pattern.
     final spokePaint = Paint()
       ..color = const Color(0xFF777777)
       ..strokeWidth = 1.2;
@@ -186,10 +238,9 @@ class PlayerComponent extends PositionComponent
       canvas.save();
       canvas.translate(center.dx, center.dy);
       canvas.rotate(_wheelAngle);
-      // Two perpendicular lines (= 4 spokes visible).
-      canvas.drawLine(Offset(0, -wheelR * 0.88), Offset(0, wheelR * 0.88), spokePaint);
+      canvas.drawLine(const Offset(0, -wheelR * 0.88), const Offset(0, wheelR * 0.88), spokePaint);
       canvas.rotate(pi / 2);
-      canvas.drawLine(Offset(0, -wheelR * 0.88), Offset(0, wheelR * 0.88), spokePaint);
+      canvas.drawLine(const Offset(0, -wheelR * 0.88), const Offset(0, wheelR * 0.88), spokePaint);
       canvas.restore();
     }
 
@@ -204,7 +255,6 @@ class PlayerComponent extends PositionComponent
     canvas.drawLine(front, bb, framePaint);
     canvas.drawLine(seat, bb, framePaint);
     canvas.drawLine(front, seat, framePaint);
-    // Seat stay.
     canvas.drawLine(rear, seat, framePaint..strokeWidth = 2.0);
 
     // Handlebars.
@@ -217,7 +267,7 @@ class PlayerComponent extends PositionComponent
         ..strokeCap = StrokeCap.round,
     );
 
-    // Delivery bag on rear rack (yellow).
+    // Delivery bag.
     final bagRect = Rect.fromLTWH(w * 0.20, h * 0.74, w * 0.60, h * 0.13);
     canvas.drawRRect(
       RRect.fromRectAndRadius(bagRect, const Radius.circular(3)),
@@ -229,7 +279,7 @@ class PlayerComponent extends PositionComponent
       Paint()..color = const Color(0xFFE65100)..strokeWidth = 1.5,
     );
 
-    // Pedalling legs (alternate lower/upper position).
+    // Pedalling legs.
     final legPaint = Paint()..color = const Color(0xFF1A3A88);
     final leftBottom = _pedalPhase ? h * 0.64 : h * 0.72;
     final rightBottom = _pedalPhase ? h * 0.72 : h * 0.64;
@@ -247,7 +297,6 @@ class PlayerComponent extends PositionComponent
       ),
       legPaint,
     );
-    // Shoe dots at leg bottoms.
     final shoePaint = Paint()..color = const Color(0xFF111111);
     canvas.drawOval(
       Rect.fromCenter(center: Offset(w * 0.35, leftBottom), width: 8, height: 4),
@@ -258,7 +307,7 @@ class PlayerComponent extends PositionComponent
       shoePaint,
     );
 
-    // Rider torso — blue jacket with gradient.
+    // Torso.
     final torsoRect = Rect.fromLTWH(w * 0.20, h * 0.34, w * 0.60, h * 0.26);
     final torsoRRect = RRect.fromRectAndRadius(torsoRect, const Radius.circular(5));
     canvas.drawRRect(
@@ -274,7 +323,28 @@ class PlayerComponent extends PositionComponent
       canvas.drawRRect(torsoRRect, Paint()..color = vipTint);
     }
 
-    // Small backpack / satchel.
+    // Throw-arm extension: left arm swings out to throw position.
+    if (_throwArmTimer > 0) {
+      final t = _throwArmTimer / _throwArmDuration; // 1→0
+      final armX = w * 0.20 - t * 14;
+      final armY = h * 0.40;
+      canvas.drawLine(
+        Offset(w * 0.22, h * 0.42),
+        Offset(armX, armY),
+        Paint()
+          ..color = const Color(0xFF1E6BCC)
+          ..strokeWidth = 4.0
+          ..strokeCap = StrokeCap.round,
+      );
+      // Fist/hand dot.
+      canvas.drawCircle(
+        Offset(armX, armY),
+        3.5,
+        Paint()..color = const Color(0xFFFFCC80),
+      );
+    }
+
+    // Backpack.
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(w * 0.62, h * 0.36, w * 0.16, h * 0.18),
@@ -290,7 +360,7 @@ class PlayerComponent extends PositionComponent
       Paint()..color = const Color(0xFFFFCC80),
     );
 
-    // Helmet dome.
+    // Helmet.
     final helmetPaint = Paint()
       ..shader = Gradient.linear(
         Offset(w * 0.34, h * 0.13),
@@ -305,7 +375,7 @@ class PlayerComponent extends PositionComponent
       ));
     canvas.drawPath(helmetPath, helmetPaint);
 
-    // Helmet visor glare (small white arc on dome).
+    // Visor glare.
     canvas.drawArc(
       Rect.fromCenter(
         center: Offset(w * 0.43, h * 0.15),
