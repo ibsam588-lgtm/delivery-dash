@@ -25,11 +25,9 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   int comboCount = 0;
   int bestComboThisRun = 0;
   int coinsThisRun = 0;
-  int level = 1;
+  int day = 1;
   double distanceMeters = 0;
-  double _lastRefillMeters = 0;
-  int papers = 3;
-  static const int maxPapers = 3;
+  int papers = 5;
 
   double currentSpeed = 200;
   double _slowFactor = 1.0;
@@ -40,8 +38,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   late LaneManager laneManager;
   late PlayerComponent player;
   late Hud hud;
-
-  final ValueNotifier<int> paperCountNotifier = ValueNotifier<int>(maxPapers);
 
   bool _isShaking = false;
   double _shakeTimer = 0;
@@ -57,13 +53,12 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     bool isNewRecord,
     int coinsEarned,
     int bestCombo,
-    int reachedLevel,
+    int daysCompleted,
   )? onGameOver;
 
   DeliveryDashGame({this.config = const GameConfig()});
 
   double get scrollSpeed => currentSpeed * _slowFactor;
-  int get distanceForLevelTarget => LevelConfig.metersPerLevel.toInt();
 
   @override
   Color backgroundColor() => const Color(0xFF101218);
@@ -100,19 +95,16 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   }
 
   void _initGame() {
-    final diff = config.difficultyConfig;
-
     score = 0;
-    lives = diff.lives + (config.hasShield ? 1 : 0);
+    lives = config.lives + (config.hasShield ? 1 : 0);
     comboCount = 0;
     bestComboThisRun = 0;
     coinsThisRun = 0;
-    level = 1;
+    day = config.startDay;
     distanceMeters = 0;
-    _lastRefillMeters = 0;
-    papers = maxPapers;
-    paperCountNotifier.value = papers;
-    currentSpeed = diff.startSpeed + (config.speedBoostStart ? 60 : 0);
+    final dayCfg = DayConfig.of(day);
+    papers = dayCfg.papers;
+    currentSpeed = dayCfg.startSpeed + (config.speedBoostStart ? 60 : 0);
     isInvincible = false;
     _slowFactor = 1.0;
     _slowTimer = 0;
@@ -120,18 +112,11 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
     add(RoadBackground(gameSize: size));
 
-    final rowsPerSide = (size.y / HouseComponent.rowSpacing).ceil() + 2;
-    for (int i = 0; i < rowsPerSide; i++) {
+    final rows = (size.y / HouseComponent.rowSpacing).ceil() + 2;
+    for (int i = 0; i < rows; i++) {
       add(HouseComponent(
-        side: HouseSide.left,
         initialY: i * HouseComponent.rowSpacing - HouseComponent.rowSpacing,
         index: i,
-      ));
-      add(HouseComponent(
-        side: HouseSide.right,
-        initialY: i * HouseComponent.rowSpacing -
-            HouseComponent.rowSpacing / 2,
-        index: i + 1,
       ));
     }
 
@@ -140,13 +125,9 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
     hud = Hud();
     add(hud);
-    hud.updateLives(lives);
-    hud.updateCoins(0);
     hud.updateScore(0);
-    hud.updateSpeed(currentSpeed);
-    hud.updateLevel(level);
-    hud.updateDistance(0, distanceForLevelTarget);
-    hud.updatePaperCount(papers, maxPapers);
+    hud.updateDay(day);
+    hud.updateBonus(0);
 
     add(Spawner());
 
@@ -195,54 +176,37 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       }
     }
 
-    final diff = config.difficultyConfig;
-    final levelBonus = LevelConfig.speedBonusForLevel(level);
-    final maxSpeed = diff.startSpeed * 3.0 + levelBonus;
-    currentSpeed = (currentSpeed + diff.speedRamp * dt).clamp(0, maxSpeed);
-    hud.updateSpeed(currentSpeed);
+    final dayCfg = DayConfig.of(day);
+    final maxSpeed = dayCfg.startSpeed * 1.5;
+    currentSpeed = (currentSpeed + 8 * dt).clamp(0, maxSpeed);
 
-    distanceMeters += scrollSpeed * dt / LevelConfig.pxPerMeter;
-    hud.updateDistance(distanceMeters.toInt(), distanceForLevelTarget);
-
-    if (distanceMeters >= distanceForLevelTarget) {
-      _advanceLevel();
-    }
-
-    if (distanceMeters - _lastRefillMeters >= LevelConfig.paperRefillMeters) {
-      _lastRefillMeters = distanceMeters;
-      if (papers < maxPapers) {
-        papers++;
-        paperCountNotifier.value = papers;
-        hud.updatePaperCount(papers, maxPapers);
-      }
+    distanceMeters += scrollSpeed * dt / DayConfig.pxPerMeter;
+    if (distanceMeters >= DayConfig.metersPerDay) {
+      _advanceDay();
     }
   }
 
-  void _advanceLevel() {
+  void _advanceDay() {
     distanceMeters = 0;
-    level = (level + 1).clamp(1, LevelConfig.maxLevel);
-    currentSpeed += 20;
-    overlays.add('LevelUp');
-    Future.delayed(const Duration(milliseconds: 1100), () {
-      overlays.remove('LevelUp');
+    if (day < DayConfig.days.length) {
+      day += 1;
+    }
+    final cfg = DayConfig.of(day);
+    currentSpeed = cfg.startSpeed;
+    papers = cfg.papers;
+
+    overlays.add('DayUp');
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      overlays.remove('DayUp');
     });
-    hud.updateLevel(level);
-    hud.updateDistance(0, distanceForLevelTarget);
+    hud.updateDay(day);
   }
 
-  void onSwipeLeft() {
-    if (state != GameState.playing) return;
-    player.moveLeft();
-  }
+  // ── Input ─────────────────────────────────────────────────────────────
 
-  void onSwipeRight() {
+  void onDragMoveTo(double worldX) {
     if (state != GameState.playing) return;
-    player.moveRight();
-  }
-
-  void onThrowTapped() {
-    if (state != GameState.playing) return;
-    _throwPaper();
+    player.moveTo(worldX);
   }
 
   void onTap() {
@@ -253,8 +217,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   void _throwPaper() {
     if (papers <= 0) return;
     papers--;
-    paperCountNotifier.value = papers;
-    hud.updatePaperCount(papers, maxPapers);
 
     if (config.paperBlitz) {
       for (final a in const [-18.0, 0.0, 18.0]) {
@@ -268,32 +230,36 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
   }
 
+  // ── Events ────────────────────────────────────────────────────────────
+
   void onPaperHitMailbox(bool isBlue, Vector2 position) {
+    if (!isBlue) {
+      // Non-subscriber — no points, but no combo break either.
+      return;
+    }
     comboCount++;
     if (comboCount > bestComboThisRun) bestComboThisRun = comboCount;
     final mult = comboMultiplier(comboCount);
-    final base = isBlue ? 10 : 25;
+    const base = 10;
     final pts = base * mult;
+    final bonus = pts - base;
 
-    final coinsBase = isBlue ? 1 : 3;
-    final coinMult = config.difficultyConfig.coinMultiplier *
-        (config.doubleCoins ? 2 : 1);
+    const coinsBase = 1;
+    final coinMult =
+        config.coinMultiplier * (config.doubleCoins ? 2 : 1);
     final coins = (coinsBase * coinMult).round();
 
-    _addScore(pts, position, isBlue: isBlue);
+    _addScore(pts, position, isBlue: true);
     coinsThisRun += coins;
-    hud.updateCoins(coinsThisRun);
-    hud.updateCombo(comboCount);
+    hud.updateBonus(bonus);
     AudioService.instance.playDelivery();
   }
 
   void _addScore(int delta, Vector2 position, {required bool isBlue}) {
     score = (score + delta).clamp(0, 999999);
     hud.updateScore(score);
-
-    final label = delta > 0 ? '+$delta' : '$delta';
     add(FloatingText(
-      text: label,
+      text: delta > 0 ? '+$delta' : '$delta',
       position: position,
       color: isBlue ? const Color(0xFF66BB6A) : const Color(0xFFFFB74D),
     ));
@@ -306,23 +272,20 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     isInvincible = true;
     invincibilityTimer = 1.5;
     comboCount = 0;
-    hud.updateCombo(0);
-    hud.updateLives(lives);
+    hud.updateBonus(0);
 
     _triggerShake();
     AudioService.instance.playHit();
 
-    if (lives <= 0) {
-      _endGame();
-    }
+    if (lives <= 0) _endGame();
   }
 
   void onPlayerHitSlowObstacle() {
     if (state != GameState.playing) return;
     if (isInvincible) return;
 
-    final diff = config.difficultyConfig;
-    final maxSpeed = diff.startSpeed * 3.0;
+    final dayCfg = DayConfig.of(day);
+    final maxSpeed = dayCfg.startSpeed * 1.5;
     if (currentSpeed >= maxSpeed - 5) {
       onPlayerHitObstacle();
       return;
@@ -353,7 +316,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
           isNewRecord,
           earned,
           bestComboThisRun,
-          level,
+          day,
         ));
   }
 }

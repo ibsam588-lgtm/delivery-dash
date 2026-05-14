@@ -15,7 +15,7 @@ class GameOverScreen extends StatelessWidget {
     final isNewRecord = args?['isNewRecord'] as bool? ?? false;
     final coinsEarned = args?['coinsEarned'] as int? ?? 0;
     final bestCombo = args?['bestCombo'] as int? ?? 0;
-    final reachedLevel = args?['reachedLevel'] as int? ?? 1;
+    final daysCompleted = args?['daysCompleted'] as int? ?? 1;
     final difficulty = args?['difficulty'] as Difficulty? ?? Difficulty.medium;
 
     return Scaffold(
@@ -89,8 +89,8 @@ class GameOverScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         _ScoreBox(
-                          label: 'LEVEL',
-                          value: '$reachedLevel',
+                          label: 'DAYS',
+                          value: '$daysCompleted',
                           color: const Color(0xFF90CAF9),
                           compact: true,
                         ),

@@ -1,50 +1,100 @@
 enum Difficulty { easy, medium, hard }
 
-class DifficultyConfig {
+class DayConfig {
+  final int day;
   final double startSpeed;
-  final int laneSwitchMs;
   final double spawnInterval;
-  final double speedRamp;
-  final int lives;
-  final double coinMultiplier;
+  final int papers;
+  final String label;
 
-  const DifficultyConfig({
+  const DayConfig({
+    required this.day,
     required this.startSpeed,
-    required this.laneSwitchMs,
     required this.spawnInterval,
-    required this.speedRamp,
-    required this.lives,
-    required this.coinMultiplier,
+    required this.papers,
+    required this.label,
   });
 
-  static const Map<Difficulty, DifficultyConfig> configs = {
-    Difficulty.easy: DifficultyConfig(
-      startSpeed: 180,
-      laneSwitchMs: 220,
-      spawnInterval: 2.2,
-      speedRamp: 8,
-      lives: 4,
-      coinMultiplier: 1.0,
+  static const List<DayConfig> days = [
+    DayConfig(
+      day: 1,
+      startSpeed: 160,
+      spawnInterval: 2.5,
+      papers: 5,
+      label: 'Easy Start',
     ),
-    Difficulty.medium: DifficultyConfig(
-      startSpeed: 260,
-      laneSwitchMs: 160,
-      spawnInterval: 1.5,
-      speedRamp: 15,
-      lives: 3,
-      coinMultiplier: 1.5,
+    DayConfig(
+      day: 2,
+      startSpeed: 200,
+      spawnInterval: 2.0,
+      papers: 5,
+      label: 'More Traffic',
     ),
-    Difficulty.hard: DifficultyConfig(
-      startSpeed: 360,
-      laneSwitchMs: 100,
+    DayConfig(
+      day: 3,
+      startSpeed: 250,
+      spawnInterval: 1.6,
+      papers: 6,
+      label: 'Faster',
+    ),
+    DayConfig(
+      day: 4,
+      startSpeed: 310,
+      spawnInterval: 1.2,
+      papers: 6,
+      label: 'Hard',
+    ),
+    DayConfig(
+      day: 5,
+      startSpeed: 380,
       spawnInterval: 0.9,
-      speedRamp: 25,
-      lives: 2,
-      coinMultiplier: 2.0,
+      papers: 7,
+      label: 'Expert',
     ),
-  };
+  ];
 
-  static DifficultyConfig of(Difficulty d) => configs[d]!;
+  static DayConfig of(int day) {
+    final idx = (day - 1).clamp(0, days.length - 1);
+    return days[idx];
+  }
+
+  static const double metersPerDay = 600;
+  static const double pxPerMeter = 9;
+}
+
+class DifficultyConfig {
+  static int startDayFor(Difficulty d) {
+    switch (d) {
+      case Difficulty.easy:
+        return 1;
+      case Difficulty.medium:
+        return 2;
+      case Difficulty.hard:
+        return 3;
+    }
+  }
+
+  static int livesFor(Difficulty d) {
+    switch (d) {
+      case Difficulty.easy:
+        return 4;
+      case Difficulty.medium:
+        return 3;
+      case Difficulty.hard:
+        return 2;
+    }
+  }
+
+  static double coinMultiplierFor(Difficulty d) {
+    switch (d) {
+      case Difficulty.easy:
+        return 1.0;
+      case Difficulty.medium:
+        return 1.5;
+      case Difficulty.hard:
+        return 2.0;
+    }
+  }
 
   static String label(Difficulty d) {
     switch (d) {
@@ -55,23 +105,6 @@ class DifficultyConfig {
       case Difficulty.hard:
         return 'HARD';
     }
-  }
-}
-
-class LevelConfig {
-  static const double metersPerLevel = 500;
-  static const int maxLevel = 10;
-  static const double pxPerMeter = 9;
-  static const double paperRefillMeters = 300;
-
-  static double speedBonusForLevel(int level) {
-    final clamped = level.clamp(1, maxLevel);
-    return (clamped - 1) * 20.0;
-  }
-
-  static double spawnFactorForLevel(int level) {
-    final clamped = level.clamp(1, maxLevel);
-    return (1.0 - (clamped - 1) * 0.05).clamp(0.55, 1.0);
   }
 }
 
@@ -99,5 +132,7 @@ class GameConfig {
     this.vipSkin = false,
   });
 
-  DifficultyConfig get difficultyConfig => DifficultyConfig.of(difficulty);
+  int get startDay => DifficultyConfig.startDayFor(difficulty);
+  int get lives => DifficultyConfig.livesFor(difficulty);
+  double get coinMultiplier => DifficultyConfig.coinMultiplierFor(difficulty);
 }

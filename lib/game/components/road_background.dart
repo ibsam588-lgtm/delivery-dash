@@ -4,11 +4,10 @@ import '../delivery_dash_game.dart';
 
 class RoadBackground extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  static const Color roadColor = Color(0xFF2D2D33);
+  static const Color roadColor = Color(0xFF2E2E33);
   static const Color roadShadeColor = Color(0xFF1F1F25);
-  static const Color sidewalkColor = Color(0xFF4CAF50);
-  static const Color sidewalkBandColor = Color(0xFF3F9E45);
-  static const Color sidewalkEdgeColor = Color(0xFF2E7D32);
+  static const Color sidewalkColor = Color(0xFF388E3C);
+  static const Color sidewalkBandColor = Color(0xFF2E7D32);
   static const Color curbColor = Color(0xFFFFFFFF);
   static const Color laneLineColor = Color(0xFFFFC107);
 
@@ -21,7 +20,6 @@ class RoadBackground extends PositionComponent
   final Paint _roadShadePaint = Paint()..color = roadShadeColor;
   final Paint _sidewalkPaint = Paint()..color = sidewalkColor;
   final Paint _sidewalkBandPaint = Paint()..color = sidewalkBandColor;
-  final Paint _edgePaint = Paint()..color = sidewalkEdgeColor;
   final Paint _curbPaint = Paint()..color = curbColor;
   final Paint _linePaint = Paint()
     ..color = laneLineColor
@@ -50,12 +48,14 @@ class RoadBackground extends PositionComponent
     final lm = gameRef.laneManager;
     final roadLeft = lm.roadLeft;
     final roadRight = lm.roadRight;
-    final laneWidth = lm.laneWidth;
+    final roadCenter = lm.roadCenter;
 
+    // Grass sidewalks.
     canvas.drawRect(Rect.fromLTWH(0, 0, roadLeft, h), _sidewalkPaint);
     canvas.drawRect(
         Rect.fromLTWH(roadRight, 0, w - roadRight, h), _sidewalkPaint);
 
+    // Horizontal mowing bands on grass — scroll for motion cue.
     var bandY = -_bandSpacing + _bandOffset;
     while (bandY < h) {
       canvas.drawRect(
@@ -66,28 +66,27 @@ class RoadBackground extends PositionComponent
       bandY += _bandSpacing;
     }
 
+    // Asphalt.
     canvas.drawRect(
         Rect.fromLTWH(roadLeft, 0, roadRight - roadLeft, h), _roadPaint);
 
-    final shadeW = (roadRight - roadLeft) * 0.08;
+    // Subtle inner shading on road edges for depth.
+    final shadeW = (roadRight - roadLeft) * 0.06;
     canvas.drawRect(
         Rect.fromLTWH(roadLeft, 0, shadeW, h), _roadShadePaint);
     canvas.drawRect(
         Rect.fromLTWH(roadRight - shadeW, 0, shadeW, h), _roadShadePaint);
 
-    canvas.drawRect(Rect.fromLTWH(roadLeft - 4, 0, 4, h), _edgePaint);
-    canvas.drawRect(Rect.fromLTWH(roadRight, 0, 4, h), _edgePaint);
+    // White curb lines at both road edges.
+    canvas.drawRect(Rect.fromLTWH(roadLeft - 1, 0, 3, h), _curbPaint);
+    canvas.drawRect(Rect.fromLTWH(roadRight - 2, 0, 3, h), _curbPaint);
 
-    canvas.drawRect(Rect.fromLTWH(roadLeft - 1, 0, 2, h), _curbPaint);
-    canvas.drawRect(Rect.fromLTWH(roadRight + 3, 0, 2, h), _curbPaint);
-
-    for (int lane = 1; lane < 3; lane++) {
-      final x = roadLeft + lane * laneWidth;
-      var y = -_cycle + _dashOffset;
-      while (y < h) {
-        canvas.drawLine(Offset(x, y), Offset(x, y + _dashLen), _linePaint);
-        y += _cycle;
-      }
+    // Single yellow dashed center divider.
+    var y = -_cycle + _dashOffset;
+    while (y < h) {
+      canvas.drawLine(
+          Offset(roadCenter, y), Offset(roadCenter, y + _dashLen), _linePaint);
+      y += _cycle;
     }
   }
 }

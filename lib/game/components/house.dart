@@ -4,12 +4,10 @@ import 'package:flame/components.dart';
 import '../delivery_dash_game.dart';
 import 'mailbox.dart';
 
-enum HouseSide { left, right }
-
 class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
-  static const double rowSpacing = 160.0;
+  static const double rowSpacing = 180.0;
+  static const double targetWidth = 110.0;
 
-  final HouseSide side;
   final double _initialY;
   int _index;
   final Random _rng = Random();
@@ -17,7 +15,6 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
   MailboxComponent? _mailbox;
 
   HouseComponent({
-    required this.side,
     required double initialY,
     required int index,
   })  : _initialY = initialY,
@@ -32,16 +29,12 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
 
   void _layout() {
     final lm = gameRef.laneManager;
-    final sw = lm.sidewalkWidth;
-    // House fills ~90% of sidewalk width; image is roughly square (370x380)
-    // so we scale uniformly to keep the aspect ratio looking right.
-    final houseW = (sw * 0.9).clamp(40.0, 120.0);
+    final sw = lm.leftSidewalkWidth;
+    // House fills most of the left sidewalk, capped to spec target width.
+    final houseW = (sw * 0.8).clamp(70.0, targetWidth);
     size = Vector2(houseW, houseW * (380.0 / 370.0));
-    final inset = ((sw - houseW) / 2).clamp(0.0, sw);
-    final x = side == HouseSide.left
-        ? inset
-        : gameRef.size.x - sw + inset;
-    position = Vector2(x, _initialY);
+    final inset = ((sw - houseW) / 2).clamp(2.0, sw - houseW - 2.0);
+    position = Vector2(inset, _initialY);
   }
 
   @override
@@ -56,22 +49,20 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
     _mailbox = null;
 
     final r = _rng.nextDouble();
-    if (r > 0.85) return;
-    final isBlue = r > 0.15;
+    if (r < 0.10) return; // 10% no mailbox
+    final isBlue = r < 0.80; // 70% blue, 20% red
     final mb = MailboxComponent(isBlue: isBlue);
 
-    final double localX = side == HouseSide.left ? size.x + 4 : -4;
-    final double localY = size.y * 0.65;
-    mb.position = Vector2(localX, localY);
+    // Mailbox on the road-facing edge of the house (right side, toward road).
+    mb.position = Vector2(size.x + 8, size.y * 0.7);
     add(mb);
     _mailbox = mb;
   }
 
   @override
   void render(Canvas canvas) {
-    // Soft drop shadow underneath the house.
     canvas.drawRect(
-      Rect.fromLTWH(3, size.y * 0.85, size.x, 6),
+      Rect.fromLTWH(4, size.y * 0.88, size.x, 6),
       Paint()..color = const Color(0x55000000),
     );
     super.render(canvas);

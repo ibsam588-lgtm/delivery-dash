@@ -253,6 +253,7 @@ class _DifficultySelector extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6),
             child: _DifficultyButton(
               label: DifficultyConfig.label(d),
+              startDay: DifficultyConfig.startDayFor(d),
               color: _colors[d]!,
               selected: d == selected,
               onTap: () => onChange(d),
@@ -265,12 +266,14 @@ class _DifficultySelector extends StatelessWidget {
 
 class _DifficultyButton extends StatelessWidget {
   final String label;
+  final int startDay;
   final Color color;
   final bool selected;
   final VoidCallback onTap;
 
   const _DifficultyButton({
     required this.label,
+    required this.startDay,
     required this.color,
     required this.selected,
     required this.onTap,
@@ -282,7 +285,7 @@ class _DifficultyButton extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: selected ? color : color.withValues(alpha: 0.25),
           borderRadius: BorderRadius.circular(10),
@@ -299,12 +302,26 @@ class _DifficultyButton extends StatelessWidget {
                 ]
               : null,
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.pressStart2p(
-            fontSize: 11,
-            color: Colors.white,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.pressStart2p(
+                fontSize: 11,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'START D$startDay',
+              style: GoogleFonts.pressStart2p(
+                fontSize: 7,
+                color: Colors.white70,
+                letterSpacing: 1.4,
+              ),
+            ),
+          ],
         ),
       ),
     );

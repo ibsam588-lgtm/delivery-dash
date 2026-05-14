@@ -7,7 +7,8 @@ import 'mailbox.dart';
 class PaperComponent extends SpriteComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
   static const double _baseSpeed = 540.0;
-  static const double _seekRange = 220.0;
+  static const double _seekRange = 300.0;
+  static const double _spinPerSec = 12.0;
 
   Vector2 _velocity;
   MailboxComponent? _target;
@@ -41,6 +42,8 @@ class PaperComponent extends SpriteComponent
     MailboxComponent? best;
     double bestDist = _seekRange;
     for (final mb in gameRef.descendants().whereType<MailboxComponent>()) {
+      // Only seek subscriber (blue) mailboxes.
+      if (!mb.isBlue) continue;
       final worldPos = mb.absolutePosition;
       final d = (worldPos - position).length;
       if (d < bestDist) {
@@ -71,7 +74,7 @@ class PaperComponent extends SpriteComponent
     }
 
     position += _velocity * dt;
-    angle += 10 * dt;
+    angle += _spinPerSec * dt;
 
     if (position.y < -size.y ||
         position.x < -size.x ||

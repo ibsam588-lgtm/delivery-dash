@@ -9,58 +9,38 @@ enum ObstacleType { car, dog, worker, cone, barrier, pothole }
 class ObstacleComponent extends SpriteComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
   final ObstacleType type;
-  final int lane;
+  final double spawnX;
   final int carVariant;
   bool _hasHitPlayer = false;
 
   ObstacleComponent({
     required this.type,
-    required this.lane,
+    required this.spawnX,
     int? carVariant,
   })  : carVariant = carVariant ?? Random().nextInt(4),
         super(anchor: Anchor.center, priority: 3);
+
+  static Vector2 _sizeFor(ObstacleType t) {
+    switch (t) {
+      case ObstacleType.car:
+        return Vector2(60, 100);
+      case ObstacleType.dog:
+        return Vector2(50, 40);
+      case ObstacleType.worker:
+        return Vector2(50, 80);
+      case ObstacleType.cone:
+        return Vector2(40, 50);
+      case ObstacleType.barrier:
+        return Vector2(80, 50);
+      case ObstacleType.pothole:
+        return Vector2(50, 35);
+    }
+  }
 
   bool get isLethal =>
       type == ObstacleType.car ||
       type == ObstacleType.dog ||
       type == ObstacleType.worker;
-
-  // Aspect ratio (width / height) for each obstacle, based on the
-  // actual source artwork dimensions in assets/images/.
-  double get _aspect {
-    switch (type) {
-      case ObstacleType.car:
-        return 56.0 / 80.0;
-      case ObstacleType.dog:
-        return 32.0 / 48.0;
-      case ObstacleType.worker:
-        return 48.0 / 64.0;
-      case ObstacleType.cone:
-        return 48.0 / 32.0;
-      case ObstacleType.barrier:
-        return 80.0 / 100.0;
-      case ObstacleType.pothole:
-        return 80.0 / 100.0;
-    }
-  }
-
-  // Target width as a fraction of lane width.
-  double get _widthFactor {
-    switch (type) {
-      case ObstacleType.car:
-        return 0.78;
-      case ObstacleType.dog:
-        return 0.62;
-      case ObstacleType.worker:
-        return 0.66;
-      case ObstacleType.cone:
-        return 0.55;
-      case ObstacleType.barrier:
-        return 0.92;
-      case ObstacleType.pothole:
-        return 0.80;
-    }
-  }
 
   String get _spriteName {
     switch (type) {
@@ -91,11 +71,8 @@ class ObstacleComponent extends SpriteComponent
   @override
   Future<void> onLoad() async {
     sprite = Sprite(gameRef.images.fromCache(_spriteName));
-    final laneWidth = gameRef.laneManager.laneWidth;
-    final w = laneWidth * _widthFactor;
-    final h = w / _aspect;
-    size = Vector2(w, h);
-    position = Vector2(gameRef.laneManager.laneX(lane), -size.y);
+    size = _sizeFor(type);
+    position = Vector2(spawnX, -size.y);
     const hbInset = 0.14;
     add(RectangleHitbox(
       size: size * (1 - 2 * hbInset),
