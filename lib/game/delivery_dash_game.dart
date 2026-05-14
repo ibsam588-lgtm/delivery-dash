@@ -70,11 +70,27 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   @override
   Color backgroundColor() => const Color(0xFF101218);
 
+  bool _initialized = false;
+
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    laneManager = LaneManager(gameSize: size);
+    // IMPORTANT: don't read `size` here. In Flame's lifecycle `size`
+    // can still be Vector2.zero() until the first onGameResize fires.
+    // We initialize the LaneManager and spawn the world in onMount,
+    // which runs after the first layout pass.
     await _preloadAssets();
+  }
+
+  @override
+  void onMount() {
+    super.onMount();
+    if (_initialized) return;
+    _initialized = true;
+    laneManager = LaneManager(gameSize: size);
+    debugPrint(
+        'DeliveryDash onMount: size=$size roadLeft=${laneManager.roadLeft} '
+        'roadRight=${laneManager.roadRight}');
     _initGame();
   }
 

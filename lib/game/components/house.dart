@@ -34,10 +34,17 @@ class HouseComponent extends SpriteComponent
 
   void _alignToSidewalk() {
     final lm = gameRef.laneManager;
-    // Right edge of the house hugs the road's left curb.
-    final desiredRight = lm.roadLeft - 4;
-    final x = desiredRight - size.x;
-    position.x = x.clamp(2.0, lm.roadLeft - size.x - 2);
+    final roadLeft = lm.roadLeft;
+    // If the house won't physically fit on the sidewalk, shrink it.
+    // Otherwise keep the configured fixed size. Aspect ratio preserved.
+    final fitWidth = (roadLeft - 8).clamp(40.0, fixedWidth);
+    if ((fitWidth - size.x).abs() > 0.5) {
+      size = Vector2(fitWidth, fitWidth * (fixedHeight / fixedWidth));
+    }
+    // Place the house so its right edge is just inside the curb.
+    // Never produce a negative X (which would put the house off-screen).
+    final x = roadLeft - size.x - 4;
+    position.x = x < 0 ? 0 : x;
   }
 
   @override
