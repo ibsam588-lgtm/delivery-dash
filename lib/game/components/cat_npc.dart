@@ -26,6 +26,7 @@ class CatNpcComponent extends PositionComponent
   bool _isJumping = false;
   double _jumpOffset = 0;
   double _checkTimer = 0;
+  double _hissTimer = 0;
 
   CatNpcComponent._({
     required Color bodyColor,
@@ -49,6 +50,7 @@ class CatNpcComponent extends PositionComponent
   void _startJump() {
     _isJumping = true;
     _jumpTimer = 0;
+    _hissTimer = 0.5;
     gameRef.add(FloatingText(
       text: '!',
       position: absolutePosition - Vector2(0, 24),
@@ -62,6 +64,10 @@ class CatNpcComponent extends PositionComponent
     if (gameRef.state != GameState.playing) return;
 
     position.y += gameRef.scrollSpeed * dt;
+
+    if (_hissTimer > 0) {
+      _hissTimer = (_hissTimer - dt).clamp(0.0, 0.5);
+    }
 
     // Paper proximity check (throttled).
     if (!_isJumping) {
@@ -81,7 +87,7 @@ class CatNpcComponent extends PositionComponent
     // Jump animation.
     if (_isJumping) {
       _jumpTimer += dt;
-      final half = _jumpDuration / 2;
+      const half = _jumpDuration / 2;
       if (_jumpTimer < half) {
         _jumpOffset = -_jumpHeight * (_jumpTimer / half);
       } else if (_jumpTimer < _jumpDuration) {
@@ -185,43 +191,84 @@ class CatNpcComponent extends PositionComponent
       ..close();
     canvas.drawPath(rightInnerPath, earInnerPaint);
 
-    // --- Eyes (oval with slit pupil) ---
-    final eyeBasePaint = Paint()..color = const Color(0xFFBFE8F0);
-    final pupilPaint = Paint()..color = const Color(0xFF111111);
-    final eyeShine = Paint()..color = const Color(0xCCFFFFFF);
+    if (_hissTimer > 0) {
+      // Hiss face: >:( drawn over the cat head area.
+      _renderHissExpression(canvas, headCenter, w, h);
+    } else {
+      // --- Normal eyes (oval with slit pupil) ---
+      final eyeBasePaint = Paint()..color = const Color(0xFFBFE8F0);
+      final pupilPaint = Paint()..color = const Color(0xFF111111);
+      final eyeShine = Paint()..color = const Color(0xCCFFFFFF);
 
-    for (final ex in [w * 0.37, w * 0.63]) {
+      for (final ex in [w * 0.37, w * 0.63]) {
+        canvas.drawOval(
+          Rect.fromCenter(center: Offset(ex, h * 0.27), width: 6.5, height: 5.5),
+          eyeBasePaint,
+        );
+        canvas.drawOval(
+          Rect.fromCenter(center: Offset(ex, h * 0.27), width: 2.0, height: 4.5),
+          pupilPaint,
+        );
+        canvas.drawCircle(Offset(ex - 1.2, h * 0.24), 0.9, eyeShine);
+      }
+
+      // --- Nose ---
       canvas.drawOval(
-        Rect.fromCenter(center: Offset(ex, h * 0.27), width: 6.5, height: 5.5),
-        eyeBasePaint,
+        Rect.fromCenter(
+            center: Offset(w * 0.50, h * 0.38), width: 4.0, height: 3.0),
+        Paint()..color = const Color(0xFFFF8FAB),
       );
-      // Slit pupil.
-      canvas.drawOval(
-        Rect.fromCenter(center: Offset(ex, h * 0.27), width: 2.0, height: 4.5),
-        pupilPaint,
-      );
-      // Tiny shine.
-      canvas.drawCircle(Offset(ex - 1.2, h * 0.24), 0.9, eyeShine);
+
+      // --- Whiskers (3 each side) ---
+      final whiskerPaint = Paint()
+        ..color = const Color(0xCCFFFFFF)
+        ..strokeWidth = 0.9
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(
+          Offset(w * 0.28, h * 0.34), Offset(w * 0.02, h * 0.30), whiskerPaint);
+      canvas.drawLine(
+          Offset(w * 0.28, h * 0.37), Offset(w * 0.02, h * 0.37), whiskerPaint);
+      canvas.drawLine(
+          Offset(w * 0.28, h * 0.40), Offset(w * 0.02, h * 0.44), whiskerPaint);
+      canvas.drawLine(
+          Offset(w * 0.72, h * 0.34), Offset(w * 0.98, h * 0.30), whiskerPaint);
+      canvas.drawLine(
+          Offset(w * 0.72, h * 0.37), Offset(w * 0.98, h * 0.37), whiskerPaint);
+      canvas.drawLine(
+          Offset(w * 0.72, h * 0.40), Offset(w * 0.98, h * 0.44), whiskerPaint);
     }
+  }
 
-    // --- Nose ---
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset(w * 0.50, h * 0.38), width: 4.0, height: 3.0),
-      Paint()..color = const Color(0xFFFF8FAB),
-    );
-
-    // --- Whiskers (3 each side) ---
-    final whiskerPaint = Paint()
-      ..color = const Color(0xCCFFFFFF)
-      ..strokeWidth = 0.9
+  void _renderHissExpression(
+      Canvas canvas, Offset headCenter, double w, double h) {
+    // Angry slanted eyes.
+    final angryPaint = Paint()
+      ..color = const Color(0xFFFF3300)
+      ..strokeWidth = 1.5
       ..strokeCap = StrokeCap.round;
-    // Left.
-    canvas.drawLine(Offset(w * 0.28, h * 0.34), Offset(w * 0.02, h * 0.30), whiskerPaint);
-    canvas.drawLine(Offset(w * 0.28, h * 0.37), Offset(w * 0.02, h * 0.37), whiskerPaint);
-    canvas.drawLine(Offset(w * 0.28, h * 0.40), Offset(w * 0.02, h * 0.44), whiskerPaint);
-    // Right.
-    canvas.drawLine(Offset(w * 0.72, h * 0.34), Offset(w * 0.98, h * 0.30), whiskerPaint);
-    canvas.drawLine(Offset(w * 0.72, h * 0.37), Offset(w * 0.98, h * 0.37), whiskerPaint);
-    canvas.drawLine(Offset(w * 0.72, h * 0.40), Offset(w * 0.98, h * 0.44), whiskerPaint);
+    // Left eye slash (angled down toward center).
+    canvas.drawLine(
+      Offset(w * 0.30, h * 0.22),
+      Offset(w * 0.44, h * 0.30),
+      angryPaint,
+    );
+    // Right eye slash (mirror).
+    canvas.drawLine(
+      Offset(w * 0.70, h * 0.22),
+      Offset(w * 0.56, h * 0.30),
+      angryPaint,
+    );
+    // Frown mouth.
+    final frownPath = Path()
+      ..moveTo(w * 0.36, h * 0.42)
+      ..quadraticBezierTo(w * 0.50, h * 0.36, w * 0.64, h * 0.42);
+    canvas.drawPath(
+      frownPath,
+      Paint()
+        ..color = const Color(0xFFFF3300)
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke,
+    );
   }
 }

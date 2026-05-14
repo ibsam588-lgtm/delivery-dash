@@ -23,7 +23,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   double _decorTimer = 0;
   final Random _rng = Random();
 
-  static const double paperPackDistanceInterval = 300;
+  static const double paperPackDistanceInterval = 400;
   static const double lampDistanceInterval = 90;
   static const double parkedCarDistanceInterval = 220;
   static const double intersectionDistanceInterval = 400;
@@ -212,8 +212,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   }
 
   void _spawnParkedCar() {
-    // Use all 4 colour variants for variety.
-    gameRef.add(ParkedCarComponent(variant: _rng.nextInt(4)));
+    gameRef.add(ParkedCarComponent(variant: _rng.nextInt(6)));
   }
 
   void _spawnIntersection() {

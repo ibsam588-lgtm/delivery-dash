@@ -165,6 +165,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
     // First paper allotment will be re-evaluated once mailboxes mount.
     papers = cfg.papers;
+    hud.updatePapers(papers);
 
     AudioService.instance.playBgm();
 
@@ -275,6 +276,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     // Smart-paper allotment: visible mailboxes + 3 (capped at +5 over base).
     final visible = countVisibleMailboxes();
     papers = (visible + 3).clamp(cfg.papers, cfg.papers + 5);
+    hud.updatePapers(papers);
 
     AudioService.instance.playLevelUp();
     overlays.add('LevelUp');
@@ -316,6 +318,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       return;
     }
     papers--;
+    hud.updatePapers(papers);
 
     if (config.paperBlitz) {
       for (final a in const [-18.0, 0.0, 18.0]) {
@@ -333,9 +336,10 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   void onPickupPaperPack(int amount, Vector2 position) {
     papers += amount;
+    hud.updatePapers(papers);
     AudioService.instance.playPickup();
     add(FloatingText(
-      text: '+$amount PAPERS',
+      text: '+$amount 📰',
       position: position,
       color: const Color(0xFFFFD54F),
     ));
@@ -399,19 +403,20 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     _triggerHitFlash();
   }
 
-  /// Paper hit (and broke) a house window. Light glass burst, small
-  /// score bonus, no combo impact.
+  /// Paper hit (and broke) a house window. Glass shard burst + light
+  /// particle burst, small score bonus, no combo impact.
   void onPaperHitWindow(HouseWindow window, Vector2 position) {
     window.breakWindow();
     _addScore(HouseWindow.bonusPoints, position,
         color: const Color(0xFFB3E5FC));
+    add(GlassShardBurst(position: position));
     add(ParticleBurst(
       position: position,
       color: const Color(0xFFB3E5FC),
       color2: const Color(0xFFFFFFFF),
-      count: 14,
-      spread: 130,
-      pixelSize: 3,
+      count: 8,
+      spread: 100,
+      pixelSize: 2,
     ));
     AudioService.instance.playHit();
     _triggerHitFlash();

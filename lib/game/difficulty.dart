@@ -14,16 +14,16 @@ class LevelConfig {
   });
 
   static const List<LevelConfig> levels = [
-    LevelConfig(level: 1, startSpeed: 140, spawnInterval: 3.0, papers: 5),
-    LevelConfig(level: 2, startSpeed: 170, spawnInterval: 2.6, papers: 5),
-    LevelConfig(level: 3, startSpeed: 200, spawnInterval: 2.2, papers: 6),
-    LevelConfig(level: 4, startSpeed: 235, spawnInterval: 1.9, papers: 6),
-    LevelConfig(level: 5, startSpeed: 270, spawnInterval: 1.6, papers: 7),
-    LevelConfig(level: 6, startSpeed: 310, spawnInterval: 1.4, papers: 7),
-    LevelConfig(level: 7, startSpeed: 350, spawnInterval: 1.2, papers: 8),
-    LevelConfig(level: 8, startSpeed: 395, spawnInterval: 1.0, papers: 8),
-    LevelConfig(level: 9, startSpeed: 440, spawnInterval: 0.85, papers: 9),
-    LevelConfig(level: 10, startSpeed: 490, spawnInterval: 0.7, papers: 9),
+    LevelConfig(level: 1, startSpeed: 140, spawnInterval: 3.0, papers: 20),
+    LevelConfig(level: 2, startSpeed: 170, spawnInterval: 2.6, papers: 20),
+    LevelConfig(level: 3, startSpeed: 200, spawnInterval: 2.2, papers: 20),
+    LevelConfig(level: 4, startSpeed: 235, spawnInterval: 1.9, papers: 20),
+    LevelConfig(level: 5, startSpeed: 270, spawnInterval: 1.6, papers: 20),
+    LevelConfig(level: 6, startSpeed: 310, spawnInterval: 1.4, papers: 20),
+    LevelConfig(level: 7, startSpeed: 350, spawnInterval: 1.2, papers: 20),
+    LevelConfig(level: 8, startSpeed: 395, spawnInterval: 1.0, papers: 20),
+    LevelConfig(level: 9, startSpeed: 440, spawnInterval: 0.85, papers: 20),
+    LevelConfig(level: 10, startSpeed: 490, spawnInterval: 0.7, papers: 20),
   ];
 
   static LevelConfig of(int level) {

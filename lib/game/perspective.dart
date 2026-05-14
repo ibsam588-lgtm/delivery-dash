@@ -11,13 +11,13 @@ import 'dart:ui';
 /// Trapezoid road half-width factor relative to the flat road, by depth.
 ///   y / h == 0 (horizon)  → 0.7  (road is 70% as wide as flat)
 ///   y / h == 1 (foreground) → 1.3 (road is 130% as wide as flat)
-const double _roadTopFactor = 0.7;
-const double _roadBottomFactor = 1.3;
+const double _roadTopFactor = 0.52;
+const double _roadBottomFactor = 1.58;
 
 /// Sprite scale by depth.
-///   y / h == 0 → 0.7
+///   y / h == 0 → 0.55
 ///   y / h == 1 → 1.0
-const double _scaleTop = 0.7;
+const double _scaleTop = 0.55;
 const double _scaleBottom = 1.0;
 
 double _t(double y, double h) {

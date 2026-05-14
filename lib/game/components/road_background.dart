@@ -156,8 +156,8 @@ class RoadBackground extends PositionComponent
     }
     canvas.restore();
 
-    // 6. Horizon haze (depth fade at top of road).
-    final horizonRect = Rect.fromLTRB(leftTop, 0, rightTop, h * 0.35);
+    // 6. Horizon depth fade (dark at very top of road, then atmospheric haze).
+    final horizonRect = Rect.fromLTRB(leftTop, 0, rightTop, h * 0.28);
     canvas.drawRect(
       horizonRect,
       Paint()
@@ -165,6 +165,17 @@ class RoadBackground extends PositionComponent
           horizonRect.topCenter,
           horizonRect.bottomCenter,
           [const Color(0xFF0A0C12), const Color(0x002A2A2A)],
+        ),
+    );
+    // Atmospheric haze: semi-transparent white/light-blue at top 20%.
+    final hazeRect = Rect.fromLTWH(0, 0, w, h * 0.20);
+    canvas.drawRect(
+      hazeRect,
+      Paint()
+        ..shader = Gradient.linear(
+          const Offset(0, 0),
+          Offset(0, h * 0.20),
+          [const Color(0x26B3E5FC), const Color(0x00FFFFFF)],
         ),
     );
 
@@ -205,25 +216,33 @@ class RoadBackground extends PositionComponent
       ..close();
     drawCurb(curbRightWhite, curbRightShadow);
 
-    // 8. Center lane markings — yellow dashes + thin white centre stripe.
+    // 8. Center lane markings — perspective-correct trapezoid dashes.
+    // Each dash is wider at the bottom than the top, matching road foreshortening.
     final cx = gameRef.laneManager.roadCenter;
-    var y = -_cycle + _dashOffset;
-    while (y < h) {
-      canvas.drawLine(Offset(cx, y), Offset(cx, y + _dashLen), _linePaint);
-      y += _cycle;
+    var dy = -_cycle + _dashOffset;
+    while (dy < h) {
+      final y1 = dy.clamp(0.0, h);
+      final y2 = (dy + _dashLen).clamp(0.0, h);
+      if (y2 > y1) {
+        final w1 = 3.0 + 4.0 * (y1 / h); // 3px at top → 7px at bottom
+        final w2 = 3.0 + 4.0 * (y2 / h);
+        final dashPath = Path()
+          ..moveTo(cx - w1 / 2, y1)
+          ..lineTo(cx + w1 / 2, y1)
+          ..lineTo(cx + w2 / 2, y2)
+          ..lineTo(cx - w2 / 2, y2)
+          ..close();
+        canvas.drawPath(dashPath, _linePaint);
+      }
+      dy += _cycle;
     }
-    // Thin white stripe between dashes for realism.
-    y = -_cycle + _dashOffset + _dashLen;
-    while (y < h) {
-      canvas.drawLine(
-        Offset(cx, y),
-        Offset(cx, y + _gapLen),
-        Paint()
-          ..color = const Color(0x33FFFFFF)
-          ..strokeWidth = 1.0,
-      );
-      y += _cycle;
-    }
+    // Diagonal lane edge lines converging to vanishing point.
+    final vpX = cx; // vanishing point is road center at top
+    final edgePaint = Paint()
+      ..color = const Color(0x44FFFFFF)
+      ..strokeWidth = 1.0;
+    canvas.drawLine(Offset(vpX, 0), Offset(leftBot + 4, h), edgePaint);
+    canvas.drawLine(Offset(vpX, 0), Offset(rightBot - 4, h), edgePaint);
 
     // 9. Bottom vignette to anchor the foreground.
     final vignette = Rect.fromLTWH(0, h * 0.75, w, h * 0.25);
