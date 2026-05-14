@@ -14,10 +14,15 @@ class HouseWindow extends PositionComponent
   double _flashTimer = 0;
   static const double _flashDuration = 0.2;
 
+  final Color? curtainColor;
+
   RectangleHitbox? _hitbox;
 
-  HouseWindow({required Vector2 position, Vector2? size})
-      : super(
+  HouseWindow({
+    required Vector2 position,
+    Vector2? size,
+    this.curtainColor,
+  }) : super(
           position: position,
           size: size ?? Vector2(18, 18),
           anchor: Anchor.center,
@@ -77,6 +82,16 @@ class HouseWindow extends PositionComponent
         Rect.fromLTWH(0, 0, size.x, size.y),
         Paint()..color = const Color(0xFFB3E5FC),
       );
+
+      // Curtains at the edges (semi-transparent coloured strips).
+      final cc = curtainColor;
+      if (cc != null) {
+        final cw = size.x * 0.22;
+        final curtainPaint = Paint()..color = cc.withValues(alpha: 0.55);
+        canvas.drawRect(Rect.fromLTWH(0, 0, cw, size.y), curtainPaint);
+        canvas.drawRect(Rect.fromLTWH(size.x - cw, 0, cw, size.y), curtainPaint);
+      }
+
       // Cross mullion.
       final mullion = Paint()
         ..color = const Color(0xFF3E2A1E)

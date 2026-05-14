@@ -1,10 +1,13 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:flame/components.dart';
+import '../components/cat_npc.dart';
 import '../components/construction_zone.dart';
 import '../components/intersection.dart';
 import '../components/obstacle.dart';
 import '../components/paper_pack.dart';
 import '../components/parked_car.dart';
+import '../components/road_decor.dart';
 import '../components/streetlamp.dart';
 import '../delivery_dash_game.dart';
 import '../difficulty.dart';
@@ -16,13 +19,26 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   double _parkedCarDistanceMark = 0;
   double _intersectionDistanceMark = 0;
   double _zoneDistanceMark = 0;
+  double _catDistanceMark = 0;
+  double _decorTimer = 0;
   final Random _rng = Random();
 
-  static const double paperPackDistanceInterval = 300; // meters
+  static const double paperPackDistanceInterval = 300;
   static const double lampDistanceInterval = 90;
   static const double parkedCarDistanceInterval = 220;
   static const double intersectionDistanceInterval = 400;
   static const double constructionZoneDistanceInterval = 550;
+  static const double catDistanceInterval = 620; // ~3-4 house rows
+  static const double decorSpawnInterval = 1.8; // seconds between decor batches
+
+  // Leaf colours used when spawning fallen-leaf decor.
+  static const List<Color> _leafColors = [
+    Color(0xFFD84315), // burnt orange
+    Color(0xFFE65100), // deep orange
+    Color(0xFFF9A825), // amber
+    Color(0xFF827717), // olive
+    Color(0xFFBF360C), // dark rust
+  ];
 
   double get _obstacleInterval {
     final cfg = LevelConfig.of(gameRef.level);
@@ -35,10 +51,17 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   void update(double dt) {
     super.update(dt);
     if (gameRef.state != GameState.playing) return;
+
     _obstacleTimer += dt;
     if (_obstacleTimer >= _obstacleInterval) {
       _obstacleTimer = 0;
       _spawnObstacle();
+    }
+
+    _decorTimer += dt;
+    if (_decorTimer >= decorSpawnInterval) {
+      _decorTimer = 0;
+      _spawnDecor();
     }
 
     final d = gameRef.distanceMeters;
@@ -62,13 +85,15 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
       _zoneDistanceMark = d;
       if (_rng.nextDouble() < 0.7) _spawnConstructionZone();
     }
+    if (d - _catDistanceMark >= catDistanceInterval) {
+      _catDistanceMark = d;
+      if (_rng.nextDouble() < 0.80) _spawnCat();
+    }
   }
 
   void _spawnObstacle() {
     final roll = _rng.nextDouble();
     final ObstacleType type;
-    // KidBike halved (8% -> 4%); freed 4% redistributed to cones/barriers
-    // so total still sums to 1.0.
     if (roll < 0.28) {
       type = ObstacleType.car;
     } else if (roll < 0.38) {
@@ -93,7 +118,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
 
     switch (type) {
       case ObstacleType.car:
-        final factor = 0.8 + _rng.nextDouble() * 0.4; // 0.8..1.2
+        final factor = 0.8 + _rng.nextDouble() * 0.4;
         final overtaker = _rng.nextDouble() < 0.12;
         gameRef.add(ObstacleComponent(
           type: type,
@@ -103,13 +128,11 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
         ));
         break;
       case ObstacleType.worker:
-        // Hangs out on the right sidewalk near construction cones.
         gameRef.add(ObstacleComponent(
           type: type,
           laneFraction: 0.35 + _rng.nextDouble() * 0.55,
           onRightSidewalk: true,
         ));
-        // Cluster of cones in the road (mini construction zone).
         if (_rng.nextBool()) {
           final coneLane = 0.20 + _rng.nextDouble() * 0.60;
           for (final offset in const [-0.05, 0.0, 0.05]) {
@@ -121,21 +144,18 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
         }
         break;
       case ObstacleType.dog:
-        // Spawns near the right edge then sweeps across.
         gameRef.add(ObstacleComponent(
           type: type,
           laneFraction: 0.75,
         ));
         break;
       case ObstacleType.kidBike:
-        // Spawns near the left edge then sweeps across.
         gameRef.add(ObstacleComponent(
           type: type,
           laneFraction: 0.25,
         ));
         break;
       case ObstacleType.trashBin:
-        // On the right sidewalk close to the curb.
         gameRef.add(ObstacleComponent(
           type: type,
           laneFraction: 0.04 + _rng.nextDouble() * 0.20,
@@ -143,7 +163,6 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
         ));
         break;
       case ObstacleType.hydrant:
-        // Near sidewalk edges of the road.
         final f = _rng.nextBool()
             ? 0.05 + _rng.nextDouble() * 0.18
             : 0.77 + _rng.nextDouble() * 0.18;
@@ -181,21 +200,20 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     final playerX = gameRef.player.position.x;
     final roadLeft = lm.roadLeft;
     final roadRight = lm.roadRight;
-    final pf = ((playerX - roadLeft) / (roadRight - roadLeft))
-        .clamp(0.0, 1.0);
+    final pf = ((playerX - roadLeft) / (roadRight - roadLeft)).clamp(0.0, 1.0);
     final jitter = (_rng.nextDouble() - 0.5) * 0.2;
     final laneFraction = (pf + jitter).clamp(0.05, 0.95);
     gameRef.add(PaperPackComponent(laneFraction: laneFraction));
   }
 
   void _spawnStreetlamps() {
-    // Always come in pairs at the same Y to anchor depth visually.
     gameRef.add(StreetlampComponent(onRight: false));
     gameRef.add(StreetlampComponent(onRight: true));
   }
 
   void _spawnParkedCar() {
-    gameRef.add(ParkedCarComponent(variant: _rng.nextInt(2)));
+    // Use all 4 colour variants for variety.
+    gameRef.add(ParkedCarComponent(variant: _rng.nextInt(4)));
   }
 
   void _spawnIntersection() {
@@ -204,5 +222,47 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
 
   void _spawnConstructionZone() {
     gameRef.add(ConstructionZoneComponent());
+  }
+
+  void _spawnCat() {
+    final lm = gameRef.laneManager;
+    // Cats sit on the left sidewalk, between road edge and screen edge.
+    final maxX = lm.roadLeft - 6;
+    final minX = 16.0;
+    if (maxX <= minX) return;
+    final x = minX + _rng.nextDouble() * (maxX - minX);
+    gameRef.add(CatNpcComponent(position: Vector2(x, -30), rng: _rng));
+  }
+
+  void _spawnDecor() {
+    final lm = gameRef.laneManager;
+
+    // Puddle in the road.
+    if (_rng.nextDouble() < 0.35) {
+      final x = lm.roadLeft + (lm.roadRight - lm.roadLeft) * _rng.nextDouble();
+      gameRef.add(RoadDecorComponent(
+        decorType: RoadDecorType.puddle,
+        position: Vector2(x, -25),
+      ));
+    }
+
+    // Fallen leaves — scatter 1-3 on the left sidewalk.
+    if (_rng.nextDouble() < 0.55) {
+      final count = 1 + _rng.nextInt(3);
+      for (int i = 0; i < count; i++) {
+        final maxX = lm.roadLeft - 4;
+        final minX = 6.0;
+        if (maxX <= minX) break;
+        final x = minX + _rng.nextDouble() * (maxX - minX);
+        final y = -10.0 - _rng.nextDouble() * 40;
+        final leafColor = _leafColors[_rng.nextInt(_leafColors.length)];
+        gameRef.add(RoadDecorComponent(
+          decorType: RoadDecorType.leaf,
+          position: Vector2(x, y),
+          leafColor: leafColor,
+          leafAngle: _rng.nextDouble() * 2 * pi,
+        ));
+      }
+    }
   }
 }

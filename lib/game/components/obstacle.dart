@@ -610,53 +610,78 @@ class ObstacleComponent extends PositionComponent
     final w = size.x;
     final h = size.y;
 
-    // Base flange.
+    // Base flange (wide oval at bottom).
     canvas.drawOval(
       Rect.fromLTWH(w * 0.05, h * 0.82, w * 0.90, h * 0.14),
       Paint()..color = const Color(0xFF8B0000),
     );
 
-    // Body.
+    // Body (chunky rounded rect).
     final body = RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.15, h * 0.20, w * 0.70, h * 0.65),
+      Rect.fromLTWH(w * 0.15, h * 0.22, w * 0.70, h * 0.63),
       const Radius.circular(6),
     );
     canvas.drawRRect(
       body,
       Paint()
         ..shader = Gradient.linear(
-          Offset(w * 0.15, h * 0.20),
+          Offset(w * 0.15, h * 0.22),
           Offset(w * 0.85, h * 0.85),
           [const Color(0xFFEF4444), const Color(0xFFB91C1C)],
         ),
     );
 
-    // Top cap.
-    canvas.drawOval(
-      Rect.fromLTWH(w * 0.05, h * 0.08, w * 0.90, h * 0.22),
-      Paint()..color = const Color(0xFFB71C1C),
+    // Pentagon top cap (5-sided, slightly wider than body).
+    final capCx = w * 0.50;
+    final capCy = h * 0.18;
+    final capRx = w * 0.44;
+    final capRy = h * 0.12;
+    final penPath = Path();
+    for (int i = 0; i < 5; i++) {
+      final angle = -pi / 2 + (2 * pi * i / 5);
+      final px = capCx + capRx * cos(angle);
+      final py = capCy + capRy * sin(angle);
+      if (i == 0) {
+        penPath.moveTo(px, py);
+      } else {
+        penPath.lineTo(px, py);
+      }
+    }
+    penPath.close();
+    canvas.drawPath(penPath, Paint()..color = const Color(0xFFB71C1C));
+    // Cap outline.
+    canvas.drawPath(
+      penPath,
+      Paint()
+        ..color = const Color(0xFF8B0000)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
     );
 
-    // Side nozzle caps.
-    canvas.drawOval(
-      Rect.fromLTWH(w * 0.00, h * 0.35, w * 0.22, h * 0.16),
-      Paint()..color = const Color(0xFFCC2222),
-    );
-    canvas.drawOval(
-      Rect.fromLTWH(w * 0.78, h * 0.35, w * 0.22, h * 0.16),
-      Paint()..color = const Color(0xFFCC2222),
-    );
+    // Side bolt nubs (hexagonal caps left and right).
+    for (final nx in [w * 0.00, w * 0.72]) {
+      canvas.drawOval(
+        Rect.fromLTWH(nx, h * 0.36, w * 0.28, h * 0.16),
+        Paint()..color = const Color(0xFFCC2222),
+      );
+      // Bolt centre dot.
+      canvas.drawCircle(
+        Offset(nx + w * 0.14, h * 0.44),
+        2.5,
+        Paint()..color = const Color(0xFF8B0000),
+      );
+    }
 
     // Shine highlight.
     canvas.drawOval(
-      Rect.fromLTWH(w * 0.22, h * 0.24, w * 0.20, h * 0.14),
+      Rect.fromLTWH(w * 0.22, h * 0.26, w * 0.20, h * 0.14),
       Paint()..color = const Color(0x44FFFFFF),
     );
 
     // Pulsing water drop (animated).
     final pulse = 0.7 + 0.3 * sin(_life * 2 * pi * 3);
     canvas.drawCircle(
-      Offset(w / 2, h * 0.12),
+      Offset(w / 2, h * 0.08),
       4.0 * pulse,
       Paint()..color = const Color(0xAA42A5F5),
     );
@@ -802,29 +827,59 @@ class ObstacleComponent extends PositionComponent
   }
 
   void _renderManhole(Canvas canvas) {
-    final c = Offset(size.x / 2, size.y / 2);
+    final cx = size.x / 2;
+    final cy = size.y / 2;
+    final c = Offset(cx, cy);
+
+    // Outer ring (dark iron).
     canvas.drawOval(
       Rect.fromCenter(center: c, width: size.x, height: size.y),
       Paint()..color = const Color(0xFF1A1A1A),
     );
+    // Inner face (slightly lighter iron).
     canvas.drawOval(
       Rect.fromCenter(center: c, width: size.x * 0.88, height: size.y * 0.78),
       Paint()..color = const Color(0xFF333333),
     );
-    // Ring pattern.
+
+    // Iron grid pattern (horizontal + vertical lines clipped to oval).
+    canvas.save();
+    final gridClip = Path()
+      ..addOval(Rect.fromCenter(center: c, width: size.x * 0.86, height: size.y * 0.76));
+    canvas.clipPath(gridClip);
+
+    final gridPaint = Paint()
+      ..color = const Color(0xFF222222)
+      ..strokeWidth = 1.2;
+    const cols = 5;
+    const rows = 4;
+    for (int col = 0; col <= cols; col++) {
+      final x = size.x * 0.07 + (size.x * 0.86 / cols) * col;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.y), gridPaint);
+    }
+    for (int row = 0; row <= rows; row++) {
+      final y = size.y * 0.11 + (size.y * 0.78 / rows) * row;
+      canvas.drawLine(Offset(0, y), Offset(size.x, y), gridPaint);
+    }
+    canvas.restore();
+
+    // Concentric ring near edge.
     canvas.drawOval(
-      Rect.fromCenter(center: c, width: size.x * 0.60, height: size.y * 0.50),
+      Rect.fromCenter(center: c, width: size.x * 0.70, height: size.y * 0.58),
       Paint()
-        ..color = const Color(0xFF262626)
+        ..color = const Color(0xFF252525)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
+        ..strokeWidth = 2.0,
     );
-    // Cross detail.
-    final cp = Paint()
-      ..color = const Color(0xFF1A1A1A)
-      ..strokeWidth = 2;
-    canvas.drawLine(Offset(c.dx - size.x * 0.35, c.dy), Offset(c.dx + size.x * 0.35, c.dy), cp);
-    canvas.drawLine(Offset(c.dx, c.dy - size.y * 0.30), Offset(c.dx, c.dy + size.y * 0.30), cp);
+
+    // Outer ring highlight.
+    canvas.drawOval(
+      Rect.fromCenter(center: c, width: size.x, height: size.y),
+      Paint()
+        ..color = const Color(0xFF404040)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
   }
 
   @override
