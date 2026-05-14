@@ -1,6 +1,6 @@
 name: delivery_dash
 description: Delivery Dash - Paper Run
-version: 1.0.0+2
+version: 1.0.1+3
 publish_to: 'none'
 
 environment:
