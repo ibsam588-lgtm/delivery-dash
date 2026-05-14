@@ -22,19 +22,19 @@ enum ObstacleType {
 Vector2 _baseSizeFor(ObstacleType t) {
   switch (t) {
     case ObstacleType.car:
-      return Vector2(60, 100);
+      return Vector2(72, 120);
     case ObstacleType.dog:
-      return Vector2(50, 40);
+      return Vector2(58, 46);
     case ObstacleType.worker:
-      return Vector2(50, 80);
+      return Vector2(56, 90);
     case ObstacleType.cone:
-      return Vector2(40, 50);
+      return Vector2(44, 56);
     case ObstacleType.barrier:
-      return Vector2(80, 50);
+      return Vector2(88, 56);
     case ObstacleType.pothole:
-      return Vector2(50, 35);
+      return Vector2(56, 40);
     case ObstacleType.hydrant:
-      return Vector2(28, 38);
+      return Vector2(32, 44);
   }
 }
 

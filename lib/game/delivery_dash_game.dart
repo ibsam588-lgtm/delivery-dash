@@ -135,7 +135,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     add(hud);
     hud.updateScore(0);
     hud.updateLevel(level);
-    hud.updateBonus(0);
+    hud.updateCoins(0);
+    hud.updateLives(lives);
 
     add(Spawner());
 
@@ -328,8 +329,18 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
     _addScore(pts, position, isBlue: true);
     coinsThisRun += coins;
-    hud.updateBonus(bonus);
+    hud.updateCoins(coinsThisRun);
+    // Surface the combo bonus as a transient floating chip on big combos.
+    if (bonus > 0) {
+      add(FloatingText(
+        text: '+$bonus BONUS',
+        position: position - Vector2(0, 18),
+        color: const Color(0xFFFFEB3B),
+      ));
+    }
     AudioService.instance.playDelivery();
+    // Keep updateBonus a no-op compatibility call.
+    hud.updateBonus(bonus);
   }
 
   void _addScore(int delta, Vector2 position, {required bool isBlue}) {
@@ -349,7 +360,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     isInvincible = true;
     invincibilityTimer = 1.5;
     comboCount = 0;
-    hud.updateBonus(0);
+    hud.updateLives(lives);
 
     _triggerShake();
     AudioService.instance.playHit();

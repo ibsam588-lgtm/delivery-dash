@@ -7,13 +7,13 @@ import '../systems/lane_manager.dart';
 /// point at the top center to a wide base at the bottom.
 class RoadBackground extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  static const Color roadColor = Color(0xFF2E2E33);
-  static const Color roadShadeColor = Color(0xFF1F1F25);
-  static const Color sidewalkColor = Color(0xFF388E3C);
-  static const Color sidewalkBandColor = Color(0xFF2E7D32);
+  static const Color roadColor = Color(0xFF2C2C2C);
+  static const Color roadShadeColor = Color(0xFF1B1B1B);
+  static const Color sidewalkColor = Color(0xFF4CAF50);
+  static const Color sidewalkBandColor = Color(0xFF3F9E45);
   static const Color skyColor = Color(0xFF1B2032);
   static const Color curbColor = Color(0xFFFFFFFF);
-  static const Color laneLineColor = Color(0xFFFFC107);
+  static const Color laneLineColor = Color(0xFFFFD700);
 
   static const int dashCount = 14;
   static const double bandSpacing = 64.0;

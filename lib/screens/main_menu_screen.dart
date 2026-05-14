@@ -205,16 +205,33 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                       _TopBar(coins: _coins),
                       const SizedBox(height: 20),
                       Text(
-                        'DELIVERY DASH',
+                        'DELIVERY',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.pressStart2p(
-                          fontSize: 26,
+                          fontSize: 32,
                           color: Colors.white,
-                          letterSpacing: 2,
+                          letterSpacing: 3,
                           shadows: const [
                             Shadow(
                               color: Colors.black,
-                              blurRadius: 10,
+                              blurRadius: 12,
+                              offset: Offset(3, 4),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'DASH',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.pressStart2p(
+                          fontSize: 38,
+                          color: const Color(0xFFFFD54F),
+                          letterSpacing: 5,
+                          shadows: const [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 12,
                               offset: Offset(3, 4),
                             ),
                           ],
@@ -243,17 +260,21 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                         onChange: (d) => setState(() => _difficulty = d),
                       ),
                       const SizedBox(height: 22),
-                      _BigButton(
-                        label: 'PLAY',
-                        onTap: _onPlay,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF2ECC71), Color(0xFF27AE60)],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
+                      Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 24),
+                        child: _BigButton(
+                          label: 'PLAY',
+                          onTap: _onPlay,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF2ECC71), Color(0xFF27AE60)],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                          width: double.infinity,
+                          height: 72,
+                          fontSize: 26,
                         ),
-                        width: 220,
-                        height: 64,
-                        fontSize: 22,
                       ),
                       const SizedBox(height: 12),
                       _OutlineButton(
@@ -518,10 +539,10 @@ class _DifficultyButton extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? color : color.withValues(alpha: 0.25),
-          borderRadius: BorderRadius.circular(10),
+          color: selected ? color : color.withValues(alpha: 0.22),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: selected ? Colors.white : Colors.white24,
             width: selected ? 2 : 1,
@@ -529,8 +550,9 @@ class _DifficultyButton extends StatelessWidget {
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: Colors.white.withValues(alpha: 0.45),
-                    blurRadius: 14,
+                    color: color.withValues(alpha: 0.75),
+                    blurRadius: 18,
+                    spreadRadius: 1,
                   ),
                 ]
               : null,
@@ -660,7 +682,7 @@ class _RoadPreviewPainter extends CustomPainter {
     // Grass.
     canvas.drawRect(
       Rect.fromLTWH(0, 0, w, h),
-      Paint()..color = const Color(0xFF388E3C),
+      Paint()..color = const Color(0xFF4CAF50),
     );
 
     final topL = Offset(w * 0.35, 0);
@@ -674,7 +696,7 @@ class _RoadPreviewPainter extends CustomPainter {
       ..lineTo(botR.dx, botR.dy)
       ..lineTo(botL.dx, botL.dy)
       ..close();
-    canvas.drawPath(roadPath, Paint()..color = const Color(0xFF2E2E33));
+    canvas.drawPath(roadPath, Paint()..color = const Color(0xFF2C2C2C));
 
     // Curbs.
     final curbPaint = Paint()
@@ -688,7 +710,7 @@ class _RoadPreviewPainter extends CustomPainter {
     const dash = 14.0;
     final phase = (progress * cycle * 12) % cycle;
     final dashPaint = Paint()
-      ..color = const Color(0xFFFFC107)
+      ..color = const Color(0xFFFFD700)
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.square;
     var ground = -phase;

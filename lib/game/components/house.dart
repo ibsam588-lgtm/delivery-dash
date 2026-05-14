@@ -5,14 +5,19 @@ import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
 import 'mailbox.dart';
 
+/// Houses sit on the left sidewalk and scroll downward at a *fixed* size.
+/// We deliberately do NOT apply perspective Y-scaling to houses — the
+/// growing-toward-the-camera effect was visually distracting. Each house
+/// just slides along the sidewalk strip; its X tracks the converging
+/// sidewalk edge so it never crosses onto the road.
 class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
   static const double rowSpacing = 180.0;
-  static const double baseWidth = 110.0;
+  static const double fixedWidth = 100.0;
+  static const double fixedHeight = fixedWidth * (380.0 / 370.0); // ~103
 
   final double _initialY;
   int _index;
   final Random _rng = Random();
-  final Vector2 _baseSize = Vector2(baseWidth, baseWidth * (380.0 / 370.0));
 
   MailboxComponent? _mailbox;
 
@@ -22,35 +27,29 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
   })  : _initialY = initialY,
         _index = index,
         super(
-          size: Vector2(baseWidth, baseWidth * (380.0 / 370.0)),
+          size: Vector2(fixedWidth, fixedHeight),
           anchor: Anchor.bottomLeft,
           priority: -5,
         );
 
   String _spriteFor(int idx) => idx.isEven ? 'house_2.png' : 'house_3.png';
 
-  void _layout() {
+  /// Snap X so the right edge of the house is just inside the sidewalk's
+  /// right edge (which is the road's left edge at this Y).
+  void _alignToSidewalk() {
     final lm = gameRef.laneManager;
-    final y = _initialY;
-    final scale = lm.scaleAt(y);
-    size = _baseSize * scale;
-
-    // House X = inside the left sidewalk, hugging the road-facing side
-    // so the mailbox stays close to the road edge.
-    final sidewalkRight = lm.roadLeftAt(y);
-    const sidewalkLeft = 0.0;
-    final houseRight = sidewalkRight - 4 * scale;
-    position = Vector2(houseRight - size.x, y);
-    // Keep at least some margin from the screen edge.
-    if (position.x < sidewalkLeft + 2) {
-      position.x = sidewalkLeft + 2;
-    }
+    final sidewalkRight = lm.roadLeftAt(position.y);
+    final desiredRight = sidewalkRight - 4;
+    final x = desiredRight - size.x;
+    position.x = x.clamp(2.0, sidewalkRight - size.x - 2);
   }
 
   @override
   Future<void> onLoad() async {
     sprite = Sprite(Flame.images.fromCache(_spriteFor(_index)));
-    _layout();
+    size = Vector2(fixedWidth, fixedHeight);
+    position = Vector2(0, _initialY);
+    _alignToSidewalk();
     _regenerateMailbox();
   }
 
@@ -62,7 +61,7 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
     if (r < 0.10) return;
     final isBlue = r < 0.80;
     final mb = MailboxComponent(isBlue: isBlue);
-    mb.position = Vector2(size.x + 4, size.y * 0.42);
+    mb.position = Vector2(size.x + 4, size.y * 0.55);
     add(mb);
     _mailbox = mb;
   }
@@ -82,22 +81,7 @@ class HouseComponent extends SpriteComponent with HasGameRef<DeliveryDashGame> {
     if (gameRef.state != GameState.playing) return;
 
     position.y += gameRef.scrollSpeed * dt;
-
-    final lm = gameRef.laneManager;
-    final scale = lm.scaleAt(position.y);
-    size = _baseSize * scale;
-
-    final sidewalkRight = lm.roadLeftAt(position.y);
-    final desiredRight = sidewalkRight - 4 * scale;
-    position.x = (desiredRight - size.x).clamp(2.0, sidewalkRight - 4);
-
-    // Tell child mailbox to update its local position to keep it
-    // anchored at the road edge of the (now resized) house.
-    final mb = _mailbox;
-    if (mb != null && mb.isMounted) {
-      mb.position = Vector2(size.x + 4, size.y * 0.42);
-      mb.updateScale(scale);
-    }
+    _alignToSidewalk();
 
     if (position.y > gameRef.size.y + size.y) {
       final rows = (gameRef.size.y / rowSpacing).ceil() + 2;
