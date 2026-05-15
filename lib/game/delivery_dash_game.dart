@@ -32,7 +32,15 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   int coinsThisRun = 0;
   int level = 1;
   int highestLevelThisRun = 1;
+
+  /// Distance travelled within the current day/level. This resets whenever
+  /// the route advances to the next level.
   double distanceMeters = 0;
+
+  /// Lifetime route distance for the current run. Spawners use this monotonic
+  /// value so their distance markers continue working after level resets.
+  double totalDistanceMeters = 0;
+
   int papers = 5;
   int deliveredCount = 0;
 
@@ -74,7 +82,10 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   DeliveryDashGame({this.config = const GameConfig()});
 
-  double get scrollSpeed => currentSpeed * _slowFactor * _zoneSlow;
+  double get scrollSpeed {
+    if (state != GameState.playing) return 0;
+    return currentSpeed * _slowFactor * _zoneSlow;
+  }
 
   void applyConstructionSlow() {
     _zoneSlow = 0.7;
@@ -131,6 +142,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     level = config.startLevel;
     highestLevelThisRun = level;
     distanceMeters = 0;
+    totalDistanceMeters = 0;
     deliveredCount = 0;
     final cfg = LevelConfig.of(level);
     currentSpeed = cfg.startSpeed + (config.speedBoostStart ? 60 : 0);
@@ -238,7 +250,9 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     final maxSpeed = cfg.startSpeed * 1.5;
     currentSpeed = (currentSpeed + 8 * dt).clamp(0, maxSpeed);
 
-    distanceMeters += scrollSpeed * dt / LevelConfig.pxPerMeter;
+    final metersDelta = scrollSpeed * dt / LevelConfig.pxPerMeter;
+    distanceMeters += metersDelta;
+    totalDistanceMeters += metersDelta;
     if (distanceMeters >= LevelConfig.metersPerLevel) {
       _advanceLevel();
     }
