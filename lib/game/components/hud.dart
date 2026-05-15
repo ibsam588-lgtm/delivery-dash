@@ -48,25 +48,10 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
     add(_progressBar!);
   }
 
-  void updateScore(int score) {
-    _score = score;
-    _panel?.markDirty();
-  }
-
-  void updateLevel(int level) {
-    _day = level;
-    _panel?.markDirty();
-  }
-
-  void updateCoins(int coins) {
-    _coins = coins;
-    _panel?.markDirty();
-  }
-
-  void updateLives(int lives) {
-    _lives = lives;
-    _panel?.markDirty();
-  }
+  void updateScore(int score) => _score = score;
+  void updateLevel(int level) => _day = level;
+  void updateCoins(int coins) => _coins = coins;
+  void updateLives(int lives) => _lives = lives;
 
   void updateCombo(int combo, int multiplier) {
     _combo = combo;
@@ -75,11 +60,7 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
     if (combo >= 3) _comboBorderFlash = 0.40;
   }
 
-  void updatePapers(int papers) {
-    _papers = papers;
-    _panel?.markDirty();
-  }
-
+  void updatePapers(int papers) => _papers = papers;
   void updateDelivery(int delivered) {}
   void updateBonus(int bonus) {}
 
@@ -125,12 +106,8 @@ class _ScoreboardPanel extends PositionComponent {
   int combo = 0;
   int multiplier = 1;
 
-  bool _dirty = true;
-
   _ScoreboardPanel({required Vector2 size})
       : super(size: size, position: Vector2.zero(), priority: -1);
-
-  void markDirty() => _dirty = true;
 
   static final _scorePaint = TextPaint(
     style: const TextStyle(
@@ -166,7 +143,6 @@ class _ScoreboardPanel extends PositionComponent {
     final w = size.x;
     final h = size.y;
 
-    // Shadow behind panel.
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(8, 7, w - 16, h - 12),
@@ -205,31 +181,24 @@ class _ScoreboardPanel extends PositionComponent {
         ..strokeWidth = 1.2,
     );
 
-    // Subtle CRT scan lines.
     final scan = Paint()..color = const Color(0x18000000);
     for (double y = 10; y < h - 14; y += 5) {
       canvas.drawRect(Rect.fromLTWH(14, y, w - 28, 1), scan);
     }
 
-    // Score block.
     _labelPaint.render(canvas, 'SCORE', Vector2(w / 2 - 30, 12));
     final scoreText = score.toString().padLeft(6, '0');
     _scorePaint.render(canvas, scoreText, Vector2(w / 2 - 64, 29));
 
-    // Lives.
     _drawHeart(canvas, 26, 26, 19);
     _smallPaint.render(canvas, 'x$lives', Vector2(54, 28));
 
-    // Papers.
     _drawNewspaper(canvas, w - 114, 24, 30, 22);
     _smallPaint.render(canvas, 'x$papers', Vector2(w - 76, 28));
 
-    // Lower chips: day left, coins right.
     _drawChip(canvas, 22, h - 31, 88, 22, 'DAY $day', alignLeft: true);
     _drawCoin(canvas, w - 101, h - 24, 9);
     _drawChip(canvas, w - 90, h - 31, 68, 22, '$coins', alignLeft: false);
-
-    _dirty = false;
   }
 
   void _drawChip(Canvas canvas, double x, double y, double w, double h,
@@ -295,8 +264,8 @@ class _ScoreboardPanel extends PositionComponent {
       ..color = const Color(0xFF7A7460)
       ..strokeWidth = 1;
     for (int i = 0; i < 4; i++) {
-      canvas.drawLine(
-          Offset(x + 4, y + 11 + i * 3), Offset(x + w - 4, y + 11 + i * 3), line);
+      canvas.drawLine(Offset(x + 4, y + 11 + i * 3),
+          Offset(x + w - 4, y + 11 + i * 3), line);
     }
   }
 
