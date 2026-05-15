@@ -5,30 +5,23 @@ import 'package:flutter/material.dart' hide Gradient;
 import '../delivery_dash_game.dart';
 import '../difficulty.dart';
 
-/// Clean Paperboy-style HUD.
+/// Retro Paperboy-style HUD.
 ///
-/// Top bar (52px tall, dark translucent):
-///   Left   : [♥ x N]   lives count with heart icons
-///   Center : SCORE in large bold white text with drop shadow
-///   Right  : [📰 x N]  paper count with newspaper icon
-///
-/// Below top bar:
-///   "DAY n" indicator + combo chip (visible only when combo >= 2)
-///
-/// Combo flash: gold border pulse when combo >= 3.
-/// Bottom: thin level-progress bar.
+/// Uses a single arcade scoreboard panel instead of floating mobile chips.
 class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
-  static const double topBarHeight = 52.0;
+  static const double panelHeight = 86.0;
 
-  _TopBar? _topBar;
-  _Hearts? _hearts;
-  _ScoreLabel? _scoreLabel;
-  _PapersLabel? _papersLabel;
-  _DayChip? _dayChip;
-  _ComboChip? _comboChip;
+  _ScoreboardPanel? _panel;
+  _ComboBanner? _comboBanner;
   _ProgressBar? _progressBar;
-  _CoinLabel? _coinLabel;
 
+  int _score = 0;
+  int _lives = 0;
+  int _papers = 0;
+  int _day = 1;
+  int _coins = 0;
+  int _combo = 0;
+  int _multiplier = 1;
   double _comboBorderFlash = 0;
 
   Hud() : super(priority: 200);
@@ -36,45 +29,57 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
   @override
   Future<void> onLoad() async {
     size = gameRef.size;
-    final w = gameRef.size.x;
+    _lives = gameRef.lives;
+    _day = gameRef.level;
+    _papers = gameRef.papers;
 
-    _topBar = _TopBar(width: w, height: topBarHeight);
-    add(_topBar!);
+    _panel = _ScoreboardPanel(size: Vector2(gameRef.size.x, panelHeight));
+    add(_panel!);
 
-    _hearts = _Hearts(position: Vector2(12, 8), lives: gameRef.lives);
-    add(_hearts!);
-
-    _scoreLabel = _ScoreLabel(center: Vector2(w / 2, topBarHeight / 2));
-    add(_scoreLabel!);
-
-    _papersLabel = _PapersLabel(anchorPoint: Vector2(w - 12, 8));
-    add(_papersLabel!);
-
-    _dayChip = _DayChip(position: Vector2(12, topBarHeight + 6));
-    add(_dayChip!);
-
-    _coinLabel = _CoinLabel(anchorPoint: Vector2(w - 12, topBarHeight + 6));
-    add(_coinLabel!);
-
-    _comboChip = _ComboChip(center: Vector2(w / 2, topBarHeight + 18));
-    add(_comboChip!);
+    _comboBanner = _ComboBanner(
+      center: Vector2(gameRef.size.x / 2, panelHeight + 18),
+    );
+    add(_comboBanner!);
 
     _progressBar = _ProgressBar(
-      screenW: w,
+      screenW: gameRef.size.x,
       screenH: gameRef.size.y,
     );
     add(_progressBar!);
   }
 
-  void updateScore(int score) => _scoreLabel?.setValue(score);
-  void updateLevel(int level) => _dayChip?.setDay(level);
-  void updateCoins(int coins) => _coinLabel?.setCoins(coins);
-  void updateLives(int lives) => _hearts?.setLives(lives);
+  void updateScore(int score) {
+    _score = score;
+    _panel?.markDirty();
+  }
+
+  void updateLevel(int level) {
+    _day = level;
+    _panel?.markDirty();
+  }
+
+  void updateCoins(int coins) {
+    _coins = coins;
+    _panel?.markDirty();
+  }
+
+  void updateLives(int lives) {
+    _lives = lives;
+    _panel?.markDirty();
+  }
+
   void updateCombo(int combo, int multiplier) {
-    _comboChip?.setCombo(combo, multiplier);
+    _combo = combo;
+    _multiplier = multiplier;
+    _comboBanner?.setCombo(combo, multiplier);
     if (combo >= 3) _comboBorderFlash = 0.40;
   }
-  void updatePapers(int papers) => _papersLabel?.setPapers(papers);
+
+  void updatePapers(int papers) {
+    _papers = papers;
+    _panel?.markDirty();
+  }
+
   void updateDelivery(int delivered) {}
   void updateBonus(int bonus) {}
 
@@ -84,17 +89,25 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
     if (_comboBorderFlash > 0) {
       _comboBorderFlash = (_comboBorderFlash - dt).clamp(0.0, 0.40);
     }
+    _panel
+      ?..score = _score
+      ..lives = _lives
+      ..papers = _papers
+      ..day = _day
+      ..coins = _coins
+      ..combo = _combo
+      ..multiplier = _multiplier;
   }
 
   @override
   void render(Canvas canvas) {
     super.render(canvas);
     if (_comboBorderFlash > 0) {
-      final alpha = (_comboBorderFlash / 0.40) * 0.65;
+      final alpha = (_comboBorderFlash / 0.40) * 0.55;
       final borderPaint = Paint()
-        ..color = const Color(0xFFFFD600).withValues(alpha: alpha)
+        ..color = const Color(0xFFFFD54F).withValues(alpha: alpha)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 7.0;
+        ..strokeWidth = 5.0;
       canvas.drawRect(
         Rect.fromLTWH(3, 3, size.x - 6, size.y - 6),
         borderPaint,
@@ -103,320 +116,228 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
   }
 }
 
-// ── Top bar ─────────────────────────────────────────────────────────────────
+class _ScoreboardPanel extends PositionComponent {
+  int score = 0;
+  int lives = 0;
+  int papers = 0;
+  int day = 1;
+  int coins = 0;
+  int combo = 0;
+  int multiplier = 1;
 
-class _TopBar extends PositionComponent {
-  final double barWidth;
-  final double barHeight;
+  bool _dirty = true;
 
-  _TopBar({required double width, required double height})
-      : barWidth = width,
-        barHeight = height,
-        super(priority: -1);
+  _ScoreboardPanel({required Vector2 size})
+      : super(size: size, position: Vector2.zero(), priority: -1);
 
-  @override
-  void render(Canvas canvas) {
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, barWidth, barHeight),
-      Paint()..color = const Color(0xCC000000),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(0, barHeight - 2, barWidth, 2),
-      Paint()..color = const Color(0xFFFFD600),
-    );
-  }
-}
+  void markDirty() => _dirty = true;
 
-// ── Hearts (lives) ──────────────────────────────────────────────────────────
-
-class _Hearts extends PositionComponent {
-  int _lives;
-
-  _Hearts({required Vector2 position, required int lives})
-      : _lives = lives,
-        super(position: position, size: Vector2(120, 36));
-
-  void setLives(int lives) => _lives = lives;
+  static final _scorePaint = TextPaint(
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 28,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 2.0,
+      shadows: [Shadow(color: Colors.black, blurRadius: 3, offset: Offset(2, 2))],
+    ),
+  );
 
   static final _labelPaint = TextPaint(
     style: const TextStyle(
-      color: Colors.white,
-      fontSize: 18,
+      color: Color(0xFFFFD54F),
+      fontSize: 10,
       fontWeight: FontWeight.w900,
-      shadows: [Shadow(color: Colors.black, blurRadius: 3)],
+      letterSpacing: 2.0,
+      shadows: [Shadow(color: Colors.black, blurRadius: 2)],
+    ),
+  );
+
+  static final _smallPaint = TextPaint(
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 17,
+      fontWeight: FontWeight.w900,
+      shadows: [Shadow(color: Colors.black, blurRadius: 3, offset: Offset(1, 1))],
     ),
   );
 
   @override
   void render(Canvas canvas) {
-    // First heart at top-left, then a "x N" multiplier so it's compact.
-    final heartPaint = Paint()..color = const Color(0xFFFF1744);
-    _drawHeart(canvas, 0, 4, 18, heartPaint);
-    _labelPaint.render(canvas, 'x$_lives', Vector2(26, 8));
+    final w = size.x;
+    final h = size.y;
+
+    // Shadow behind panel.
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(8, 7, w - 16, h - 12),
+        const Radius.circular(10),
+      ),
+      Paint()..color = const Color(0x99000000),
+    );
+
+    final panel = RRect.fromRectAndRadius(
+      Rect.fromLTWH(10, 4, w - 20, h - 14),
+      const Radius.circular(9),
+    );
+
+    canvas.drawRRect(panel, Paint()..color = const Color(0xF20A1922));
+    canvas.drawRRect(
+      panel,
+      Paint()
+        ..shader = Gradient.linear(
+          const Offset(0, 4),
+          Offset(0, h - 10),
+          [const Color(0x44255A73), const Color(0x00000000)],
+        ),
+    );
+    canvas.drawRRect(
+      panel,
+      Paint()
+        ..color = const Color(0xFFFFC928)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3,
+    );
+    canvas.drawRRect(
+      panel.deflate(4),
+      Paint()
+        ..color = const Color(0xFF132C38)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+
+    // Subtle CRT scan lines.
+    final scan = Paint()..color = const Color(0x18000000);
+    for (double y = 10; y < h - 14; y += 5) {
+      canvas.drawRect(Rect.fromLTWH(14, y, w - 28, 1), scan);
+    }
+
+    // Score block.
+    _labelPaint.render(canvas, 'SCORE', Vector2(w / 2 - 30, 12));
+    final scoreText = score.toString().padLeft(6, '0');
+    _scorePaint.render(canvas, scoreText, Vector2(w / 2 - 64, 29));
+
+    // Lives.
+    _drawHeart(canvas, 26, 26, 19);
+    _smallPaint.render(canvas, 'x$lives', Vector2(54, 28));
+
+    // Papers.
+    _drawNewspaper(canvas, w - 114, 24, 30, 22);
+    _smallPaint.render(canvas, 'x$papers', Vector2(w - 76, 28));
+
+    // Lower chips: day left, coins right.
+    _drawChip(canvas, 22, h - 31, 88, 22, 'DAY $day', alignLeft: true);
+    _drawCoin(canvas, w - 101, h - 24, 9);
+    _drawChip(canvas, w - 90, h - 31, 68, 22, '$coins', alignLeft: false);
+
+    _dirty = false;
   }
 
-  void _drawHeart(Canvas canvas, double x, double y, double s, Paint paint) {
+  void _drawChip(Canvas canvas, double x, double y, double w, double h,
+      String label,
+      {required bool alignLeft}) {
+    final r = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x, y, w, h),
+      const Radius.circular(11),
+    );
+    canvas.drawRRect(r, Paint()..color = const Color(0xFF203844));
+    canvas.drawRRect(
+      r,
+      Paint()
+        ..color = const Color(0xFFFFC928)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6,
+    );
+    _labelPaint.render(
+      canvas,
+      label,
+      Vector2(alignLeft ? x + 13 : x + 26, y + 5),
+    );
+  }
+
+  void _drawHeart(Canvas canvas, double x, double y, double s) {
     final path = Path();
-    final w = s;
-    final h = s;
-    path.moveTo(x + w / 2, y + h);
-    path.cubicTo(
-      x + w * 1.2, y + h * 0.6,
-      x + w * 0.9, y - h * 0.1,
-      x + w / 2, y + h * 0.3,
-    );
-    path.cubicTo(
-      x + w * 0.1, y - h * 0.1,
-      x - w * 0.2, y + h * 0.6,
-      x + w / 2, y + h,
-    );
+    path.moveTo(x + s / 2, y + s);
+    path.cubicTo(x + s * 1.18, y + s * 0.56, x + s * 0.88, y - s * 0.08,
+        x + s / 2, y + s * 0.30);
+    path.cubicTo(x + s * 0.12, y - s * 0.08, x - s * 0.18, y + s * 0.56,
+        x + s / 2, y + s);
     path.close();
-    canvas.drawPath(path, paint);
-    // Outline.
+    canvas.drawPath(path, Paint()..color = const Color(0xFFE91E3A));
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0xFF8B0000)
+        ..color = const Color(0xFF710011)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
+        ..strokeWidth = 1.4,
     );
-    // Highlight.
     canvas.drawCircle(
-      Offset(x + w * 0.35, y + h * 0.3),
-      w * 0.12,
+      Offset(x + s * 0.34, y + s * 0.28),
+      s * 0.11,
       Paint()..color = const Color(0x88FFFFFF),
     );
   }
-}
 
-// ── Score label (centre) ────────────────────────────────────────────────────
-
-class _ScoreLabel extends PositionComponent {
-  TextComponent? _value;
-
-  _ScoreLabel({required Vector2 center})
-      : super(
-          position: center,
-          anchor: Anchor.center,
-          size: Vector2(160, 36),
-        );
-
-  static final _valuePaint = TextPaint(
-    style: const TextStyle(
-      color: Colors.white,
-      fontSize: 26,
-      fontWeight: FontWeight.w900,
-      letterSpacing: -0.5,
-      shadows: [Shadow(color: Colors.black, blurRadius: 3, offset: Offset(0, 1))],
-    ),
-  );
-
-  @override
-  Future<void> onLoad() async {
-    _value = TextComponent(
-      text: '0',
-      textRenderer: _valuePaint,
-      anchor: Anchor.center,
-      position: Vector2(size.x / 2, size.y / 2),
-    );
-    add(_value!);
-  }
-
-  void setValue(int v) => _value?.text = '$v';
-}
-
-// ── Papers label (right) ────────────────────────────────────────────────────
-
-class _PapersLabel extends PositionComponent {
-  int _papers = 0;
-
-  _PapersLabel({required Vector2 anchorPoint})
-      : super(
-          position: anchorPoint,
-          size: Vector2(80, 36),
-          anchor: Anchor.topRight,
-        );
-
-  static final _textPaint = TextPaint(
-    style: const TextStyle(
-      color: Colors.white,
-      fontSize: 18,
-      fontWeight: FontWeight.w900,
-      shadows: [Shadow(color: Colors.black, blurRadius: 3)],
-    ),
-  );
-
-  void setPapers(int p) => _papers = p;
-
-  @override
-  void render(Canvas canvas) {
-    // Render paper icon + count, right-aligned.
-    // Draw paper icon at left of component.
-    _drawPaperIcon(canvas, size.x - 70, 4, 22, 16);
-    _textPaint.render(canvas, 'x$_papers', Vector2(size.x - 40, 6));
-  }
-
-  void _drawPaperIcon(
-      Canvas canvas, double x, double y, double w, double h) {
-    // Stacked newspaper look.
+  void _drawNewspaper(Canvas canvas, double x, double y, double w, double h) {
+    canvas.drawRect(Rect.fromLTWH(x + 3, y + 3, w, h),
+        Paint()..color = const Color(0xFF918B72));
     canvas.drawRect(
-      Rect.fromLTWH(x + 2, y + 2, w, h),
-      Paint()..color = const Color(0xFFC0BBA0),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(x, y, w, h),
-      Paint()..color = const Color(0xFFF5F0D8),
-    );
+        Rect.fromLTWH(x, y, w, h), Paint()..color = const Color(0xFFF8F1D9));
     canvas.drawRect(
       Rect.fromLTWH(x, y, w, h),
       Paint()
-        ..color = const Color(0xFF7A7460)
+        ..color = const Color(0xFF4E4938)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.8,
+        ..strokeWidth = 1,
     );
-    // Masthead strip.
-    canvas.drawRect(
-      Rect.fromLTWH(x + 1, y + 1, w - 2, 3.5),
-      Paint()..color = const Color(0xFF1A1A1A),
-    );
-    // Lines.
-    final linePaint = Paint()
+    canvas.drawRect(Rect.fromLTWH(x + 3, y + 3, w - 6, 5),
+        Paint()..color = const Color(0xFF25323A));
+    final line = Paint()
       ..color = const Color(0xFF7A7460)
-      ..strokeWidth = 0.7;
-    for (int i = 0; i < 3; i++) {
+      ..strokeWidth = 1;
+    for (int i = 0; i < 4; i++) {
       canvas.drawLine(
-        Offset(x + 2, y + 7 + i * 2.5),
-        Offset(x + w - 3, y + 7 + i * 2.5),
-        linePaint,
-      );
+          Offset(x + 4, y + 11 + i * 3), Offset(x + w - 4, y + 11 + i * 3), line);
     }
   }
-}
 
-// ── Day chip ────────────────────────────────────────────────────────────────
-
-class _DayChip extends PositionComponent {
-  TextComponent? _text;
-
-  _DayChip({required Vector2 position})
-      : super(position: position, size: Vector2(80, 22));
-
-  static final _paint = TextPaint(
-    style: const TextStyle(
-      color: Color(0xFFFFD600),
-      fontSize: 11,
-      fontWeight: FontWeight.w900,
-      letterSpacing: 1.5,
-      shadows: [Shadow(color: Colors.black, blurRadius: 3)],
-    ),
-  );
-
-  @override
-  Future<void> onLoad() async {
-    _text = TextComponent(
-      text: 'DAY 1',
-      textRenderer: _paint,
-      anchor: Anchor.centerLeft,
-      position: Vector2(8, size.y / 2),
-    );
-    add(_text!);
-  }
-
-  void setDay(int day) => _text?.text = 'DAY $day';
-
-  @override
-  void render(Canvas canvas) {
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, size.x, size.y),
-        const Radius.circular(11),
-      ),
-      Paint()..color = const Color(0xAA000000),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, size.x, size.y),
-        const Radius.circular(11),
-      ),
+  void _drawCoin(Canvas canvas, double x, double y, double r) {
+    canvas.drawCircle(Offset(x, y), r, Paint()..color = const Color(0xFFFFC928));
+    canvas.drawCircle(
+      Offset(x, y),
+      r,
       Paint()
-        ..color = const Color(0xFFFFD600)
+        ..color = const Color(0xFF9B6500)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
+        ..strokeWidth = 1.4,
     );
+    canvas.drawCircle(Offset(x - 3, y - 3), 2.2,
+        Paint()..color = const Color(0x88FFFFFF));
   }
 }
 
-// ── Coin label ──────────────────────────────────────────────────────────────
-
-class _CoinLabel extends PositionComponent {
-  TextComponent? _text;
-
-  _CoinLabel({required Vector2 anchorPoint})
-      : super(
-          position: anchorPoint,
-          size: Vector2(80, 22),
-          anchor: Anchor.topRight,
-        );
-
-  static final _paint = TextPaint(
-    style: const TextStyle(
-      color: Color(0xFFFFD600),
-      fontSize: 12,
-      fontWeight: FontWeight.w900,
-      shadows: [Shadow(color: Colors.black, blurRadius: 3)],
-    ),
-  );
-
-  @override
-  Future<void> onLoad() async {
-    _text = TextComponent(
-      text: '🪙 0',
-      textRenderer: _paint,
-      anchor: Anchor.centerRight,
-      position: Vector2(size.x - 6, size.y / 2),
-    );
-    add(_text!);
-  }
-
-  void setCoins(int coins) => _text?.text = '🪙 $coins';
-
-  @override
-  void render(Canvas canvas) {
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, size.x, size.y),
-        const Radius.circular(11),
-      ),
-      Paint()..color = const Color(0xAA000000),
-    );
-  }
-}
-
-// ── Combo chip ──────────────────────────────────────────────────────────────
-
-class _ComboChip extends PositionComponent {
-  static const Color glow = Color(0xFFFFD600);
+class _ComboBanner extends PositionComponent {
+  static const Color glow = Color(0xFFFFD54F);
 
   int _combo = 0;
   int _mult = 1;
   double _pulse = 0;
   TextComponent? _text;
 
-  _ComboChip({required Vector2 center})
+  _ComboBanner({required Vector2 center})
       : super(
           position: center,
           anchor: Anchor.center,
-          size: Vector2(160, 24),
+          size: Vector2(180, 26),
           priority: 10,
         );
 
   static final _paint = TextPaint(
     style: const TextStyle(
       color: glow,
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: FontWeight.w900,
-      letterSpacing: 1.5,
-      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+      letterSpacing: 1.4,
+      shadows: [Shadow(color: Colors.black, blurRadius: 4, offset: Offset(1, 1))],
     ),
   );
 
@@ -437,9 +358,9 @@ class _ComboChip extends PositionComponent {
     _mult = mult;
     if (boosted) _pulse = 0.30;
     if (combo >= 3) {
-      _text?.text = '🔥 COMBO x$mult!';
+      _text?.text = 'COMBO x$mult';
     } else if (combo > 0) {
-      _text?.text = 'COMBO $combo  ·  x$mult';
+      _text?.text = 'STREAK $combo';
     } else {
       _text?.text = '';
     }
@@ -455,34 +376,32 @@ class _ComboChip extends PositionComponent {
   void render(Canvas canvas) {
     if (_combo <= 0) return;
     final t = _pulse > 0 ? sin((_pulse / 0.30) * pi) : 0.0;
-    final pulseScale = 1.0 + t * 0.15;
+    final pulseScale = 1.0 + t * 0.12;
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
     canvas.scale(pulseScale);
     canvas.translate(-size.x / 2, -size.y / 2);
     final r = RRect.fromRectAndRadius(
       Rect.fromLTWH(0, 0, size.x, size.y),
-      const Radius.circular(12),
+      const Radius.circular(13),
     );
     canvas.drawRRect(
       r.inflate(2),
       Paint()
-        ..color = glow.withValues(alpha: 0.35 + t * 0.15)
+        ..color = glow.withValues(alpha: 0.28 + t * 0.15)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
     );
-    canvas.drawRRect(r, Paint()..color = const Color(0xCC000000));
+    canvas.drawRRect(r, Paint()..color = const Color(0xEE0A1922));
     canvas.drawRRect(
       r,
       Paint()
         ..color = glow
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
+        ..strokeWidth = 1.6,
     );
     canvas.restore();
   }
 }
-
-// ── Progress bar ────────────────────────────────────────────────────────────
 
 class _ProgressBar extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
@@ -497,12 +416,12 @@ class _ProgressBar extends PositionComponent
     final progress =
         (gameRef.distanceMeters / LevelConfig.metersPerLevel).clamp(0.0, 1.0);
 
-    final barY = screenH - 5.0;
-    const barH = 3.0;
+    final barY = screenH - 7.0;
+    const barH = 5.0;
 
     canvas.drawRect(
       Rect.fromLTWH(0, barY, screenW, barH),
-      Paint()..color = const Color(0x88000000),
+      Paint()..color = const Color(0xAA0A1922),
     );
 
     if (progress > 0) {
@@ -513,7 +432,7 @@ class _ProgressBar extends PositionComponent
           ..shader = Gradient.linear(
             Offset(0, barY),
             Offset(fillW, barY),
-            [const Color(0xFFFFD600), const Color(0xFFFF6F00)],
+            [const Color(0xFFFFD54F), const Color(0xFFFF7A00)],
           ),
       );
     }
