@@ -69,7 +69,10 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
       _spawnDecor();
     }
 
-    final d = gameRef.distanceMeters;
+    // Use monotonic run distance for spawn cadence. The per-level route
+    // distance resets at day/level boundaries, but these spawn markers must
+    // continue increasing or distance-based spawns pause after level-up.
+    final d = gameRef.totalDistanceMeters;
     if (d - _packDistanceMark >= paperPackDistanceInterval) {
       _packDistanceMark = d;
       _spawnPaperPack();

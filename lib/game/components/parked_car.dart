@@ -2,7 +2,6 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
-import 'package:flame/flame.dart';
 import '../delivery_dash_game.dart';
 import '../perspective.dart';
 
@@ -89,31 +88,18 @@ class ParkedCarComponent extends PositionComponent
 
     renderTopDownCar(canvas, size.x, size.y, variant);
 
-    canvas.restore();
-
     if (_windowBroken) {
-      // Cracks overlay on the windshield area.
-      final w = size.x;
-      final hh = size.y;
-      final cx = w * 0.50;
-      final cy = hh * 0.16;
-      final crackPaint = Paint()
-        ..color = const Color(0xFFE0E0E0)
-        ..strokeWidth = 0.9
-        ..strokeCap = StrokeCap.round;
-      for (int i = 0; i < 8; i++) {
-        final ang = i * pi / 4;
-        canvas.drawLine(
-          Offset(cx, cy),
-          Offset(cx + cos(ang) * w * 0.34, cy + sin(ang) * hh * 0.10),
-          crackPaint,
-        );
-      }
+      _renderGlassCracks(canvas, size.x, size.y);
     }
 
+    canvas.restore();
+
     if (_hit) {
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, size.x, size.y),
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(2, 2, size.x - 4, size.y - 4),
+          const Radius.circular(10),
+        ),
         Paint()
           ..color = const Color(0xCCFFD600)
           ..style = PaintingStyle.stroke
@@ -123,10 +109,15 @@ class ParkedCarComponent extends PositionComponent
   }
 }
 
-/// Render a top-down car sprite into a [w]×[h] box. The image is fetched
-/// from [Flame.images] (preloaded in `DeliveryDashGame.onLoad`). When
-/// [isOncoming] is true the sprite is flipped vertically so the front of
-/// the car faces the player.
+const List<Color> _carPaints = [
+  Color(0xFFE53935),
+  Color(0xFF1E88E5),
+  Color(0xFF43A047),
+  Color(0xFFFFB300),
+];
+
+/// Render a top-down car into a [w]×[h] box using Canvas primitives.
+/// This replaces fragile PNG dependency with a consistent retro arcade look.
 void renderTopDownCar(
   Canvas canvas,
   double w,
@@ -134,17 +125,164 @@ void renderTopDownCar(
   int variant, {
   bool isOncoming = false,
 }) {
-  final img = Flame.images
-      .fromCache('car_${variant % ParkedCarComponent.variantCount}.png');
-  final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-  final dst = Rect.fromLTWH(0, 0, w, h);
   if (isOncoming) {
     canvas.save();
     canvas.translate(0, h);
     canvas.scale(1, -1);
-    canvas.drawImageRect(img, src, dst, Paint());
+    _renderCarBody(canvas, w, h, variant);
     canvas.restore();
   } else {
-    canvas.drawImageRect(img, src, dst, Paint());
+    _renderCarBody(canvas, w, h, variant);
   }
+}
+
+void _renderCarBody(Canvas canvas, double w, double h, int variant) {
+  final base = _carPaints[variant % _carPaints.length];
+  final dark = _darken(base, 0.42);
+  final light = _lighten(base, 0.28);
+
+  // Tires.
+  final tirePaint = Paint()..color = const Color(0xFF111111);
+  for (final x in [w * 0.12, w * 0.88]) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(x, h * 0.28), width: w * 0.15, height: h * 0.18),
+        const Radius.circular(5),
+      ),
+      tirePaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(x, h * 0.72), width: w * 0.15, height: h * 0.18),
+        const Radius.circular(5),
+      ),
+      tirePaint,
+    );
+  }
+
+  // Main body silhouette.
+  final body = RRect.fromRectAndRadius(
+    Rect.fromLTWH(w * 0.16, h * 0.04, w * 0.68, h * 0.92),
+    const Radius.circular(16),
+  );
+  canvas.drawRRect(
+    body,
+    Paint()
+      ..shader = Gradient.linear(
+        Offset(w * 0.16, 0),
+        Offset(w * 0.84, h),
+        [light, base, dark],
+        [0.0, 0.55, 1.0],
+      ),
+  );
+  canvas.drawRRect(
+    body,
+    Paint()
+      ..color = const Color(0xAA111111)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0,
+  );
+
+  // Hood and trunk panel lines.
+  final seamPaint = Paint()
+    ..color = const Color(0x66000000)
+    ..strokeWidth = 1.2
+    ..strokeCap = StrokeCap.round;
+  canvas.drawLine(Offset(w * 0.24, h * 0.24), Offset(w * 0.76, h * 0.24), seamPaint);
+  canvas.drawLine(Offset(w * 0.24, h * 0.76), Offset(w * 0.76, h * 0.76), seamPaint);
+
+  // Windshield / cabin / rear window.
+  final glass = Paint()
+    ..shader = Gradient.linear(
+      Offset(w * 0.30, h * 0.18),
+      Offset(w * 0.70, h * 0.70),
+      [const Color(0xFFB3E5FC), const Color(0xFF1565C0)],
+    );
+  final windshield = Path()
+    ..moveTo(w * 0.33, h * 0.24)
+    ..lineTo(w * 0.67, h * 0.24)
+    ..lineTo(w * 0.72, h * 0.40)
+    ..lineTo(w * 0.28, h * 0.40)
+    ..close();
+  canvas.drawPath(windshield, glass);
+  canvas.drawPath(windshield, Paint()..color = const Color(0x55000000)..style = PaintingStyle.stroke..strokeWidth = 1.2);
+
+  final cabin = RRect.fromRectAndRadius(
+    Rect.fromLTWH(w * 0.28, h * 0.41, w * 0.44, h * 0.20),
+    const Radius.circular(6),
+  );
+  canvas.drawRRect(cabin, Paint()..color = const Color(0xAA90CAF9));
+  canvas.drawLine(Offset(w * 0.50, h * 0.42), Offset(w * 0.50, h * 0.60), seamPaint);
+
+  final rear = Path()
+    ..moveTo(w * 0.28, h * 0.62)
+    ..lineTo(w * 0.72, h * 0.62)
+    ..lineTo(w * 0.66, h * 0.76)
+    ..lineTo(w * 0.34, h * 0.76)
+    ..close();
+  canvas.drawPath(rear, Paint()..color = const Color(0xAA64B5F6));
+  canvas.drawPath(rear, Paint()..color = const Color(0x55000000)..style = PaintingStyle.stroke..strokeWidth = 1.2);
+
+  // Headlights and tail lights.
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.25, h * 0.06, w * 0.16, h * 0.055), const Radius.circular(3)),
+    Paint()..color = const Color(0xFFFFF9C4),
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.59, h * 0.06, w * 0.16, h * 0.055), const Radius.circular(3)),
+    Paint()..color = const Color(0xFFFFF9C4),
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.25, h * 0.89, w * 0.14, h * 0.045), const Radius.circular(3)),
+    Paint()..color = const Color(0xFFFF1744),
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.61, h * 0.89, w * 0.14, h * 0.045), const Radius.circular(3)),
+    Paint()..color = const Color(0xFFFF1744),
+  );
+
+  // Center reflection stripe.
+  canvas.drawLine(
+    Offset(w * 0.40, h * 0.12),
+    Offset(w * 0.34, h * 0.72),
+    Paint()
+      ..color = const Color(0x55FFFFFF)
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round,
+  );
+}
+
+void _renderGlassCracks(Canvas canvas, double w, double h) {
+  final cx = w * 0.50;
+  final cy = h * 0.30;
+  final crackPaint = Paint()
+    ..color = const Color(0xFFE0E0E0)
+    ..strokeWidth = 0.9
+    ..strokeCap = StrokeCap.round;
+  for (int i = 0; i < 8; i++) {
+    final ang = i * pi / 4;
+    canvas.drawLine(
+      Offset(cx, cy),
+      Offset(cx + cos(ang) * w * 0.30, cy + sin(ang) * h * 0.10),
+      crackPaint,
+    );
+  }
+}
+
+Color _lighten(Color c, double amount) {
+  return Color.fromARGB(
+    c.alpha,
+    c.red + ((255 - c.red) * amount).round(),
+    c.green + ((255 - c.green) * amount).round(),
+    c.blue + ((255 - c.blue) * amount).round(),
+  );
+}
+
+Color _darken(Color c, double amount) {
+  return Color.fromARGB(
+    c.alpha,
+    (c.red * (1 - amount)).round(),
+    (c.green * (1 - amount)).round(),
+    (c.blue * (1 - amount)).round(),
+  );
 }
