@@ -84,10 +84,6 @@ class AudioService {
   void playLevelUp() => _play(_levelup);
   void playGameOver() => _play(_gameOver);
 
-  /// Plays a window-smash sound. There is no dedicated glass file, so we
-  /// reuse the impact "hit" sample — fails silently if asset missing.
-  void playWindowSmash() => _play(_hit);
-
   void _play(String file) {
     try {
       FlameAudio.play(file, volume: 0.8);
