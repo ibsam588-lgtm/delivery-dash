@@ -1,8 +1,11 @@
 import 'dart:math';
 import 'dart:ui' as ui;
+import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flutter/painting.dart';
 import '../delivery_dash_game.dart';
 import 'parked_car.dart' show renderTopDownCar;
+import 'player.dart';
 
 /// Crossroads — the main road continues, a cross-street goes left/right.
 /// Renders zebra crossing, traffic-light poles, "STOP" on approach,
@@ -88,35 +91,38 @@ class IntersectionComponent extends PositionComponent
     final leftBot = lm.roadLeftAt(botY);
     final rightBot = lm.roadRightAt(botY);
 
-    // ── Cross-street asphalt — only in sidewalk strips, NOT over the road ──
+    // ── Cross-street asphalt — only outside the main road ────────────────
+    // Draw two trapezoids (left strip and right strip) so the main road area
+    // remains transparent and the road surface shows through.
     final asphaltPaint = Paint()..color = const Color(0xFF2A2A2A);
-    // Left sidewalk trapezoid
-    final leftPath = Path()
+
+    // Left strip: (0,0) → (leftTop,0) → (leftBot,h) → (0,h)
+    final leftStrip = Path()
       ..moveTo(0, 0)
       ..lineTo(leftTop, 0)
       ..lineTo(leftBot, h)
       ..lineTo(0, h)
       ..close();
-    canvas.drawPath(leftPath, asphaltPaint);
-    // Right sidewalk trapezoid
-    final rightPath = Path()
+    canvas.drawPath(leftStrip, asphaltPaint);
+
+    // Right strip: (rightTop,0) → (size.x,0) → (size.x,h) → (rightBot,h)
+    final rightStrip = Path()
       ..moveTo(rightTop, 0)
       ..lineTo(size.x, 0)
       ..lineTo(size.x, h)
       ..lineTo(rightBot, h)
       ..close();
-    canvas.drawPath(rightPath, asphaltPaint);
+    canvas.drawPath(rightStrip, asphaltPaint);
 
-    // Subtle perspective shading — top slightly lighter.
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.x, h),
-      Paint()
-        ..shader = ui.Gradient.linear(
-          const Offset(0, 0),
-          Offset(0, h),
-          const [Color(0x33FFFFFF), Color(0x00FFFFFF)],
-        ),
-    );
+    // Subtle perspective shading — top slightly lighter, on both side strips.
+    final shadePaint = Paint()
+      ..shader = ui.Gradient.linear(
+        const Offset(0, 0),
+        Offset(0, h),
+        const [Color(0x33FFFFFF), Color(0x00FFFFFF)],
+      );
+    canvas.drawPath(leftStrip, shadePaint);
+    canvas.drawPath(rightStrip, shadePaint);
 
     // Yellow dashed lane line down centre of the cross-street.
     final yellowPaint = Paint()..color = const Color(0xFFFFD600);
@@ -156,205 +162,246 @@ class IntersectionComponent extends PositionComponent
     // ── "STOP" text on the road surface just below the bottom crossing ────
     // Render only when the bottom of the intersection is well within the
     // viewport, so the text reads properly.
-    if (position.y + h> gameRef.size.y * 0.2 &&
-        position.y + h < gameRef.size.y * 0.95) {
-      // STOP text painted directly on road surface
-      final cx = lm.roadCenterAt(position.y + h - 10);
-      _drawStopText(canvas, cx, h - 26);
+    if (position.y + h > gameRef.size.y * 0.5 &&
+        position.y + h < gameRef.size.y) {
+      _drawStopText(canvas, leftBot, rightBot, h - stripeBandH - 4);
     }
+
+    // ── Traffic-light poles at the 4 corners ──────────────────────────────
+    _drawTrafficLight(canvas, leftTop - 12, 6);
+    _drawTrafficLight(canvas, rightTop + 4, 6);
+    _drawTrafficLight(canvas, leftBot - 12, h - 22);
+    _drawTrafficLight(canvas, rightBot + 4, h - 22);
   }
 
-  void _drawStopText(Canvas canvas, double cx, double y) {
-    // Simple geometric STOP letters
-    final p = Paint()
-      ..color = const Color(0xFFFFFFFF)
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.square;
-    final letters = ['S', 'T', 'O', 'P'];
-    double lx = cx - 26.0;
-    for (final letter in letters) {
-      _drawLetter(canvas, p, lx, y, letter);
-      lx += 14.0;
-    }
+  void _drawStopText(Canvas canvas, double leftBot, double rightBot,
+      double yBaseline) {
+    final cxText = (leftBot + rightBot) / 2;
+    final textY = yBaseline - 24;
+    // Stylised "STOP" — block letters scaled to read on the road.
+    final painter = TextPainter(
+      text: const TextSpan(
+        text: 'STOP',
+        style: TextStyle(
+          color: Color(0xFFFFFFFF),
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 2.0,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    painter.layout();
+    painter.paint(canvas, Offset(cxText - painter.width / 2, textY));
   }
 
-  void _drawLetter(Canvas canvas, Paint p, double x, double y, String l) {
-    // Each letter is 10w x 12h
-    const w = 10.0;
-    const h = 12.0;
-    switch (l) {
-      case 'S':
-        canvas.drawLine(Offset(x + w, y), Offset(x, y), p);
-        canvas.drawLine(Offset(x, y), Offset(x, y + h / 2), p);
-        canvas.drawLine(Offset(x, y + h / 2), Offset(x + w, y + h / 2), p);
-        canvas.drawLine(Offset(x + w, y + h / 2), Offset(x + w, y + h), p);
-        canvas.drawLine(Offset(x + w, y + h), Offset(x, y + h), p);
-        break;
-      case 'T':
-        canvas.drawLine(Offset(x, y), Offset(x + w, y), p);
-        canvas.drawLine(Offset(x + w / 2, y), Offset(x + w / 2, y + h), p);
-        break;
-      case 'O':
-        canvas.drawLine(Offset(x, y), Offset(x + w, y), p);
-        canvas.drawLine(Offset(x, y), Offset(x, y + h), p);
-        canvas.drawLine(Offset(x + w, y), Offset(x + w, y + h), p);
-        canvas.drawLine(Offset(x, y + h), Offset(x + w, y + h), p);
-        break;
-      case 'P':
-        canvas.drawLine(Offset(x, y), Offset(x, y + h), p);
-        canvas.drawLine(Offset(x, y), Offset(x + w, y), p);
-        canvas.drawLine(Offset(x + w, y), Offset(x + w, y + h / 2), p);
-        canvas.drawLine(Offset(x, y + h / 2), Offset(x + w, y + h / 2), p);
-        break;
-      default:
-        break;
-    }
+  void _drawTrafficLight(Canvas canvas, double x, double y) {
+    // Pole.
+    canvas.drawRect(
+      Rect.fromLTWH(x + 4, y, 2, 26),
+      Paint()..color = const Color(0xFF333333),
+    );
+    // Light housing.
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y, 10, 18),
+        const Radius.circular(2),
+      ),
+      Paint()..color = const Color(0xFF111111),
+    );
+    // Red light at top, yellow middle, green bottom.
+    canvas.drawCircle(
+        Offset(x + 5, y + 3.5), 1.6, Paint()..color = const Color(0xFFEF5350));
+    canvas.drawCircle(
+        Offset(x + 5, y + 9), 1.6, Paint()..color = const Color(0xFFFFC107));
+    canvas.drawCircle(
+        Offset(x + 5, y + 14.5), 1.6, Paint()..color = const Color(0xFF66BB6A));
   }
 }
 
-/// A car that drives horizontally across the intersection band.
 class CrossingCarComponent extends PositionComponent
-    with HasGameRef<DeliveryDashGame> {
+    with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
+  static const double speed = 320;
+
+  static const List<Color> _bodyColors = [
+    Color(0xFFE53935),
+    Color(0xFF1565C0),
+    Color(0xFF9E9E9E),
+    Color(0xFFFBC02D),
+  ];
+
   final bool leftToRight;
   final int variant;
-  late double _bandY;
-  static const double _carSpeed = 160.0;
-  static const double _carW = 52.0;
-  static const double _carH = 26.0;
+  bool _hasHit = false;
 
   CrossingCarComponent({
     required double bandY,
     required this.leftToRight,
     required this.variant,
-  })  : _bandY = bandY,
-        super(
-          size: Vector2(_carW, _carH),
+  }) : super(
+          size: Vector2(80, 50),
           anchor: Anchor.center,
-          priority: 2,
-        );
+          priority: 3,
+        ) {
+    position = Vector2(0, bandY);
+  }
 
   @override
   Future<void> onLoad() async {
-    final startX = leftToRight ? -_carW : gameRef.size.x + _carW;
-    position = Vector2(startX, _bandY);
+    final startX = leftToRight ? -size.x : gameRef.size.x + size.x;
+    position.x = startX;
+    angle = leftToRight ? pi / 2 : -pi / 2;
+    add(RectangleHitbox(
+      size: Vector2(size.x * 0.85, size.y * 0.78),
+      position: Vector2(size.x * 0.075, size.y * 0.11),
+    ));
   }
 
   @override
   void update(double dt) {
     super.update(dt);
     if (gameRef.state != GameState.playing) return;
-    _bandY += gameRef.scrollSpeed * dt;
-    final dx = leftToRight ? _carSpeed * dt : -_carSpeed * dt;
-    position = Vector2(position.x + dx, _bandY);
-    if (leftToRight && position.x > gameRef.size.x + _carW) {
-      removeFromParent();
-    } else if (!leftToRight && position.x < -_carW) {
+    position.x += (leftToRight ? 1 : -1) * speed * dt;
+    position.y += gameRef.scrollSpeed * dt;
+    if (position.x < -size.x * 2 || position.x > gameRef.size.x + size.x * 2) {
       removeFromParent();
     }
-    if (_bandY > gameRef.size.y + _carH) removeFromParent();
+    if (position.y > gameRef.size.y + size.y) removeFromParent();
   }
 
   @override
   void render(Canvas canvas) {
-    final colors = variant == 0
-        ? [const Color(0xFF1565C0), const Color(0xFFE53935)]
-        : [const Color(0xFF2E7D32), const Color(0xFFF57F17)];
-    canvas.save();
-    if (!leftToRight) {
-      canvas.translate(size.x, 0);
-      canvas.scale(-1, 1);
+    renderTopDownCar(
+      canvas, size.x, size.y, _bodyColors[variant % _bodyColors.length],
+    );
+  }
+
+  @override
+  void onCollisionStart(
+      Set<Vector2> intersectionPoints, PositionComponent other) {
+    super.onCollisionStart(intersectionPoints, other);
+    if (_hasHit) return;
+    if (other is PlayerComponent) {
+      _hasHit = true;
+      gameRef.onPlayerHitObstacle();
     }
-    renderTopDownCar(canvas, size, colors[0], colors[1]);
-    canvas.restore();
   }
 }
 
-/// A pedestrian walking across the zebra crossing.
+/// Simple pedestrian walking across the zebra crossing.
 class CrossingPedestrianComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
+  static const double speed = 60;
+
   final bool leftToRight;
-  double _bandY;
-  double _delayTimer;
-  bool _active = false;
-  double _walkTimer = 0;
-  bool _step = false;
+  double _delay;
+  double _animTimer = 0;
+  final Color _shirtColor;
 
   CrossingPedestrianComponent({
     required double bandY,
     required this.leftToRight,
-    required double delay,
-  })  : _bandY = bandY,
-        _delayTimer = delay,
+    double delay = 0,
+  })  : _delay = delay,
+        _shirtColor = _pickShirtColor(),
         super(
           size: Vector2(14, 24),
           anchor: Anchor.center,
-          priority: 3,
-        );
+          priority: 4,
+        ) {
+    position = Vector2(0, bandY);
+  }
+
+  static Color _pickShirtColor() {
+    final colors = [
+      const Color(0xFF1976D2),
+      const Color(0xFFE53935),
+      const Color(0xFF43A047),
+      const Color(0xFF8E24AA),
+      const Color(0xFFFB8C00),
+    ];
+    return colors[Random().nextInt(colors.length)];
+  }
 
   @override
   Future<void> onLoad() async {
-    final startX = leftToRight ? -14.0 : gameRef.size.x + 14.0;
-    position = Vector2(startX, _bandY);
+    position.x = leftToRight ? -size.x : gameRef.size.x + size.x;
   }
 
   @override
   void update(double dt) {
     super.update(dt);
     if (gameRef.state != GameState.playing) return;
-    _bandY += gameRef.scrollSpeed * dt;
-
-    if (!_active) {
-      _delayTimer -= dt;
-      if (_delayTimer <= 0) _active = true;
-      position.y = _bandY;
-      return;
+    if (_delay > 0) {
+      _delay -= dt;
+    } else {
+      position.x += (leftToRight ? 1 : -1) * speed * dt;
+      _animTimer += dt;
     }
-
-    const speed = 60.0;
-    final dx = leftToRight ? speed * dt : -speed * dt;
-    position = Vector2(position.x + dx, _bandY);
-
-    _walkTimer += dt;
-    if (_walkTimer >= 0.25) {
-      _walkTimer = 0;
-      _step = !_step;
+    position.y += gameRef.scrollSpeed * dt;
+    if (position.x < -size.x * 2 ||
+        position.x > gameRef.size.x + size.x * 2 ||
+        position.y > gameRef.size.y + size.y) {
+      removeFromParent();
     }
-
-    if (leftToRight && position.x > gameRef.size.x + 20) removeFromParent();
-    if (!leftToRight && position.x < -20) removeFromParent();
-    if (_bandY > gameRef.size.y + 20) removeFromParent();
   }
 
   @override
   void render(Canvas canvas) {
+    if (_delay > 0) return;
     final w = size.x;
     final h = size.y;
-    // Body
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.25, h * 0.30, w * 0.50, h * 0.45),
-      Paint()..color = const Color(0xFF546E7A),
+
+    // Walking leg swing.
+    final swing = sin(_animTimer * 6.0) * 3.0;
+
+    // Shadow.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w / 2, h - 1),
+        width: w * 0.7,
+        height: 4,
+      ),
+      Paint()..color = const Color(0x66000000),
     );
-    // Head
+    // Legs.
+    final legPaint = Paint()
+      ..color = const Color(0xFF1A1A1A)
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(w * 0.40, h * 0.60),
+      Offset(w * 0.40 + swing * 0.5, h * 0.95),
+      legPaint,
+    );
+    canvas.drawLine(
+      Offset(w * 0.60, h * 0.60),
+      Offset(w * 0.60 - swing * 0.5, h * 0.95),
+      legPaint,
+    );
+    // Torso.
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.20, h * 0.32, w * 0.60, h * 0.30),
+        const Radius.circular(2),
+      ),
+      Paint()..color = _shirtColor,
+    );
+    // Head.
     canvas.drawCircle(
-      Offset(w * 0.5, h * 0.18),
-      h * 0.13,
+      Offset(w * 0.50, h * 0.18),
+      w * 0.30,
       Paint()..color = const Color(0xFFFFCC99),
     );
-    // Legs (walking animation)
-    final legPaint = Paint()
-      ..color = const Color(0xFF37474F)
-      ..strokeWidth = 3.0
-      ..strokeCap = StrokeCap.round;
-    final phase = _step ? 1.0 : -1.0;
-    canvas.drawLine(
-      Offset(w * 0.38, h * 0.75),
-      Offset(w * 0.30 + phase * 3, h * 0.95),
-      legPaint,
-    );
-    canvas.drawLine(
-      Offset(w * 0.62, h * 0.75),
-      Offset(w * 0.70 - phase * 3, h * 0.95),
-      legPaint,
+    // Hair cap.
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.16),
+        width: w * 0.60,
+        height: w * 0.50,
+      ),
+      pi, pi, false,
+      Paint()..color = const Color(0xFF3E2723),
     );
   }
 }

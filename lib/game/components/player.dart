@@ -117,6 +117,18 @@ class PlayerComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
+    // Wrap everything in an opacity layer when flashing (invincibility).
+    // saveLayer must be outermost — before any rotation — so its Rect bounds
+    // are in the unrotated component coordinate space and the nesting is clean.
+    final needsLayer = _opacity < 1.0;
+    if (needsLayer) {
+      canvas.saveLayer(
+        Rect.fromLTWH(0, 0, size.x, size.y),
+        Paint()
+          ..color = Color.fromARGB((_opacity * 255).round(), 255, 255, 255),
+      );
+    }
+
     // Ground shadow.
     canvas.drawOval(
       Rect.fromCenter(
@@ -131,26 +143,15 @@ class PlayerComponent extends PositionComponent
       _renderSpeedLines(canvas);
     }
 
+    // Sway rotation around component centre.
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
-
     final swayRad = (_swayAmplitudeDeg * pi / 180) *
         sin(_swayTimer * 2 * pi * _swayHz);
     canvas.rotate(swayRad);
-
     canvas.translate(-size.x / 2, -size.y / 2);
 
-    if (_opacity < 1.0) {
-      canvas.saveLayer(
-        Rect.fromLTWH(0, 0, size.x, size.y),
-        Paint()
-          ..color = Color.fromARGB((_opacity * 255).round(), 255, 255, 255),
-      );
-    }
-
     _renderBike(canvas);
-
-    if (_opacity < 1.0) canvas.restore();
 
     if (_wetTimer > 0) {
       final phase = _wetTimer / _wetDuration;
@@ -161,7 +162,9 @@ class PlayerComponent extends PositionComponent
       );
     }
 
-    canvas.restore();
+    canvas.restore(); // sway rotation
+
+    if (needsLayer) canvas.restore(); // opacity layer
   }
 
   void _renderSpeedLines(Canvas canvas) {
@@ -398,3 +401,20 @@ class PlayerComponent extends PositionComponent
     // ── Throwing arm overlay (in the chosen throw direction) ──────────────
     if (_throwArmTimer > 0) {
       final t = _throwArmTimer / _throwArmDuration;
+      final base = _throwArmLeft
+          ? Offset(w * 0.30, h * 0.30)
+          : Offset(w * 0.70, h * 0.30);
+      final dir = _throwArmLeft ? -1.0 : 1.0;
+      final tip = Offset(base.dx + dir * (20 * t + 8), base.dy - 10 * t);
+      canvas.drawLine(
+        base,
+        tip,
+        Paint()
+          ..color = const Color(0xFF1565C0)
+          ..strokeWidth = 5
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawCircle(tip, 4.0, Paint()..color = const Color(0xFFFFCC80));
+    }
+  }
+}
