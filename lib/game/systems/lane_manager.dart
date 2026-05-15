@@ -4,12 +4,12 @@ import 'package:flame/components.dart';
 /// Road fans out from a vanishing point at the top toward the player at the
 /// bottom.
 ///
-/// At bottom (y = H, player depth):  road spans [0.25W .. 0.75W]  (50% wide)
-/// At horizon  (y = H*0.28):         road spans [0.43W .. 0.57W]  (14% wide)
+/// At bottom (y = H, player depth):  road spans [0.30W .. 0.70W]  (40% wide)
+/// At horizon  (y = H*0.28):         road spans [0.444W .. 0.556W] (11% wide)
 ///
 /// t = y / H   (0 at top, 1 at bottom)
-/// leftFrac(t)  = 0.50 - 0.25*t
-/// rightFrac(t) = 0.50 + 0.25*t
+/// leftFrac(t)  = 0.50 - 0.20*t
+/// rightFrac(t) = 0.50 + 0.20*t
 class LaneManager {
   final Vector2 gameSize;
 
@@ -20,8 +20,8 @@ class LaneManager {
 
   double _t(double y) => (y / H).clamp(0.0, 1.0);
 
-  double roadLeftAt(double y) => W * (0.50 - 0.25 * _t(y));
-  double roadRightAt(double y) => W * (0.50 + 0.25 * _t(y));
+  double roadLeftAt(double y) => W * (0.50 - 0.20 * _t(y));
+  double roadRightAt(double y) => W * (0.50 + 0.20 * _t(y));
   double roadCenterAt(double y) => W * 0.50;
   double roadWidthAt(double y) => roadRightAt(y) - roadLeftAt(y);
 

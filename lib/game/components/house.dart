@@ -101,11 +101,10 @@ const List<Color> _flowerColors = [
 /// left or right edge of the screen — never moves horizontally.
 class HouseComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  // Road is now 50% of screen at player depth — each sidewalk is ~25%.
-  // On a 390px screen that gives ~97px. 95px fits cleanly inside.
-  static const double rowSpacing = 165.0;
-  static const double fixedWidth = 95.0;
-  static const double fixedHeight = 154.0;
+  // Road is 40% of screen — each sidewalk is ~30% (spread=0.20).
+  // Width is computed dynamically in onLoad from laneManager.roadLeft.
+  static const double rowSpacing = 380.0;
+  static const double fixedHeight = 320.0;
 
   static const double _parallaxFactor = 1.0;
 
@@ -130,7 +129,7 @@ class HouseComponent extends PositionComponent
   })  : _initialY = initialY,
         _index = index,
         super(
-          size: Vector2(fixedWidth, fixedHeight),
+          size: Vector2(120, fixedHeight), // width updated in onLoad
           anchor: Anchor.bottomLeft,
           priority: 5,
         );
@@ -140,6 +139,8 @@ class HouseComponent extends PositionComponent
 
   @override
   Future<void> onLoad() async {
+    // Width = full sidewalk width so house fills edge-to-road exactly.
+    size = Vector2(gameRef.laneManager.roadLeft, fixedHeight);
     // X is pinned to the screen edge — never changes after this point.
     _pinnedX = onRight ? gameRef.size.x - size.x : 0.0;
     position = Vector2(_pinnedX, _initialY);

@@ -7,13 +7,13 @@ import '../delivery_dash_game.dart';
 import 'player.dart';
 
 /// Crossroads — the main road continues, a cross-street goes left/right.
-/// Renders zebra crossing, larger traffic lights with a 3-s red/green cycle,
-/// and lets [CrossingCarComponent]s drive across only on green.
+/// Renders zebra crossing, traffic lights with a 3-s red/green cycle,
+/// and spawns [CrossingCarComponent]s that drive downward through the
+/// side strips (oncoming cross-traffic).
 class IntersectionComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  static const double bandHeight = 130;
+  static const double bandHeight = 160;
 
-  // Cap concurrent traffic per intersection.
   static const int _maxCarsPerIntersection = 3;
   static const double _lightCycleTime = 3.0;
 
@@ -37,7 +37,6 @@ class IntersectionComponent extends PositionComponent
   Future<void> onLoad() async {
     size = Vector2(gameRef.size.x, bandHeight);
     position = Vector2(0, -bandHeight);
-    // Randomise starting phase so not all intersections are in sync.
     _lightTimer = _rng.nextDouble() * _lightCycleTime;
     _isGreen = _rng.nextBool();
   }
@@ -48,7 +47,6 @@ class IntersectionComponent extends PositionComponent
     if (gameRef.state != GameState.playing) return;
     position.y += gameRef.scrollSpeed * dt;
 
-    // Advance traffic-light state.
     _lightTimer += dt;
     if (_lightTimer >= _lightCycleTime) {
       _lightTimer -= _lightCycleTime;
@@ -78,12 +76,11 @@ class IntersectionComponent extends PositionComponent
 
   void _spawnCar() {
     if (_carsSpawned >= _maxCarsPerIntersection) return;
-    if (!_isGreen) return; // cars wait for green
+    if (!_isGreen) return;
     _carsSpawned++;
-    final leftToRight = _rng.nextBool();
     gameRef.add(CrossingCarComponent(
-      bandY: position.y + bandHeight / 2,
-      leftToRight: leftToRight,
+      spawnY: position.y,
+      inLeftStrip: _rng.nextBool(),
       variant: _rng.nextInt(4),
     ));
   }
@@ -105,102 +102,127 @@ class IntersectionComponent extends PositionComponent
     final h = size.y;
     final lm = gameRef.laneManager;
 
-    final topY = position.y;
-    final botY = position.y + h;
-    final leftTop = lm.roadLeftAt(topY);
-    final rightTop = lm.roadRightAt(topY);
-    final leftBot = lm.roadLeftAt(botY);
-    final rightBot = lm.roadRightAt(botY);
+    // Use FIXED road edges — not y-dependent — so the strips don't
+    // appear to oscillate as the band scrolls.
+    final leftEdge = lm.roadLeft;
+    final rightEdge = lm.roadRight;
 
-    // ── Cross-street asphalt (trapezoid strips outside main road) ────────
+    // ── Cross-street asphalt (rectangular side strips) ────────────────────
     final asphaltPaint = Paint()..color = const Color(0xFF2A2A2A);
     final leftStrip = Path()
       ..moveTo(0, 0)
-      ..lineTo(leftTop, 0)
-      ..lineTo(leftBot, h)
+      ..lineTo(leftEdge, 0)
+      ..lineTo(leftEdge, h)
       ..lineTo(0, h)
       ..close();
     final rightStrip = Path()
-      ..moveTo(rightTop, 0)
+      ..moveTo(rightEdge, 0)
       ..lineTo(size.x, 0)
       ..lineTo(size.x, h)
-      ..lineTo(rightBot, h)
+      ..lineTo(rightEdge, h)
       ..close();
     canvas.drawPath(leftStrip, asphaltPaint);
     canvas.drawPath(rightStrip, asphaltPaint);
 
-    // Subtle random-dot texture on asphalt strips.
+    // Dot texture on strips.
     final dotPaint = Paint()..color = const Color(0xFF222222);
     final rng = Random(42);
     for (int i = 0; i < 30; i++) {
-      final dx = rng.nextDouble() * (leftBot) * 0.9;
-      final dy = rng.nextDouble() * h;
-      canvas.drawCircle(Offset(dx, dy), 1.0, dotPaint);
+      canvas.drawCircle(
+        Offset(rng.nextDouble() * leftEdge * 0.9, rng.nextDouble() * h),
+        1.0, dotPaint,
+      );
     }
     for (int i = 0; i < 30; i++) {
-      final dx = rightTop + rng.nextDouble() * (size.x - rightTop) * 0.9;
-      final dy = rng.nextDouble() * h;
-      canvas.drawCircle(Offset(dx, dy), 1.0, dotPaint);
+      canvas.drawCircle(
+        Offset(rightEdge + rng.nextDouble() * (size.x - rightEdge) * 0.9,
+            rng.nextDouble() * h),
+        1.0, dotPaint,
+      );
     }
 
-    // Perspective shading on side strips.
-    final shadePaint = Paint()
-      ..shader = ui.Gradient.linear(
-        const Offset(0, 0),
-        Offset(0, h),
-        const [Color(0x33FFFFFF), Color(0x00FFFFFF)],
-      );
-    canvas.drawPath(leftStrip, shadePaint);
-    canvas.drawPath(rightStrip, shadePaint);
+    // Perspective shading on strips.
+    canvas.drawPath(
+      leftStrip,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          const Offset(0, 0),
+          Offset(0, h),
+          const [Color(0x33FFFFFF), Color(0x00FFFFFF)],
+        ),
+    );
+    canvas.drawPath(
+      rightStrip,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          const Offset(0, 0),
+          Offset(0, h),
+          const [Color(0x33FFFFFF), Color(0x00FFFFFF)],
+        ),
+    );
 
     // Yellow dashed centre line of the cross-street.
     final yellowPaint = Paint()..color = const Color(0xFFFFD600);
     double cx = 0;
     while (cx < size.x) {
-      canvas.drawRect(
-        Rect.fromLTWH(cx, h * 0.47, 18, 5),
-        yellowPaint,
-      );
+      canvas.drawRect(Rect.fromLTWH(cx, h * 0.47, 18, 5), yellowPaint);
       cx += 30;
     }
 
-    // ── Zebra crossing stripes ────────────────────────────────────────────
+    // ── Stop lines — solid white 8 px across the road at each edge ────────
+    final stopPaint = Paint()
+      ..color = const Color(0xFFFFFFFF)
+      ..strokeWidth = 8.0
+      ..strokeCap = StrokeCap.butt;
+    canvas.drawLine(Offset(leftEdge, 8), Offset(rightEdge, 8), stopPaint);
+    canvas.drawLine(Offset(leftEdge, h - 8), Offset(rightEdge, h - 8), stopPaint);
+
+    // ── Yellow box junction ────────────────────────────────────────────────
+    canvas.drawRect(
+      Rect.fromLTRB(leftEdge + 4, h * 0.18, rightEdge - 4, h * 0.82),
+      Paint()
+        ..color = const Color(0xAAFFD600)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4.0,
+    );
+
+    // ── Zebra crossing stripes (thicker) ──────────────────────────────────
     final stripePaint = Paint()..color = const Color(0xFFFFFFFF);
-    const stripeW = 18.0;
+    const stripeW = 20.0;
     const stripeGap = 10.0;
-    const stripeBandH = 20.0;
+    const stripeBandH = 24.0;
     // Top stripes.
-    var sx = leftTop + 4;
-    while (sx + stripeW < rightTop - 4) {
-      canvas.drawRect(Rect.fromLTWH(sx, 5, stripeW, stripeBandH), stripePaint);
+    var sx = leftEdge + 4;
+    while (sx + stripeW < rightEdge - 4) {
+      canvas.drawRect(Rect.fromLTWH(sx, 14, stripeW, stripeBandH), stripePaint);
       sx += stripeW + stripeGap;
     }
     // Bottom stripes.
-    sx = leftBot + 4;
-    while (sx + stripeW < rightBot - 4) {
+    sx = leftEdge + 4;
+    while (sx + stripeW < rightEdge - 4) {
       canvas.drawRect(
-        Rect.fromLTWH(sx, h - stripeBandH - 5, stripeW, stripeBandH),
+        Rect.fromLTWH(sx, h - stripeBandH - 14, stripeW, stripeBandH),
         stripePaint,
       );
       sx += stripeW + stripeGap;
     }
 
-    // ── STOP text on road ─────────────────────────────────────────────────
+    // ── STOP text ─────────────────────────────────────────────────────────
     if (position.y + h > gameRef.size.y * 0.5 &&
         position.y + h < gameRef.size.y) {
-      _drawStopText(canvas, leftBot, rightBot, h - stripeBandH - 5);
+      _drawStopText(canvas, leftEdge, rightEdge, h - stripeBandH - 14);
     }
 
-    // ── Traffic lights at 4 corners ───────────────────────────────────────
-    _drawTrafficLight(canvas, leftTop - 18, 4, _isGreen);
-    _drawTrafficLight(canvas, rightTop + 5, 4, _isGreen);
-    _drawTrafficLight(canvas, leftBot - 18, h - 30, _isGreen);
-    _drawTrafficLight(canvas, rightBot + 5, h - 30, _isGreen);
+    // ── Traffic lights at 4 corners (bigger housing) ──────────────────────
+    _drawTrafficLight(canvas, leftEdge - 22, 4, _isGreen);
+    _drawTrafficLight(canvas, rightEdge + 4, 4, _isGreen);
+    _drawTrafficLight(canvas, leftEdge - 22, h - 38, _isGreen);
+    _drawTrafficLight(canvas, rightEdge + 4, h - 38, _isGreen);
   }
 
   void _drawStopText(
-      Canvas canvas, double leftBot, double rightBot, double yBaseline) {
-    final cxText = (leftBot + rightBot) / 2;
+      Canvas canvas, double leftEdge, double rightEdge, double yBaseline) {
+    final cxText = (leftEdge + rightEdge) / 2;
     final textY = yBaseline - 26;
     final painter = TextPainter(
       text: const TextSpan(
@@ -221,93 +243,92 @@ class IntersectionComponent extends PositionComponent
   void _drawTrafficLight(Canvas canvas, double x, double y, bool isGreen) {
     // Pole.
     canvas.drawRect(
-      Rect.fromLTWH(x + 6, y, 3, 34),
+      Rect.fromLTWH(x + 8, y, 3, 42),
       Paint()..color = const Color(0xFF333333),
     );
-    // Housing (larger than before).
+    // Housing — bigger than before.
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, y, 16, 28),
+        Rect.fromLTWH(x, y, 20, 34),
         const Radius.circular(3),
       ),
       Paint()..color = const Color(0xFF111111),
     );
-    // Red light (top) — active when !isGreen.
+    // Red light (top).
     canvas.drawCircle(
-      Offset(x + 8, y + 5.5),
-      3.0,
+      Offset(x + 10, y + 6.5),
+      3.5,
       Paint()
         ..color = isGreen
             ? const Color(0xFF7F1C1C)
             : const Color(0xFFEF5350),
     );
     if (!isGreen) {
-      // Glow around active red.
       canvas.drawCircle(
-        Offset(x + 8, y + 5.5),
-        5.0,
+        Offset(x + 10, y + 6.5), 6.0,
         Paint()..color = const Color(0x44EF5350),
       );
     }
     // Yellow (middle) — always dim.
     canvas.drawCircle(
-      Offset(x + 8, y + 14),
-      3.0,
+      Offset(x + 10, y + 17),
+      3.5,
       Paint()..color = const Color(0xFF7A5900),
     );
-    // Green light (bottom) — active when isGreen.
+    // Green light (bottom).
     canvas.drawCircle(
-      Offset(x + 8, y + 22.5),
-      3.0,
+      Offset(x + 10, y + 27.5),
+      3.5,
       Paint()
         ..color = isGreen
             ? const Color(0xFF66BB6A)
             : const Color(0xFF1B5E20),
     );
     if (isGreen) {
-      // Glow around active green.
       canvas.drawCircle(
-        Offset(x + 8, y + 22.5),
-        5.0,
+        Offset(x + 10, y + 27.5), 6.0,
         Paint()..color = const Color(0x4466BB6A),
       );
     }
   }
 }
 
-/// A car driving across the intersection (side view, no rotation).
+/// A car driving downward through the intersection side strip (cross-traffic).
+/// Spawns at the top of the intersection band and drives toward the player.
 class CrossingCarComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
-  static const double speed = 300;
+  static const double speed = 280;
 
   static const List<Color> _bodyColors = [
-    Color(0xFFE53935), // red
-    Color(0xFF1565C0), // blue
-    Color(0xFF9E9E9E), // silver
-    Color(0xFFFBC02D), // yellow
+    Color(0xFFE53935),
+    Color(0xFF1565C0),
+    Color(0xFF9E9E9E),
+    Color(0xFFFBC02D),
   ];
 
-  final bool leftToRight;
+  final bool inLeftStrip;
   final int variant;
   bool _hasHit = false;
-  double _bandY;
 
   CrossingCarComponent({
-    required double bandY,
-    required this.leftToRight,
+    required double spawnY,
+    required this.inLeftStrip,
     required this.variant,
-  })  : _bandY = bandY,
-        super(
+  }) : super(
           size: Vector2(90, 40),
           anchor: Anchor.center,
           priority: 10,
         ) {
-    position = Vector2(0, bandY);
+    position.y = spawnY;
   }
 
   @override
   Future<void> onLoad() async {
-    position.x = leftToRight ? -size.x : gameRef.size.x + size.x;
+    final lm = gameRef.laneManager;
+    // Place in the centre of the left or right side strip.
+    position.x = inLeftStrip
+        ? lm.roadLeft / 2
+        : lm.roadRight + (gameRef.size.x - lm.roadRight) / 2;
     add(RectangleHitbox(
       size: Vector2(size.x * 0.88, size.y * 0.80),
       position: Vector2(size.x * 0.06, size.y * 0.10),
@@ -318,13 +339,10 @@ class CrossingCarComponent extends PositionComponent
   void update(double dt) {
     super.update(dt);
     if (gameRef.state != GameState.playing) return;
-    position.x += (leftToRight ? 1 : -1) * speed * dt;
-    _bandY += gameRef.scrollSpeed * dt;
-    position.y = _bandY;
-    if (position.x < -size.x * 2 || position.x > gameRef.size.x + size.x * 2) {
-      removeFromParent();
-    }
-    if (_bandY > gameRef.size.y + size.y) removeFromParent();
+    // Move downward at own speed + world scroll so the car moves through
+    // the scene at [speed] px/s relative to the world.
+    position.y += (speed + gameRef.scrollSpeed) * dt;
+    if (position.y > gameRef.size.y + size.y) removeFromParent();
   }
 
   @override
@@ -334,7 +352,7 @@ class CrossingCarComponent extends PositionComponent
       size.x,
       size.y,
       _bodyColors[variant % _bodyColors.length],
-      leftToRight,
+      inLeftStrip, // left-strip car faces right; right-strip car faces left
     );
   }
 
@@ -371,32 +389,29 @@ void _renderSideViewCar(
 
   // Body silhouette (sedan profile).
   final bodyPath = Path()
-    ..moveTo(w * 0.04, h * 0.60) // front-bottom
-    ..lineTo(w * 0.10, h * 0.26) // front windshield base
-    ..lineTo(w * 0.26, h * 0.04) // front windshield top
-    ..lineTo(w * 0.64, h * 0.04) // rear windshield top
-    ..lineTo(w * 0.82, h * 0.26) // rear windshield base
-    ..lineTo(w * 0.96, h * 0.52) // trunk top
-    ..lineTo(w * 0.96, h * 0.68) // rear bottom
-    ..lineTo(w * 0.04, h * 0.68) // front bottom
+    ..moveTo(w * 0.04, h * 0.60)
+    ..lineTo(w * 0.10, h * 0.26)
+    ..lineTo(w * 0.26, h * 0.04)
+    ..lineTo(w * 0.64, h * 0.04)
+    ..lineTo(w * 0.82, h * 0.26)
+    ..lineTo(w * 0.96, h * 0.52)
+    ..lineTo(w * 0.96, h * 0.68)
+    ..lineTo(w * 0.04, h * 0.68)
     ..close();
   canvas.drawPath(bodyPath, Paint()..color = body);
 
-  // Body gradient shading (top lighter).
+  // Body gradient shading.
   canvas.drawPath(
     bodyPath,
     Paint()
       ..shader = ui.Gradient.linear(
         Offset(0, h * 0.04),
         Offset(0, h * 0.68),
-        [
-          const Color(0x44FFFFFF),
-          const Color(0x00FFFFFF),
-        ],
+        [const Color(0x44FFFFFF), const Color(0x00FFFFFF)],
       ),
   );
 
-  // Cabin glass area.
+  // Cabin glass.
   final windowPath = Path()
     ..moveTo(w * 0.12, h * 0.28)
     ..lineTo(w * 0.28, h * 0.07)
@@ -404,7 +419,6 @@ void _renderSideViewCar(
     ..lineTo(w * 0.80, h * 0.28)
     ..close();
   canvas.drawPath(windowPath, Paint()..color = const Color(0x9990CAF9));
-  // Window frame.
   canvas.drawPath(
     windowPath,
     Paint()
@@ -412,7 +426,7 @@ void _renderSideViewCar(
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0,
   );
-  // B-pillar (between front and rear windows).
+  // B-pillar.
   canvas.drawLine(
     Offset(w * 0.50, h * 0.07),
     Offset(w * 0.51, h * 0.28),
@@ -436,23 +450,31 @@ void _renderSideViewCar(
 
   // Wheel arches.
   canvas.drawArc(
-    Rect.fromCenter(center: Offset(w * 0.19, h * 0.70), width: h * 0.54, height: h * 0.44),
+    Rect.fromCenter(
+        center: Offset(w * 0.19, h * 0.70), width: h * 0.54, height: h * 0.44),
     pi, pi, false,
-    Paint()..color = _darkenC(body, 0.12)..style = PaintingStyle.stroke..strokeWidth = 5.0,
+    Paint()
+      ..color = _darkenC(body, 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5.0,
   );
   canvas.drawArc(
-    Rect.fromCenter(center: Offset(w * 0.79, h * 0.70), width: h * 0.54, height: h * 0.44),
+    Rect.fromCenter(
+        center: Offset(w * 0.79, h * 0.70), width: h * 0.54, height: h * 0.44),
     pi, pi, false,
-    Paint()..color = _darkenC(body, 0.12)..style = PaintingStyle.stroke..strokeWidth = 5.0,
+    Paint()
+      ..color = _darkenC(body, 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5.0,
   );
 
-  // Headlight (front = right side since facingRight).
+  // Headlight.
   canvas.drawOval(
     Rect.fromCenter(
         center: Offset(w * 0.07, h * 0.44), width: w * 0.07, height: h * 0.15),
     Paint()..color = const Color(0xFFFFEE99),
   );
-  // Tail light (rear).
+  // Tail light.
   canvas.drawOval(
     Rect.fromCenter(
         center: Offset(w * 0.93, h * 0.44), width: w * 0.07, height: h * 0.15),
@@ -475,7 +497,6 @@ void _drawSideWheel(Canvas canvas, Offset center, double r) {
   canvas.drawCircle(center, r * 1.05, Paint()..color = const Color(0xFF111111));
   canvas.drawCircle(center, r, Paint()..color = const Color(0xFF1A1A1A));
   canvas.drawCircle(center, r * 0.62, Paint()..color = const Color(0xFFAAAAAA));
-  // Spokes (5).
   for (int i = 0; i < 5; i++) {
     final a = i * 2 * pi / 5;
     canvas.drawLine(
