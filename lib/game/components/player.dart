@@ -101,7 +101,7 @@ class PlayerComponent extends PositionComponent
       }
     } else {
       _flashTimer = 0;
-      if (_opacity != 1.0) _opacity = 1.0;
+      _opacity = 1.0;
     }
 
     if (gameRef.state == GameState.playing) {

@@ -549,8 +549,7 @@ class HouseComponent extends PositionComponent
   @override
   void update(double dt) {
     super.update(dt);
-    // Hard pin: X never changes for a house, no matter what.
-    if (position.x != _pinnedX) position.x = _pinnedX;
+    position.x = _pinnedX;
 
     if (gameRef.state != GameState.playing) return;
     position.y += gameRef.scrollSpeed * _parallaxFactor * dt;
