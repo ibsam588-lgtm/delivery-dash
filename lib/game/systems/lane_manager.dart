@@ -14,11 +14,12 @@ import 'package:flame/components.dart';
 class LaneManager {
   final Vector2 gameSize;
 
-  // Diagonal road edge fractions.
-  static const double _leftBase = 0.04;
-  static const double _leftSlope = 0.28;
-  static const double _rightBase = 0.72;
-  static const double _rightSlope = 0.16;
+  // Diagonal road edge fractions — wider Paperboy-style perspective.
+  // Road takes up ~70% of screen at player depth, converges toward the horizon.
+  static const double _leftBase = 0.02;
+  static const double _leftSlope = 0.26;
+  static const double _rightBase = 0.74;
+  static const double _rightSlope = 0.14;
 
   // Reference depth for backward-compat flat getters (≈ player Y fraction).
   static const double _refFrac = 0.82;

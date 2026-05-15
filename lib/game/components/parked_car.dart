@@ -9,12 +9,12 @@ class ParkedCarComponent extends PositionComponent
   static const int bonusPoints = 15;
 
   static const List<Color> _bodyColors = [
-    Color(0xFFCC1111), // bold red
-    Color(0xFF1565C0), // bold blue
-    Color(0xFFFFD600), // bold yellow
-    Color(0xFFF5F5F5), // white
-    Color(0xFF2E7D32), // forest green
-    Color(0xFFE65100), // bold orange
+    Color(0xFFE53935), // bright red
+    Color(0xFF1976D2), // bright blue
+    Color(0xFF9E9E9E), // silver
+    Color(0xFF212121), // black
+    Color(0xFFFAFAFA), // white
+    Color(0xFF388E3C), // green
   ];
 
   final int variant;
@@ -23,7 +23,7 @@ class ParkedCarComponent extends PositionComponent
 
   ParkedCarComponent({this.variant = 0})
       : super(
-          size: Vector2(56, 90),
+          size: Vector2(68, 105),
           anchor: Anchor.center,
           priority: 2,
         );
@@ -73,12 +73,11 @@ class ParkedCarComponent extends PositionComponent
     );
     canvas.translate(dx, 0);
 
-    // Ground shadow.
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(size.x / 2 + 4, size.y - 4),
         width: (size.x + 6) * s,
-        height: 12 * s,
+        height: 14 * s,
       ),
       Paint()..color = const Color(0x66000000),
     );
@@ -89,7 +88,8 @@ class ParkedCarComponent extends PositionComponent
     canvas.scale(s * bounceS, s * bounceS * 0.85);
     canvas.translate(-size.x / 2, -size.y / 2);
 
-    renderTopDownCar(canvas, size.x, size.y, _bodyColors[variant % _bodyColors.length]);
+    renderTopDownCar(
+        canvas, size.x, size.y, _bodyColors[variant % _bodyColors.length]);
 
     canvas.restore();
 
@@ -99,14 +99,15 @@ class ParkedCarComponent extends PositionComponent
         Paint()
           ..color = const Color(0xCCFFD600)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
+          ..strokeWidth = 2.5,
       );
     }
   }
 }
 
+/// Top-down isometric car. Rich, chunky, readable from any angle.
 void renderTopDownCar(Canvas canvas, double w, double h, Color bodyColor) {
-  final lightColor = Color.fromARGB(
+  final roofColor = Color.fromARGB(
     255,
     ((bodyColor.r * 255 + 30).clamp(0.0, 255.0)).round(),
     ((bodyColor.g * 255 + 30).clamp(0.0, 255.0)).round(),
@@ -114,155 +115,264 @@ void renderTopDownCar(Canvas canvas, double w, double h, Color bodyColor) {
   );
   final darkColor = Color.fromARGB(
     255,
-    ((bodyColor.r * 255 * 0.75).clamp(0.0, 255.0)).round(),
-    ((bodyColor.g * 255 * 0.75).clamp(0.0, 255.0)).round(),
-    ((bodyColor.b * 255 * 0.75).clamp(0.0, 255.0)).round(),
+    ((bodyColor.r * 255 * 0.78).clamp(0.0, 255.0)).round(),
+    ((bodyColor.g * 255 * 0.78).clamp(0.0, 255.0)).round(),
+    ((bodyColor.b * 255 * 0.78).clamp(0.0, 255.0)).round(),
   );
 
-  // Under-car shadow.
+  // ── Under-car shadow ─────────────────────────────────────────────────────
   canvas.drawOval(
     Rect.fromCenter(
-      center: Offset(w / 2, h / 2),
-      width: w * 0.90,
-      height: h * 0.96,
+      center: Offset(w / 2, h / 2 + 2),
+      width: w * 0.92,
+      height: h * 0.98,
     ),
     Paint()..color = const Color(0x55000000),
   );
 
-  // Car body — rounded rectangle.
-  final bodyRRect = RRect.fromRectAndRadius(
-    Rect.fromLTWH(w * 0.08, h * 0.04, w * 0.84, h * 0.88),
-    Radius.circular(w * 0.14),
-  );
+  // ── Main body — rounded rectangle ────────────────────────────────────────
+  final bodyRect = Rect.fromLTWH(w * 0.08, h * 0.04, w * 0.84, h * 0.92);
+  final bodyRRect =
+      RRect.fromRectAndRadius(bodyRect, Radius.circular(w * 0.16));
   canvas.drawRRect(bodyRRect, Paint()..color = bodyColor);
 
-  // Hood (front — lighter, top of sprite = front of car).
-  final hoodPath = Path()
-    ..moveTo(w * 0.15, h * 0.04)
-    ..lineTo(w * 0.85, h * 0.04)
-    ..lineTo(w * 0.78, h * 0.22)
-    ..lineTo(w * 0.22, h * 0.22)
-    ..close();
-  canvas.drawPath(hoodPath, Paint()..color = lightColor);
+  // Body gradient highlight (subtle lighter band down centre).
+  canvas.drawRRect(
+    bodyRRect,
+    Paint()
+      ..shader = Gradient.linear(
+        bodyRect.topCenter,
+        bodyRect.bottomCenter,
+        [
+          const Color(0x00FFFFFF),
+          const Color(0x33FFFFFF),
+          const Color(0x00FFFFFF),
+        ],
+        [0.0, 0.5, 1.0],
+      ),
+  );
 
-  // Trunk (rear — darker, bottom of sprite).
+  // ── Hood (front darker trapezoid) ─────────────────────────────────────────
+  final hoodPath = Path()
+    ..moveTo(w * 0.20, h * 0.05)
+    ..lineTo(w * 0.80, h * 0.05)
+    ..lineTo(w * 0.74, h * 0.22)
+    ..lineTo(w * 0.26, h * 0.22)
+    ..close();
+  canvas.drawPath(hoodPath, Paint()..color = darkColor);
+  // Hood lines.
+  final hoodLinePaint = Paint()
+    ..color = bodyColor
+    ..strokeWidth = 0.9;
+  canvas.drawLine(
+      Offset(w * 0.42, h * 0.07), Offset(w * 0.40, h * 0.21), hoodLinePaint);
+  canvas.drawLine(
+      Offset(w * 0.58, h * 0.07), Offset(w * 0.60, h * 0.21), hoodLinePaint);
+
+  // ── Trunk (rear darker trapezoid) ─────────────────────────────────────────
   final trunkPath = Path()
-    ..moveTo(w * 0.22, h * 0.78)
-    ..lineTo(w * 0.78, h * 0.78)
-    ..lineTo(w * 0.85, h * 0.96)
-    ..lineTo(w * 0.15, h * 0.96)
+    ..moveTo(w * 0.26, h * 0.78)
+    ..lineTo(w * 0.74, h * 0.78)
+    ..lineTo(w * 0.80, h * 0.95)
+    ..lineTo(w * 0.20, h * 0.95)
     ..close();
   canvas.drawPath(trunkPath, Paint()..color = darkColor);
 
-  // Windshield (front glass — trapezoid, blue-tinted).
+  // ── Windshield (front, big trapezoid) ─────────────────────────────────────
   final windshieldPath = Path()
-    ..moveTo(w * 0.22, h * 0.22)
-    ..lineTo(w * 0.78, h * 0.22)
-    ..lineTo(w * 0.72, h * 0.34)
-    ..lineTo(w * 0.28, h * 0.34)
+    ..moveTo(w * 0.20, h * 0.24)
+    ..lineTo(w * 0.80, h * 0.24)
+    ..lineTo(w * 0.74, h * 0.40)
+    ..lineTo(w * 0.26, h * 0.40)
     ..close();
   canvas.drawPath(
     windshieldPath,
-    Paint()..color = const Color(0x9999BBDD),
-  );
-
-  // Roof (slightly narrower raised rectangle).
-  final roofRect = Rect.fromLTWH(w * 0.22, h * 0.34, w * 0.56, h * 0.32);
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(roofRect, Radius.circular(w * 0.06)),
-    Paint()..color = lightColor,
-  );
-  // Roof glare.
-  canvas.drawLine(
-    Offset(w * 0.28, h * 0.36),
-    Offset(w * 0.40, h * 0.46),
     Paint()
-      ..color = const Color(0x55FFFFFF)
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round,
+      ..shader = Gradient.linear(
+        Offset(w * 0.20, h * 0.24),
+        Offset(w * 0.80, h * 0.40),
+        [const Color(0x99AACCEE), const Color(0xCC7E9EC0)],
+      ),
+  );
+  // Wiper arcs.
+  final wiperPaint = Paint()
+    ..color = const Color(0xAA1A1A1A)
+    ..strokeWidth = 1.0
+    ..style = PaintingStyle.stroke;
+  canvas.drawArc(
+    Rect.fromCenter(
+      center: Offset(w * 0.36, h * 0.40),
+      width: w * 0.18,
+      height: h * 0.10,
+    ),
+    pi * 1.05,
+    pi * 0.9,
+    false,
+    wiperPaint,
+  );
+  canvas.drawArc(
+    Rect.fromCenter(
+      center: Offset(w * 0.64, h * 0.40),
+      width: w * 0.18,
+      height: h * 0.10,
+    ),
+    pi * 1.05,
+    pi * 0.9,
+    false,
+    wiperPaint,
   );
 
-  // Rear window (trapezoid).
+  // ── Rear window ───────────────────────────────────────────────────────────
   final rearWinPath = Path()
-    ..moveTo(w * 0.28, h * 0.66)
-    ..lineTo(w * 0.72, h * 0.66)
+    ..moveTo(w * 0.26, h * 0.62)
+    ..lineTo(w * 0.74, h * 0.62)
     ..lineTo(w * 0.78, h * 0.78)
     ..lineTo(w * 0.22, h * 0.78)
     ..close();
   canvas.drawPath(
     rearWinPath,
-    Paint()..color = const Color(0x7799BBDD),
+    Paint()..color = const Color(0xCC7E9EC0),
   );
 
-  // Wheels — oval shapes at four corners.
-  final wheelPaint = Paint()..color = const Color(0xFF1A1A1A);
-  for (final wc in [
-    Offset(w * 0.12, h * 0.12),
-    Offset(w * 0.88, h * 0.12),
-    Offset(w * 0.12, h * 0.78),
-    Offset(w * 0.88, h * 0.78),
-  ]) {
-    canvas.drawOval(
-      Rect.fromCenter(center: wc, width: w * 0.18, height: h * 0.10),
-      wheelPaint,
-    );
-    canvas.drawOval(
-      Rect.fromCenter(center: wc, width: w * 0.10, height: h * 0.06),
-      Paint()..color = const Color(0xFF8A8A8A),
-    );
-    canvas.drawOval(
-      Rect.fromCenter(center: wc, width: w * 0.04, height: h * 0.025),
-      Paint()..color = const Color(0xFFDDDDDD),
+  // ── Side windows (small rects on left/right edges) ────────────────────────
+  for (final wx in [w * 0.07, w * 0.83]) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(wx, h * 0.42, w * 0.10, h * 0.18),
+        Radius.circular(w * 0.025),
+      ),
+      Paint()..color = const Color(0xCC7E9EC0),
     );
   }
 
-  // Side mirrors.
+  // ── Roof (raised lighter rectangle between windshield and rear) ───────────
+  final roofRect = Rect.fromLTWH(w * 0.20, h * 0.40, w * 0.60, h * 0.22);
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(roofRect, Radius.circular(w * 0.06)),
+    Paint()..color = roofColor,
+  );
+  // Roof glare streak.
+  canvas.drawLine(
+    Offset(w * 0.26, h * 0.43),
+    Offset(w * 0.38, h * 0.58),
+    Paint()
+      ..color = const Color(0x77FFFFFF)
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round,
+  );
+
+  // ── Wheels (4 corners) — oval with arch shadow ────────────────────────────
+  final wheelOvalW = w * 0.22;
+  final wheelOvalH = h * 0.11;
+  const tireColor = Color(0xFF222222);
+  const spokeColor = Color(0xFF888888);
+  const hubColor = Color(0xFFE0E0E0);
+  for (final wc in [
+    Offset(w * 0.02, h * 0.18),
+    Offset(w * 0.98, h * 0.18),
+    Offset(w * 0.02, h * 0.82),
+    Offset(w * 0.98, h * 0.82),
+  ]) {
+    // Wheel arch shadow above each wheel.
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: wc,
+        width: wheelOvalW * 1.5,
+        height: wheelOvalH * 2.5,
+      ),
+      pi,
+      pi,
+      false,
+      Paint()..color = const Color(0x55000000),
+    );
+    // Tyre.
+    canvas.drawOval(
+      Rect.fromCenter(center: wc, width: wheelOvalW, height: wheelOvalH),
+      Paint()..color = tireColor,
+    );
+    // Wheel spokes (3-spoke pattern).
+    final spokePaint = Paint()
+      ..color = spokeColor
+      ..strokeWidth = 1.3
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 3; i++) {
+      final ang = i * 2 * pi / 3;
+      canvas.drawLine(
+        wc,
+        Offset(
+          wc.dx + cos(ang) * wheelOvalW * 0.40,
+          wc.dy + sin(ang) * wheelOvalH * 0.40,
+        ),
+        spokePaint,
+      );
+    }
+    // Hub.
+    canvas.drawCircle(wc, 1.6, Paint()..color = hubColor);
+  }
+
+  // ── Headlights (front, bright yellow ovals) ───────────────────────────────
+  for (final hx in [w * 0.16, w * 0.84]) {
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(hx, h * 0.06),
+        width: w * 0.14,
+        height: h * 0.04,
+      ),
+      Paint()..color = const Color(0xFFFFEE58),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(hx, h * 0.06),
+        width: w * 0.10,
+        height: h * 0.03,
+      ),
+      Paint()..color = const Color(0xCCFFFFFF),
+    );
+  }
+
+  // ── Taillights (rear, bright red ovals) ───────────────────────────────────
+  for (final tx in [w * 0.16, w * 0.84]) {
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(tx, h * 0.93),
+        width: w * 0.14,
+        height: h * 0.04,
+      ),
+      Paint()..color = const Color(0xFFF44336),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(tx, h * 0.93),
+        width: w * 0.08,
+        height: h * 0.025,
+      ),
+      Paint()..color = const Color(0xCCFFB0B0),
+    );
+  }
+
+  // ── Side mirrors (sticking out at front corners) ──────────────────────────
   final mirrorPaint = Paint()..color = darkColor;
   canvas.drawRRect(
     RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.01, h * 0.22, w * 0.07, h * 0.05),
+      Rect.fromLTWH(w * 0.02, h * 0.30, w * 0.08, h * 0.05),
       const Radius.circular(2),
     ),
     mirrorPaint,
   );
   canvas.drawRRect(
     RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.92, h * 0.22, w * 0.07, h * 0.05),
+      Rect.fromLTWH(w * 0.90, h * 0.30, w * 0.08, h * 0.05),
       const Radius.circular(2),
     ),
     mirrorPaint,
   );
 
-  // Headlights (front) — bright yellow ovals at top corners.
-  for (final hx in [w * 0.16, w * 0.74]) {
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(hx, h * 0.09),
-        width: w * 0.14,
-        height: h * 0.055,
-      ),
-      Paint()..color = const Color(0xFFFFF176),
-    );
-  }
-
-  // Taillights (rear) — red ovals at bottom corners.
-  for (final tx in [w * 0.16, w * 0.74]) {
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(tx, h * 0.91),
-        width: w * 0.14,
-        height: h * 0.055,
-      ),
-      Paint()..color = const Color(0xFFFF1744),
-    );
-  }
-
-  // Body outline.
+  // ── Body outline ──────────────────────────────────────────────────────────
   canvas.drawRRect(
     bodyRRect,
     Paint()
-      ..color = const Color(0x55000000)
+      ..color = const Color(0x77000000)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0,
+      ..strokeWidth = 1.2,
   );
 }

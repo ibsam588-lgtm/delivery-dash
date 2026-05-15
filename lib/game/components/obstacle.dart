@@ -25,11 +25,11 @@ enum ObstacleType {
 Vector2 _sizeFor(ObstacleType t) {
   switch (t) {
     case ObstacleType.car:
-      return Vector2(72, 110);
+      return Vector2(68, 105);
     case ObstacleType.dog:
-      return Vector2(55, 45);
+      return Vector2(60, 50);
     case ObstacleType.worker:
-      return Vector2(50, 75);
+      return Vector2(52, 80);
     case ObstacleType.cone:
       return Vector2(40, 50);
     case ObstacleType.barrier:
@@ -91,12 +91,12 @@ class ObstacleComponent extends PositionComponent
 
   // ── Car body colours (6 variants) ────────────────────────────────────────
   static const List<Color> _carBodyColors = [
-    Color(0xFFCC1111), // bold red
-    Color(0xFF1565C0), // bold blue
-    Color(0xFFFFD600), // bold yellow
-    Color(0xFFF5F5F5), // white
-    Color(0xFF2E7D32), // forest green
-    Color(0xFFE65100), // bold orange
+    Color(0xFFE53935), // bright red
+    Color(0xFF1976D2), // bright blue
+    Color(0xFF9E9E9E), // silver
+    Color(0xFF212121), // black
+    Color(0xFFFAFAFA), // white
+    Color(0xFF388E3C), // green
   ];
 
   ObstacleComponent({
@@ -405,14 +405,24 @@ class ObstacleComponent extends PositionComponent
     final tailSwing = sin(_animTimer * pi / 0.4) * 0.30;
     // Diagonal trot: pair A = front-left + rear-right, pair B = front-right + rear-left.
     final pairA = (_animTimer / 0.25).floor().isEven;
-    final aOff = pairA ? h * 0.055 : 0.0;
-    final bOff = pairA ? 0.0 : h * 0.055;
+    final aOff = pairA ? h * 0.065 : 0.0;
+    final bOff = pairA ? 0.0 : h * 0.065;
 
-    // Body (horizontal golden-brown gradient ellipse).
+    // German Shepherd: longer body, two-tone (dark back, tan belly).
+    // Belly band.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.54, h * 0.62),
+        width: w * 0.74,
+        height: h * 0.36,
+      ),
+      Paint()..color = const Color(0xFFCC8844),
+    );
+    // Dark saddle (top back).
     final bodyRect = Rect.fromCenter(
-      center: Offset(w * 0.54, h * 0.55),
-      width: w * 0.70,
-      height: h * 0.44,
+      center: Offset(w * 0.54, h * 0.50),
+      width: w * 0.74,
+      height: h * 0.42,
     );
     canvas.drawOval(
       bodyRect,
@@ -420,7 +430,7 @@ class ObstacleComponent extends PositionComponent
         ..shader = Gradient.linear(
           bodyRect.topLeft,
           bodyRect.bottomRight,
-          [const Color(0xFFE8B468), const Color(0xFF9A5A18)],
+          [const Color(0xFF5A3818), const Color(0xFF8B5A28)],
         ),
     );
 
@@ -568,84 +578,160 @@ class ObstacleComponent extends PositionComponent
     final w = size.x;
     final h = size.y;
 
-    final legPaint = Paint()..color = const Color(0xFF37474F);
+    // Pants (dark).
+    final legPaint = Paint()..color = const Color(0xFF263238);
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.22, h * 0.58, w * 0.24, h * 0.36),
+      Rect.fromLTWH(w * 0.22, h * 0.60, w * 0.24, h * 0.32),
       legPaint,
     );
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.54, h * 0.58, w * 0.24, h * 0.36),
+      Rect.fromLTWH(w * 0.54, h * 0.60, w * 0.24, h * 0.32),
       legPaint,
     );
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.18, h * 0.34, w * 0.64, h * 0.28),
-        const Radius.circular(4),
-      ),
-      Paint()..color = const Color(0xFF9E9E9E),
+    // Boots.
+    final bootPaint = Paint()..color = const Color(0xFF1A1A1A);
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.20, h * 0.92, w * 0.28, h * 0.06),
+      bootPaint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.52, h * 0.92, w * 0.28, h * 0.06),
+      bootPaint,
     );
 
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.20, h * 0.34, w * 0.60, h * 0.26),
-        const Radius.circular(4),
-      ),
+    // High-vis vest — trapezoid (bright orange).
+    final vestPath = Path()
+      ..moveTo(w * 0.20, h * 0.34)
+      ..lineTo(w * 0.80, h * 0.34)
+      ..lineTo(w * 0.84, h * 0.62)
+      ..lineTo(w * 0.16, h * 0.62)
+      ..close();
+    canvas.drawPath(
+      vestPath,
+      Paint()..color = const Color(0xFFFF6F00),
+    );
+    // Reflective white stripe across vest.
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.18, h * 0.46, w * 0.64, h * 0.04),
+      Paint()..color = const Color(0xFFFFFFFF),
+    );
+    // Vest outline.
+    canvas.drawPath(
+      vestPath,
       Paint()
-        ..shader = Gradient.linear(
-          Offset(w * 0.20, h * 0.34),
-          Offset(w * 0.80, h * 0.60),
-          [const Color(0xFFFF8F00), const Color(0xFFE65100)],
-        ),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.20, h * 0.44, w * 0.60, h * 0.03),
-      Paint()..color = const Color(0xCCFFFFFF),
+        ..color = const Color(0xFFB54100)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
     );
 
+    // Arms (skin colour) — one extended holding a stop sign on a pole.
     final armPaint = Paint()
-      ..color = const Color(0xFF9E9E9E)
+      ..color = const Color(0xFFFFCC99)
       ..strokeWidth = w * 0.11
       ..strokeCap = StrokeCap.round;
     canvas.drawLine(
-      Offset(w * 0.18, h * 0.38),
-      Offset(w * 0.06, h * 0.56),
+      Offset(w * 0.22, h * 0.38),
+      Offset(w * 0.10, h * 0.30),
       armPaint,
     );
     canvas.drawLine(
-      Offset(w * 0.82, h * 0.38),
-      Offset(w * 0.94, h * 0.56),
+      Offset(w * 0.78, h * 0.38),
+      Offset(w * 0.88, h * 0.58),
       armPaint,
     );
 
+    // Stop sign on a pole (held by left arm).
+    canvas.drawLine(
+      Offset(w * 0.10, h * 0.30),
+      Offset(w * 0.10, h * 0.04),
+      Paint()
+        ..color = const Color(0xFF999999)
+        ..strokeWidth = 2.0,
+    );
+    // Octagon (stop sign).
+    final stopCenter = Offset(w * 0.10, h * 0.04);
+    final stopR = w * 0.16;
+    final stopPath = Path();
+    for (int i = 0; i < 8; i++) {
+      final ang = -pi / 2 + i * (2 * pi / 8) + pi / 8;
+      final px = stopCenter.dx + cos(ang) * stopR;
+      final py = stopCenter.dy + sin(ang) * stopR;
+      if (i == 0) {
+        stopPath.moveTo(px, py);
+      } else {
+        stopPath.lineTo(px, py);
+      }
+    }
+    stopPath.close();
+    canvas.drawPath(stopPath, Paint()..color = const Color(0xFFE53935));
+    canvas.drawPath(
+      stopPath,
+      Paint()
+        ..color = const Color(0xFFFFFFFF)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4,
+    );
+    // STOP text simulated as 4 white squares.
+    for (int i = 0; i < 4; i++) {
+      canvas.drawRect(
+        Rect.fromLTWH(
+          stopCenter.dx - stopR * 0.55 + i * stopR * 0.28,
+          stopCenter.dy - 1.5,
+          stopR * 0.18,
+          3,
+        ),
+        Paint()..color = const Color(0xFFFFFFFF),
+      );
+    }
+
+    // Head (skin tone).
     canvas.drawCircle(
-      Offset(w * 0.50, h * 0.21),
-      w * 0.15,
-      Paint()..color = const Color(0xFFFFCC80),
+      Offset(w * 0.50, h * 0.24),
+      w * 0.13,
+      Paint()..color = const Color(0xFFFFCC99),
     );
 
-    final hatColor = Paint()..color = const Color(0xFFFFD600);
+    // Yellow hard hat (hemispherical).
     final hatPath = Path()
-      ..addOval(Rect.fromCenter(
-        center: Offset(w * 0.50, h * 0.16),
-        width: w * 0.36,
-        height: w * 0.24,
-      ));
-    canvas.drawPath(hatPath, hatColor);
+      ..moveTo(w * 0.36, h * 0.22)
+      ..quadraticBezierTo(
+        w * 0.50,
+        h * 0.10,
+        w * 0.64,
+        h * 0.22,
+      )
+      ..lineTo(w * 0.66, h * 0.24)
+      ..lineTo(w * 0.34, h * 0.24)
+      ..close();
+    canvas.drawPath(hatPath, Paint()..color = const Color(0xFFFFD600));
+    canvas.drawPath(
+      hatPath,
+      Paint()
+        ..color = const Color(0xFFB37700)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+    // Hat brim shadow.
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.24, h * 0.165, w * 0.52, h * 0.035),
-      Paint()..color = const Color(0xFFCCAA00),
+      Rect.fromLTWH(w * 0.34, h * 0.235, w * 0.32, h * 0.018),
+      Paint()..color = const Color(0xFFB37700),
     );
 
+    // Eyes.
     canvas.drawCircle(
-      Offset(w * 0.43, h * 0.21),
-      1.5,
-      Paint()..color = const Color(0xFF333333),
+      Offset(w * 0.45, h * 0.25),
+      1.4,
+      Paint()..color = const Color(0xFF1A1A1A),
     );
     canvas.drawCircle(
-      Offset(w * 0.57, h * 0.21),
-      1.5,
-      Paint()..color = const Color(0xFF333333),
+      Offset(w * 0.55, h * 0.25),
+      1.4,
+      Paint()..color = const Color(0xFF1A1A1A),
+    );
+    // Moustache.
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.44, h * 0.28, w * 0.12, h * 0.012),
+      Paint()..color = const Color(0xFF3A2618),
     );
   }
 

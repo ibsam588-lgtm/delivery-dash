@@ -250,23 +250,119 @@ class _BobbingBike extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: controller,
-      builder: (context, child) {
+      builder: (context, _) {
         final v = sin(controller.value * 2 * pi);
         return Transform.translate(
           offset: Offset(0, -v * 6),
-          child: child,
+          child: CustomPaint(
+            size: const Size(120, 110),
+            painter: _MenuBikePainter(wheelAngle: controller.value * 2 * pi),
+          ),
         );
       },
-      child: Image.asset(
-        'assets/images/mailbox_blue.png',
-        width: 56,
-        height: 80,
-        filterQuality: FilterQuality.none,
-        isAntiAlias: false,
-        errorBuilder: (_, __, ___) => const SizedBox(width: 56, height: 80),
-      ),
     );
   }
+}
+
+class _MenuBikePainter extends CustomPainter {
+  final double wheelAngle;
+  _MenuBikePainter({required this.wheelAngle});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Shadow.
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(w / 2, h - 4), width: w * 0.7, height: 10),
+      Paint()..color = const Color(0x66000000),
+    );
+
+    final rear = Offset(w * 0.28, h * 0.70);
+    final front = Offset(w * 0.70, h * 0.40);
+    const rearR = 16.0;
+    const frontR = 14.0;
+
+    void drawWheel(Offset c, double r) {
+      canvas.drawCircle(c, r, Paint()..color = const Color(0xFF1A1A1A));
+      canvas.drawCircle(c, r - 3, Paint()..color = const Color(0xFF888888));
+      canvas.drawCircle(c, r - 5, Paint()..color = const Color(0xFFCCCCCC));
+      canvas.save();
+      canvas.translate(c.dx, c.dy);
+      canvas.rotate(wheelAngle);
+      final spokePaint = Paint()
+        ..color = const Color(0xFF777777)
+        ..strokeWidth = 1.2;
+      for (int i = 0; i < 8; i++) {
+        final ang = i * pi / 4;
+        canvas.drawLine(
+            Offset.zero,
+            Offset(cos(ang) * (r - 4), sin(ang) * (r - 4)),
+            spokePaint);
+      }
+      canvas.restore();
+      canvas.drawCircle(c, 2.5, Paint()..color = const Color(0xFFE0E0E0));
+    }
+
+    drawWheel(rear, rearR);
+    drawWheel(front, frontR);
+
+    final framePaint = Paint()
+      ..color = const Color(0xFFE53935)
+      ..strokeWidth = 4.0
+      ..strokeCap = StrokeCap.round;
+    final bb = Offset(w * 0.50, h * 0.58);
+    final seatTop = Offset(w * 0.34, h * 0.42);
+    final head = Offset(w * 0.64, h * 0.30);
+    canvas.drawLine(bb, seatTop, framePaint);
+    canvas.drawLine(head, bb, framePaint);
+    canvas.drawLine(seatTop, head, framePaint);
+    canvas.drawLine(bb, rear, framePaint);
+    canvas.drawLine(rear, seatTop, framePaint);
+    canvas.drawLine(head, front, framePaint);
+
+    // Handlebar.
+    canvas.drawLine(
+      Offset(head.dx - 9, head.dy - 4),
+      Offset(head.dx + 11, head.dy - 6),
+      Paint()
+        ..color = const Color(0xFF222222)
+        ..strokeWidth = 3.5
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Rider body.
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.30, h * 0.36, w * 0.36, h * 0.22),
+        const Radius.circular(6),
+      ),
+      Paint()..color = const Color(0xFF1976D2),
+    );
+    // Head.
+    canvas.drawCircle(
+      Offset(w * 0.50, h * 0.26),
+      8,
+      Paint()..color = const Color(0xFFFFCC99),
+    );
+    // Helmet.
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.24),
+        width: 20,
+        height: 14,
+      ),
+      pi,
+      pi,
+      false,
+      Paint()..color = const Color(0xFFFFD600),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MenuBikePainter old) =>
+      old.wheelAngle != wheelAngle;
 }
 
 class _PaperRunTag extends StatelessWidget {

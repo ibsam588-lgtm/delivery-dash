@@ -15,9 +15,12 @@ class FloatingText extends TextComponent {
           textRenderer: TextPaint(
             style: TextStyle(
               color: color,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              shadows: const [
+                Shadow(color: Colors.black, blurRadius: 4),
+                Shadow(color: Colors.black, blurRadius: 2, offset: Offset(1, 1)),
+              ],
             ),
           ),
           position: position,
@@ -40,8 +43,8 @@ class FloatingText extends TextComponent {
     textRenderer = TextPaint(
       style: TextStyle(
         color: _baseColor.withValues(alpha: alpha),
-        fontSize: 22,
-        fontWeight: FontWeight.bold,
+        fontSize: 26,
+        fontWeight: FontWeight.w900,
         shadows: [
           Shadow(color: Colors.black.withValues(alpha: alpha), blurRadius: 4),
         ],
