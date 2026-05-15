@@ -13,8 +13,8 @@ class RoadBackground extends PositionComponent
   // Grass / sidewalk
   static const Color _grassBase = Color(0xFF4CAF50);
   static const Color _grassDark = Color(0xFF388E3C);
-  static const Color _cementColor = Color(0xFFB0BEB8);
-  static const Color _cementShadow = Color(0xFF8FA095);
+  static const Color _cementColor = Color(0xFFB8C0C8);
+  static const Color _cementShadow = Color(0xFF8A929A);
 
   // Road
   static const Color _roadColor = Color(0xFF5A5A5A);
@@ -25,7 +25,7 @@ class RoadBackground extends PositionComponent
   static const double _dashLen = 40.0;
   static const double _gapLen = 30.0;
   static const double _cycle = _dashLen + _gapLen;
-  static const double _cementStripWidth = 20.0;
+  static const double _cementStripWidth = 40.0;
 
   final Paint _roadPaint = Paint()..color = _roadColor;
   final Paint _grassPaint = Paint()..color = _grassBase;
@@ -107,7 +107,7 @@ class RoadBackground extends PositionComponent
       );
     }
 
-    // ── Left cement strip (curb side of left grass) ──────────────────────
+    // ── Left cement footpath (curb side of left grass) ───────────────────
     canvas.drawPath(
       Path()
         ..moveTo(leftBot - _cementStripWidth, h)
@@ -117,18 +117,24 @@ class RoadBackground extends PositionComponent
         ..close(),
       _cementPaint,
     );
-    // Faint shadow on inner cement.
-    canvas.drawPath(
-      Path()
-        ..moveTo(leftBot - 2, h)
-        ..lineTo(leftBot, h)
-        ..lineTo(leftTop, 0)
-        ..lineTo(leftTop - 2, 0)
-        ..close(),
-      Paint()..color = _cementShadow,
+    // Darker edge line on the OUTER side (grass side) of the cement.
+    canvas.drawLine(
+      Offset(leftTop - _cementStripWidth, 0),
+      Offset(leftBot - _cementStripWidth, h),
+      Paint()
+        ..color = _cementShadow
+        ..strokeWidth = 1.6,
+    );
+    // Darker edge line on the INNER side (road side) of the cement.
+    canvas.drawLine(
+      Offset(leftTop, 0),
+      Offset(leftBot, h),
+      Paint()
+        ..color = _cementShadow
+        ..strokeWidth = 1.6,
     );
 
-    // ── Right cement strip ───────────────────────────────────────────────
+    // ── Right cement footpath ────────────────────────────────────────────
     canvas.drawPath(
       Path()
         ..moveTo(rightBot, h)
@@ -138,14 +144,19 @@ class RoadBackground extends PositionComponent
         ..close(),
       _cementPaint,
     );
-    canvas.drawPath(
-      Path()
-        ..moveTo(rightBot, h)
-        ..lineTo(rightBot + 2, h)
-        ..lineTo(rightTop + 2, 0)
-        ..lineTo(rightTop, 0)
-        ..close(),
-      Paint()..color = _cementShadow,
+    canvas.drawLine(
+      Offset(rightTop, 0),
+      Offset(rightBot, h),
+      Paint()
+        ..color = _cementShadow
+        ..strokeWidth = 1.6,
+    );
+    canvas.drawLine(
+      Offset(rightTop + _cementStripWidth, 0),
+      Offset(rightBot + _cementStripWidth, h),
+      Paint()
+        ..color = _cementShadow
+        ..strokeWidth = 1.6,
     );
 
     // ── Road parallelogram ────────────────────────────────────────────────

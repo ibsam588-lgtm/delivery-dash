@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../game/difficulty.dart';
 import '../services/ad_service.dart';
 import '../services/audio_service.dart';
 import '../services/score_service.dart';
@@ -51,9 +52,11 @@ class _MainMenuScreenState extends State<MainMenuScreen>
     super.dispose();
   }
 
-  void _onPlay() {
+  void _onPlay(Difficulty difficulty) {
     AudioService.instance.playPickup();
-    Navigator.of(context).pushNamed('/game').then((_) => _refresh());
+    Navigator.of(context)
+        .pushNamed('/game', arguments: difficulty)
+        .then((_) => _refresh());
   }
 
   void _onStore() {
@@ -175,7 +178,26 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                 const SizedBox(height: 12),
                 _PaperRunTag(),
                 const Spacer(flex: 3),
-                _PrimaryButton(onTap: _onPlay),
+                _DifficultyLaunchButton(
+                  label: 'EASY',
+                  emoji: '🟢',
+                  color: const Color(0xFF43A047),
+                  onTap: () => _onPlay(Difficulty.easy),
+                ),
+                const SizedBox(height: 12),
+                _DifficultyLaunchButton(
+                  label: 'MEDIUM',
+                  emoji: '🟡',
+                  color: const Color(0xFFFB8C00),
+                  onTap: () => _onPlay(Difficulty.medium),
+                ),
+                const SizedBox(height: 12),
+                _DifficultyLaunchButton(
+                  label: 'HARD',
+                  emoji: '🔴',
+                  color: const Color(0xFFE53935),
+                  onTap: () => _onPlay(Difficulty.hard),
+                ),
                 const SizedBox(height: 12),
                 _OutlinedDarkButton(onTap: _onStore),
                 const Spacer(flex: 1),
@@ -380,9 +402,18 @@ class _PaperRunTag extends StatelessWidget {
   }
 }
 
-class _PrimaryButton extends StatelessWidget {
+class _DifficultyLaunchButton extends StatelessWidget {
+  final String label;
+  final String emoji;
+  final Color color;
   final VoidCallback onTap;
-  const _PrimaryButton({required this.onTap});
+
+  const _DifficultyLaunchButton({
+    required this.label,
+    required this.emoji,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -390,29 +421,32 @@ class _PrimaryButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        height: 62,
+        height: 58,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF00E676), Color(0xFF00C853)],
-          ),
-          borderRadius: BorderRadius.circular(32),
-          boxShadow: const [
+          color: color,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x6600E676),
-              blurRadius: 22,
-              offset: Offset(0, 6),
+              color: color.withValues(alpha: 0.55),
+              blurRadius: 18,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Center(
-          child: Text(
-            '▶  PLAY NOW',
-            style: GoogleFonts.pressStart2p(
-              fontSize: 18,
-              color: Colors.white,
-              letterSpacing: 2,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 22)),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: GoogleFonts.pressStart2p(
+                fontSize: 16,
+                color: Colors.white,
+                letterSpacing: 2,
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

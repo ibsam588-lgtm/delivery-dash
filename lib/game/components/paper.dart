@@ -68,95 +68,105 @@ class PaperComponent extends PositionComponent
     final w = size.x;
     final h = size.y;
 
-    // Drop shadow — flat oval beneath the cylinder.
+    // Shadow.
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(w * 0.5, h * 1.05),
-        width: w * 0.85,
-        height: h * 0.35,
+        center: Offset(w * 0.5, h * 0.92),
+        width: w * 0.7,
+        height: h * 0.12,
       ),
-      Paint()..color = const Color(0x55000000),
+      Paint()..color = const Color(0x66000000),
     );
 
-    // ── Rolled newspaper as a horizontal cylinder ──────────────────────────
-    // Cylinder body (rectangle between the two end caps).
-    final bodyRect = Rect.fromLTRB(w * 0.15, h * 0.10, w * 0.85, h * 0.90);
+    // Cylinder body.
+    final bodyRect = Rect.fromLTRB(w * 0.12, h * 0.28, w * 0.88, h * 0.82);
     canvas.drawRect(
       bodyRect,
       Paint()
         ..shader = Gradient.linear(
-          bodyRect.topLeft,
-          bodyRect.topRight,
-          [const Color(0xFFF0EBD0), const Color(0xFFE8E2C0)],
+          Offset(w * 0.12, 0),
+          Offset(w * 0.88, 0),
+          [
+            const Color(0xFFF5F0D8),
+            const Color(0xFFE8E2C0),
+            const Color(0xFFF5F0D8),
+          ],
+          [0.0, 0.5, 1.0],
         ),
     );
 
-    // Back end cap (right side, slightly darker).
+    // Front circular face of cylinder.
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(w * 0.85, h * 0.50),
-        width: w * 0.20,
-        height: h * 0.80,
+        center: Offset(w * 0.5, h * 0.28),
+        width: w * 0.76,
+        height: h * 0.22,
       ),
-      Paint()..color = const Color(0xFFE0DAB8),
+      Paint()..color = const Color(0xFFF0EBD0),
     );
-
-    // Front face — main circular cross-section (cream).
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(w * 0.15, h * 0.50),
-        width: w * 0.22,
-        height: h * 0.80,
-      ),
-      Paint()..color = const Color(0xFFF5F0D8),
-    );
-    // Inner roll spiral (suggests the rolled-paper end).
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * 0.15, h * 0.50),
-        width: w * 0.14,
-        height: h * 0.52,
+        center: Offset(w * 0.5, h * 0.28),
+        width: w * 0.76,
+        height: h * 0.22,
       ),
       Paint()
-        ..color = const Color(0xFFC8C2A0)
+        ..color = const Color(0xFF8A7E60)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.8,
-    );
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * 0.15, h * 0.50),
-        width: w * 0.08,
-        height: h * 0.30,
-      ),
-      Paint()
-        ..color = const Color(0xFFB0A878)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.7,
+        ..strokeWidth = 1,
     );
 
-    // Rubber band: two parallel red lines around the cylinder middle.
+    // Back circular face.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.5, h * 0.82),
+        width: w * 0.76,
+        height: h * 0.22,
+      ),
+      Paint()..color = const Color(0xFFDDD6B0),
+    );
+
+    // Body outline.
+    canvas.drawRect(
+      bodyRect,
+      Paint()
+        ..color = const Color(0xFF8A7E60)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+
+    // Red rubber bands (2).
     final bandPaint = Paint()
-      ..color = const Color(0xFFCC2020)
-      ..strokeWidth = 2.0;
-    canvas.drawLine(
-      Offset(w * 0.18, h * 0.46),
-      Offset(w * 0.82, h * 0.46),
-      bandPaint,
-    );
-    canvas.drawLine(
-      Offset(w * 0.18, h * 0.56),
-      Offset(w * 0.82, h * 0.56),
-      bandPaint,
-    );
-
-    // Headline text suggestion: 3 thin dark lines on the surface.
-    final textPaint = Paint()
-      ..color = const Color(0xFF7A7060)
-      ..strokeWidth = 1.0;
-    for (final ty in const [0.22, 0.32, 0.72]) {
+      ..color = const Color(0xFFCC1010)
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    for (final yFrac in [0.45, 0.65]) {
       canvas.drawLine(
-        Offset(w * 0.25, h * ty),
-        Offset(w * 0.75, h * ty),
+        Offset(w * 0.12, h * yFrac),
+        Offset(w * 0.88, h * yFrac),
+        bandPaint,
+      );
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(w * 0.5, h * yFrac),
+          width: w * 0.76,
+          height: h * 0.10,
+        ),
+        Paint()
+          ..color = const Color(0xFFCC1010)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.0,
+      );
+    }
+
+    // Text lines on body.
+    final textPaint = Paint()
+      ..color = const Color(0xFF9A9070)
+      ..strokeWidth = 1.2;
+    for (final yFrac in [0.50, 0.56, 0.70, 0.76]) {
+      canvas.drawLine(
+        Offset(w * 0.20, h * yFrac),
+        Offset(w * 0.80, h * yFrac),
         textPaint,
       );
     }
@@ -171,7 +181,7 @@ class PaperComponent extends PositionComponent
       _hasHit = true;
       final worldHit = other.absolutePosition.clone();
       gameRef.onPaperHitMailbox(other.isBlue, worldHit);
-      other.removeFromParent();
+      other.startPopAnimation();
       removeFromParent();
       return;
     }

@@ -133,7 +133,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     distanceMeters = 0;
     deliveredCount = 0;
     final cfg = LevelConfig.of(level);
-    currentSpeed = cfg.startSpeed + (config.speedBoostStart ? 60 : 0);
+    currentSpeed = (cfg.startSpeed + (config.speedBoostStart ? 60 : 0)) *
+        config.speedMultiplier;
     isInvincible = false;
     _slowFactor = 1.0;
     _slowTimer = 0;
@@ -165,8 +166,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
     add(Spawner());
 
-    // First paper allotment will be re-evaluated once mailboxes mount.
-    papers = cfg.papers;
+    // Starting paper count is driven by difficulty (easy=30, med=20, hard=15).
+    papers = config.papers;
     hud.updatePapers(papers);
 
     AudioService.instance.playBgm();
@@ -235,7 +236,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
 
     final cfg = LevelConfig.of(level);
-    final maxSpeed = cfg.startSpeed * 1.5;
+    final maxSpeed = cfg.startSpeed * 1.5 * config.speedMultiplier;
     currentSpeed = (currentSpeed + 8 * dt).clamp(0, maxSpeed);
 
     distanceMeters += scrollSpeed * dt / LevelConfig.pxPerMeter;
@@ -275,11 +276,12 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       if (level > highestLevelThisRun) highestLevelThisRun = level;
     }
     final cfg = LevelConfig.of(level);
-    currentSpeed = cfg.startSpeed;
+    currentSpeed = cfg.startSpeed * config.speedMultiplier;
 
-    // Smart-paper allotment: visible mailboxes + 3 (capped at +5 over base).
+    // Smart-paper allotment: visible mailboxes + 3, scaled by difficulty.
     final visible = countVisibleMailboxes();
-    papers = (visible + 3).clamp(cfg.papers, cfg.papers + 5);
+    final diffPapers = config.papers;
+    papers = (visible + 3).clamp(diffPapers, diffPapers + 5);
     hud.updatePapers(papers);
 
     AudioService.instance.playLevelUp();
@@ -297,9 +299,9 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     player.moveTo(worldX);
   }
 
-  void onTap() {
+  void onTap(double tapX) {
     if (state != GameState.playing) return;
-    _throwPaper();
+    _throwPaper(throwLeft: tapX < size.x / 2);
   }
 
   /// Pause / resume. Used by the back-button dialog.
@@ -317,34 +319,28 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
   }
 
-  void _throwPaper() {
+  void _throwPaper({required bool throwLeft}) {
     if (papers <= 0) {
       return;
     }
     papers--;
     hud.updatePapers(papers);
-    player.triggerThrowArm();
+    player.triggerThrowArm(throwLeft: throwLeft);
 
-    // If player is in the LEFT half of the road, throw toward left-side houses.
-    // If in the RIGHT half, throw toward right-side houses.
-    final lm = laneManager;
-    final throwLeft = player.position.x < lm.roadCenter;
-    final angleDeg = throwLeft ? -38.0 : 38.0;
-
+    // Negative angle = throw toward the left sidewalk; positive = right.
+    final baseAngle = throwLeft ? -38.0 : 38.0;
     if (config.paperBlitz) {
-      final angles = throwLeft
-          ? const [-56.0, -38.0, -20.0]
-          : const [20.0, 38.0, 56.0];
-      for (final a in angles) {
+      // Spread 3 papers in a fan on the chosen side.
+      for (final offset in const [-18.0, 0.0, 18.0]) {
         add(PaperComponent(
           startPosition: player.position.clone(),
-          angleDeg: a,
+          angleDeg: baseAngle + offset,
         ));
       }
     } else {
       add(PaperComponent(
         startPosition: player.position.clone(),
-        angleDeg: angleDeg,
+        angleDeg: baseAngle,
       ));
     }
   }

@@ -31,16 +31,18 @@ class PlayerComponent extends PositionComponent
   bool _pedalPhase = false;
   double _swayTimer = 0;
   double _throwArmTimer = 0;
+  bool _throwArmLeft = true;
   static const double _wetDuration = 0.4;
 
   PlayerComponent({this.isVip = false})
-      : super(size: Vector2(70, 100), anchor: Anchor.center, priority: 100);
+      : super(size: Vector2(72, 105), anchor: Anchor.center, priority: 100);
 
   double get opacity => _opacity;
   set opacity(double v) => _opacity = v.clamp(0.0, 1.0);
 
-  void triggerThrowArm() {
+  void triggerThrowArm({bool throwLeft = true}) {
     _throwArmTimer = _throwArmDuration;
+    _throwArmLeft = throwLeft;
   }
 
   @override
@@ -49,8 +51,8 @@ class PlayerComponent extends PositionComponent
     _targetX = lm.roadCenter;
     position = Vector2(_targetX, gameRef.size.y * 0.82);
     add(RectangleHitbox(
-      size: Vector2(44, 72),
-      position: Vector2((size.x - 44) / 2, (size.y - 72) / 2),
+      size: Vector2(50, 80),
+      position: Vector2((size.x - 50) / 2, (size.y - 80) / 2),
     ));
   }
 
@@ -193,284 +195,292 @@ class PlayerComponent extends PositionComponent
     }
   }
 
-  // ── Realistic Paperboy-style isometric bike (side profile, upper-right) ──
+  // ── 3/4 Diagonal bike rendering ───────────────────────────────────────────
 
   void _renderBike(Canvas canvas) {
     final w = size.x;
     final h = size.y;
 
-    // Frame anchor points.
-    final bb = Offset(w * 0.50, h * 0.60);            // bottom bracket
-    final seatTop = Offset(w * 0.33, h * 0.41);
-    final headTube = Offset(w * 0.65, h * 0.25);
-
-    // Wheels — isometric ellipses (squashed vertically).
-    final rearCenter = Offset(w * 0.27, h * 0.74);
+    // Isometric oval wheels — rear larger (closer to viewer), front smaller.
+    final rearCenter = Offset(w * 0.27, h * 0.73);
     final frontCenter = Offset(w * 0.70, h * 0.38);
-    _drawIsoWheel(canvas, rearCenter, 28, 22, 24, 18, 6, 5);
-    _drawIsoWheel(canvas, frontCenter, 24, 19, 20, 16, 5, 4);
+    _drawWheel(canvas, rearCenter, 15, 11);
+    _drawWheel(canvas, frontCenter, 13, 10);
 
-    // Frame — bright red #D32F2F.
+    // Frame anchor points.
+    final bb = Offset(w * 0.50, h * 0.60);
+    final seatTop = Offset(w * 0.33, h * 0.41);
+    final headTube = Offset(w * 0.64, h * 0.26);
+
     final framePaint = Paint()
-      ..color = const Color(0xFFD32F2F)
-      ..strokeWidth = 3.0
+      ..color = const Color(0xFFE53935)
+      ..strokeWidth = 3.2
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(seatTop, bb, framePaint);       // seat tube
-    canvas.drawLine(seatTop, headTube, framePaint); // top tube
-    canvas.drawLine(headTube, bb, framePaint);      // down tube
-    canvas.drawLine(bb, rearCenter, framePaint);    // chain stay
-    canvas.drawLine(rearCenter, seatTop, framePaint); // seat stay
 
-    // Fork: two parallel lines from head tube to front wheel.
-    const forkOffset = Offset(2, 0);
-    canvas.drawLine(headTube - forkOffset, frontCenter - forkOffset, framePaint);
-    canvas.drawLine(headTube + forkOffset, frontCenter + forkOffset, framePaint);
-
-    // Handlebar at head tube.
-    final stemTop = Offset(headTube.dx, headTube.dy - 6);
-    canvas.drawLine(headTube, stemTop, framePaint);
-    // Curved bar.
-    final barPath = Path()
-      ..moveTo(stemTop.dx - 8, stemTop.dy + 1)
-      ..cubicTo(
-        stemTop.dx - 4, stemTop.dy - 2,
-        stemTop.dx + 4, stemTop.dy - 2,
-        stemTop.dx + 8, stemTop.dy + 1,
-      );
-    canvas.drawPath(
-      barPath,
-      Paint()
-        ..color = const Color(0xFF333333)
-        ..strokeWidth = 2.4
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round,
-    );
-    // Grips at each end.
-    final gripPaint = Paint()..color = const Color(0xFF1A1A1A);
-    canvas.drawRect(
-        Rect.fromLTWH(stemTop.dx - 10, stemTop.dy - 1, 4, 3), gripPaint);
-    canvas.drawRect(
-        Rect.fromLTWH(stemTop.dx + 6, stemTop.dy - 1, 4, 3), gripPaint);
-
-    // Saddle — quadratic arc above seat post.
-    final saddlePath = Path()
-      ..moveTo(seatTop.dx - 9, seatTop.dy - 2)
-      ..quadraticBezierTo(
-        seatTop.dx, seatTop.dy - 6,
-        seatTop.dx + 9, seatTop.dy - 2,
-      );
-    canvas.drawPath(
-      saddlePath,
-      Paint()
-        ..color = const Color(0xFF222222)
-        ..strokeWidth = 3.0
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round,
+    // Chain stay (rear → BB).
+    canvas.drawLine(rearCenter, bb, framePaint);
+    // Seat stay (rear → seat top).
+    canvas.drawLine(rearCenter, seatTop, framePaint);
+    // Seat tube (BB → seat top).
+    canvas.drawLine(bb, seatTop, framePaint);
+    // Down tube (head tube → BB).
+    canvas.drawLine(headTube, bb, framePaint);
+    // Top tube (seat top → head tube).
+    canvas.drawLine(seatTop, headTube, framePaint);
+    // Fork: two parallel lines, 2px apart, head tube → front wheel.
+    final forkPaint = Paint()
+      ..color = const Color(0xFFE53935)
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(headTube, frontCenter, forkPaint);
+    canvas.drawLine(
+      Offset(headTube.dx + 2, headTube.dy),
+      Offset(frontCenter.dx + 2, frontCenter.dy),
+      forkPaint,
     );
 
-    // Chain — dotted line BB → rear hub.
-    final chainPaint = Paint()..color = const Color(0xFF555555);
-    const chainSteps = 8;
-    for (int i = 0; i <= chainSteps; i++) {
+    // Chain (dotted BB → rear hub).
+    final chainPaint = Paint()..color = const Color(0xFF444444);
+    const chainSteps = 6;
+    for (int i = 0; i < chainSteps; i++) {
+      if (i.isOdd) continue;
       final t = i / chainSteps;
-      final cx = bb.dx + (rearCenter.dx - bb.dx) * t;
-      final cy = bb.dy + (rearCenter.dy - bb.dy) * t;
-      canvas.drawCircle(Offset(cx, cy), 0.9, chainPaint);
+      final x = bb.dx + (rearCenter.dx - bb.dx) * t;
+      final y = bb.dy + (rearCenter.dy - bb.dy) * t;
+      canvas.drawCircle(Offset(x, y), 1.0, chainPaint);
     }
 
-    // Delivery bag on rear rack.
-    final bagRect = Rect.fromLTWH(w * 0.06, h * 0.64, w * 0.36, h * 0.10);
+    // Handlebar with grips.
+    final handlebarPaint = Paint()
+      ..color = const Color(0xFF333333)
+      ..strokeWidth = 3.2
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(headTube.dx - 9, headTube.dy - 3),
+      Offset(headTube.dx + 11, headTube.dy - 5),
+      handlebarPaint,
+    );
+    canvas.drawCircle(
+        Offset(headTube.dx - 10, headTube.dy - 2), 2.2, handlebarPaint);
+    canvas.drawCircle(
+        Offset(headTube.dx + 12, headTube.dy - 4), 2.2, handlebarPaint);
+
+    // Saddle.
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(seatTop.dx, seatTop.dy - 3),
+        width: 18,
+        height: 6,
+      ),
+      pi * 1.1,
+      pi * 0.8,
+      false,
+      Paint()
+        ..color = const Color(0xFF1A1A1A)
+        ..strokeWidth = 3.5
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Delivery bag on rear rack (yellow with orange flap).
+    final bagRect = Rect.fromLTWH(w * 0.08, h * 0.74, w * 0.42, h * 0.13);
     canvas.drawRRect(
       RRect.fromRectAndRadius(bagRect, const Radius.circular(3)),
       Paint()..color = const Color(0xFFFDD835),
     );
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.06, h * 0.64, w * 0.36, h * 0.022),
+      Rect.fromLTWH(w * 0.08, h * 0.74, w * 0.42, h * 0.03),
       Paint()..color = const Color(0xFFE65100),
     );
 
-    // Pedals rotate with _wheelAngle.
-    final pedalA = _wheelAngle;
-    final pedalB = _wheelAngle + pi;
+    // Pedals.
+    final pedalAngle = _pedalPhase ? 0.0 : pi;
     final pedalPaint = Paint()..color = const Color(0xFF1A1A1A);
-    final pedalAPos = bb + Offset(cos(pedalA) * 7, sin(pedalA) * 7);
-    final pedalBPos = bb + Offset(cos(pedalB) * 7, sin(pedalB) * 7);
-    canvas.save();
-    canvas.translate(pedalAPos.dx, pedalAPos.dy);
-    canvas.rotate(pedalA);
-    canvas.drawRect(
-        Rect.fromCenter(center: Offset.zero, width: 6, height: 2.5),
-        pedalPaint);
-    canvas.restore();
-    canvas.save();
-    canvas.translate(pedalBPos.dx, pedalBPos.dy);
-    canvas.rotate(pedalB);
-    canvas.drawRect(
-        Rect.fromCenter(center: Offset.zero, width: 6, height: 2.5),
-        pedalPaint);
-    canvas.restore();
+    for (final off in [pedalAngle, pedalAngle + pi]) {
+      final px = bb.dx + cos(off) * 7;
+      final py = bb.dy + sin(off) * 7;
+      canvas.drawRect(
+        Rect.fromCenter(center: Offset(px, py), width: 7, height: 3),
+        pedalPaint,
+      );
+    }
 
-    // ── Rider ─────────────────────────────────────────────────────────
-    // Hip / shoulder reference points (leaning forward).
-    final hip = Offset(w * 0.38, h * 0.42);
-    final shoulder = Offset(w * 0.62, h * 0.28);
-
-    // Torso — filled polygon between hip and shoulder.
-    const torsoHalf = 5.0;
-    final torsoPath = Path()
-      ..moveTo(hip.dx - torsoHalf, hip.dy)
-      ..lineTo(shoulder.dx - torsoHalf, shoulder.dy)
-      ..lineTo(shoulder.dx + torsoHalf, shoulder.dy)
-      ..lineTo(hip.dx + torsoHalf, hip.dy)
+    // ── Rider ──────────────────────────────────────────────────────────────
+    // Blue jacket as filled polygon — torso leaning forward.
+    final jacketPath = Path()
+      ..moveTo(w * 0.27, h * 0.55)
+      ..lineTo(w * 0.30, h * 0.32)
+      ..lineTo(w * 0.62, h * 0.30)
+      ..lineTo(w * 0.70, h * 0.50)
+      ..lineTo(w * 0.55, h * 0.58)
       ..close();
     canvas.drawPath(
-      torsoPath,
-      Paint()..color = const Color(0xFF1565C0),
-    );
-    // Darker back-edge stripe.
-    canvas.drawLine(
-      Offset(shoulder.dx + torsoHalf, shoulder.dy),
-      Offset(hip.dx + torsoHalf, hip.dy),
+      jacketPath,
       Paint()
-        ..color = const Color(0xFF0D47A1)
-        ..strokeWidth = 2.0,
+        ..shader = Gradient.linear(
+          Offset(w * 0.30, h * 0.32),
+          Offset(w * 0.70, h * 0.55),
+          [const Color(0xFF1976D2), const Color(0xFF0D47A1)],
+        ),
     );
-    if (isVip) canvas.drawPath(torsoPath, Paint()..color = vipTint);
+    canvas.drawPath(
+      jacketPath,
+      Paint()
+        ..color = const Color(0xFF0A2E5C)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+    if (isVip) {
+      canvas.drawPath(jacketPath, Paint()..color = vipTint);
+    }
 
-    // Legs (animate with _pedalPhase).
+    // Backpack visible on rider's back.
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.56, h * 0.34, w * 0.16, h * 0.18),
+        const Radius.circular(3),
+      ),
+      Paint()..color = const Color(0xFF6D4C41),
+    );
+
+    // Legs — thigh + calf.
     final legPaint = Paint()
       ..color = const Color(0xFF1A237E)
-      ..strokeWidth = 4
+      ..strokeWidth = 5
       ..strokeCap = StrokeCap.round;
-    // Phase A: right leg down at pedalA_pos (calf to that pedal), left bent up.
-    // Phase B: swap.
-    final downPedal = _pedalPhase ? pedalAPos : pedalBPos;
-    final upPedal = _pedalPhase ? pedalBPos : pedalAPos;
-    final kneeDown = Offset(
-      (hip.dx + downPedal.dx) / 2 - 2,
-      (hip.dy + downPedal.dy) / 2 + 4,
-    );
-    final kneeUp = Offset(hip.dx + 5, hip.dy + 6);
-    // Drive leg: hip → knee → down pedal.
-    canvas.drawLine(hip, kneeDown, legPaint);
-    canvas.drawLine(kneeDown, downPedal, legPaint);
-    // Recovery leg: hip → knee bent up → up pedal.
-    canvas.drawLine(hip, kneeUp, legPaint);
-    canvas.drawLine(kneeUp, upPedal, legPaint);
+    final hipL = Offset(w * 0.42, h * 0.55);
+    final hipR = Offset(w * 0.52, h * 0.55);
 
-    // Shoes on pedals.
+    final pedalLow = bb + Offset(cos(pedalAngle) * 7, sin(pedalAngle) * 7);
+    final pedalHigh =
+        bb + Offset(cos(pedalAngle + pi) * 7, sin(pedalAngle + pi) * 7);
+
+    final kneeRear = Offset(hipL.dx - 2, (hipL.dy + pedalLow.dy) / 2 + 2);
+    canvas.drawLine(hipL, kneeRear, legPaint);
+    canvas.drawLine(kneeRear, pedalLow, legPaint);
+
+    final kneeFront = Offset(hipR.dx + 4, hipR.dy + 8);
+    canvas.drawLine(hipR, kneeFront, legPaint);
+    canvas.drawLine(kneeFront, pedalHigh, legPaint);
+
+    // Shoes.
     final shoePaint = Paint()..color = const Color(0xFF111111);
     canvas.drawOval(
-        Rect.fromCenter(center: downPedal, width: 8, height: 4), shoePaint);
+      Rect.fromCenter(center: pedalLow, width: 9, height: 4),
+      shoePaint,
+    );
     canvas.drawOval(
-        Rect.fromCenter(center: upPedal, width: 7, height: 4), shoePaint);
+      Rect.fromCenter(center: pedalHigh, width: 8, height: 4),
+      shoePaint,
+    );
 
-    // Head (squashed ellipse).
-    final headCenter = Offset(w * 0.64, h * 0.20);
-    canvas.drawOval(
-      Rect.fromCenter(center: headCenter, width: 11, height: 10),
+    // Front arm reaching to handlebar.
+    final armPaint = Paint()
+      ..color = const Color(0xFF1976D2)
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    final shoulder = Offset(w * 0.58, h * 0.34);
+    final elbow = Offset(w * 0.62, h * 0.30);
+    final grip = Offset(headTube.dx + 8, headTube.dy);
+    canvas.drawLine(shoulder, elbow, armPaint);
+    canvas.drawLine(elbow, grip, armPaint);
+
+    // Throwing arm extends in the direction of the last throw.
+    if (_throwArmTimer > 0) {
+      final t = _throwArmTimer / _throwArmDuration;
+      final base = _throwArmLeft
+          ? Offset(w * 0.30, h * 0.34)
+          : Offset(w * 0.66, h * 0.34);
+      final dir = _throwArmLeft ? -1.0 : 1.0;
+      final tip = Offset(base.dx + dir * (14 * t + 6), base.dy - 8 * t);
+      canvas.drawLine(
+        base,
+        tip,
+        Paint()
+          ..color = const Color(0xFF1976D2)
+          ..strokeWidth = 4.5
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawCircle(tip, 3.8, Paint()..color = const Color(0xFFFFCC80));
+    }
+
+    // Head (peach skin tone, radius 7).
+    final headCenter = Offset(w * 0.50, h * 0.22);
+    canvas.drawCircle(
+      headCenter,
+      7,
       Paint()..color = const Color(0xFFFFCC99),
     );
 
-    // Helmet — yellow squashed dome.
-    final helmetCenter = Offset(headCenter.dx, headCenter.dy - 3);
-    canvas.drawOval(
-      Rect.fromCenter(center: helmetCenter, width: 14, height: 8),
+    // Yellow helmet as squashed semicircle (drawArc 180°).
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(headCenter.dx, headCenter.dy - 1),
+        width: 18,
+        height: 14,
+      ),
+      pi,
+      pi,
+      false,
       Paint()..color = const Color(0xFFFFD600),
     );
-    // Helmet outline.
-    canvas.drawOval(
-      Rect.fromCenter(center: helmetCenter, width: 14, height: 8),
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(headCenter.dx, headCenter.dy - 1),
+        width: 18,
+        height: 14,
+      ),
+      pi,
+      pi,
+      false,
       Paint()
         ..color = const Color(0xFFB37700)
         ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4,
+    );
+    canvas.drawLine(
+      Offset(headCenter.dx - 6, headCenter.dy - 4),
+      Offset(headCenter.dx + 6, headCenter.dy - 4),
+      Paint()
+        ..color = const Color(0xFFB37700)
         ..strokeWidth = 1.0,
     );
-    // Chin strap.
     canvas.drawLine(
-      Offset(headCenter.dx - 4, headCenter.dy + 3),
-      Offset(headCenter.dx + 4, headCenter.dy + 3),
+      Offset(headCenter.dx - 5, headCenter.dy + 5),
+      Offset(headCenter.dx + 5, headCenter.dy + 5),
       Paint()
         ..color = const Color(0xFF1A1A1A)
         ..strokeWidth = 0.9,
     );
-
-    // Arms.
-    final upperArmPaint = Paint()
-      ..color = const Color(0xFF1565C0)
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    final forearmPaint = Paint()
-      ..color = const Color(0xFFFFCC99)
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-
-    if (_throwArmTimer > 0) {
-      // Throw arm: extends left-outward at ~-45° from body.
-      final t = _throwArmTimer / _throwArmDuration;
-      final ext = 8 + 14 * t;
-      final throwElbow = Offset(shoulder.dx - 7, shoulder.dy + 3);
-      final throwTip = Offset(
-        shoulder.dx - 4 - cos(pi / 4) * ext,
-        shoulder.dy + 2 - sin(pi / 4) * ext,
-      );
-      canvas.drawLine(shoulder, throwElbow, upperArmPaint);
-      canvas.drawLine(throwElbow, throwTip, forearmPaint);
-      canvas.drawCircle(throwTip, 2.4, Paint()..color = const Color(0xFFFFCC99));
-
-      // Other arm still on handlebar.
-      final elbow2 = Offset(shoulder.dx + 4, shoulder.dy + 3);
-      canvas.drawLine(shoulder, elbow2, upperArmPaint);
-      canvas.drawLine(elbow2, stemTop + const Offset(6, 0), forearmPaint);
-    } else {
-      // Both hands on handlebar.
-      final elbow1 = Offset(shoulder.dx - 2, shoulder.dy + 4);
-      final elbow2 = Offset(shoulder.dx + 4, shoulder.dy + 4);
-      canvas.drawLine(shoulder, elbow1, upperArmPaint);
-      canvas.drawLine(elbow1, stemTop + const Offset(-6, 0), forearmPaint);
-      canvas.drawLine(shoulder, elbow2, upperArmPaint);
-      canvas.drawLine(elbow2, stemTop + const Offset(6, 0), forearmPaint);
-    }
   }
 
-  // Isometric wheel — outer tyre oval, inner rim oval, hub, spokes.
-  void _drawIsoWheel(
-    Canvas canvas,
-    Offset c,
-    double tyreW,
-    double tyreH,
-    double rimW,
-    double rimH,
-    double hubW,
-    double hubH,
-  ) {
+  /// Isometric oval wheel — rx is in-plane radius, ry is the squashed
+  /// vertical radius (gives the wheel a 3/4 perspective).
+  void _drawWheel(Canvas canvas, Offset center, double rx, double ry) {
     canvas.drawOval(
-      Rect.fromCenter(center: c, width: tyreW, height: tyreH),
+      Rect.fromCenter(center: center, width: rx * 2 + 4, height: ry * 2 + 4),
       Paint()..color = const Color(0xFF1A1A1A),
     );
     canvas.drawOval(
-      Rect.fromCenter(center: c, width: rimW, height: rimH),
-      Paint()..color = const Color(0xFFCCCCCC),
+      Rect.fromCenter(center: center, width: rx * 2, height: ry * 2),
+      Paint()..color = const Color(0xFFB0B0B0),
     );
-    canvas.drawOval(
-      Rect.fromCenter(center: c, width: hubW, height: hubH),
-      Paint()..color = const Color(0xFFE8E8E8),
-    );
-    // 6 spokes from hub edge to rim edge.
     final spokePaint = Paint()
-      ..color = const Color(0xFF999999)
-      ..strokeWidth = 1.2;
-    canvas.save();
-    canvas.translate(c.dx, c.dy);
-    canvas.rotate(_wheelAngle);
-    for (int i = 0; i < 6; i++) {
-      final ang = i * pi / 3;
+      ..color = const Color(0xFF888888)
+      ..strokeWidth = 1.0;
+    for (int i = 0; i < 8; i++) {
+      final a = i * pi / 4 + _wheelAngle;
+      final dx = cos(a);
+      final dy = sin(a) * (ry / rx);
       canvas.drawLine(
-        Offset(cos(ang) * hubW * 0.5, sin(ang) * hubH * 0.5),
-        Offset(cos(ang) * rimW * 0.45, sin(ang) * rimH * 0.45),
+        Offset(center.dx + dx * 2, center.dy + dy * 2),
+        Offset(center.dx + dx * rx * 0.9, center.dy + dy * ry * 0.9),
         spokePaint,
       );
     }
-    canvas.restore();
+    canvas.drawOval(
+      Rect.fromCenter(center: center, width: 8, height: 6),
+      Paint()..color = const Color(0xFFDDDDDD),
+    );
   }
 }

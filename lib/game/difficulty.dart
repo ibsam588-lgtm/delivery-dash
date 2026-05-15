@@ -51,11 +51,46 @@ class DifficultyConfig {
   static int livesFor(Difficulty d) {
     switch (d) {
       case Difficulty.easy:
-        return 4;
+        return 5;
       case Difficulty.medium:
         return 3;
       case Difficulty.hard:
         return 2;
+    }
+  }
+
+  static int papersFor(Difficulty d) {
+    switch (d) {
+      case Difficulty.easy:
+        return 30;
+      case Difficulty.medium:
+        return 20;
+      case Difficulty.hard:
+        return 15;
+    }
+  }
+
+  /// Multiplier applied to baseline scroll speed.
+  static double speedMultiplierFor(Difficulty d) {
+    switch (d) {
+      case Difficulty.easy:
+        return 0.7;
+      case Difficulty.medium:
+        return 1.0;
+      case Difficulty.hard:
+        return 1.3;
+    }
+  }
+
+  /// Multiplier applied to obstacle spawn interval — larger = slower spawns.
+  static double spawnIntervalMultiplierFor(Difficulty d) {
+    switch (d) {
+      case Difficulty.easy:
+        return 1.5;
+      case Difficulty.medium:
+        return 1.0;
+      case Difficulty.hard:
+        return 0.7;
     }
   }
 
@@ -108,5 +143,10 @@ class GameConfig {
 
   int get startLevel => DifficultyConfig.startLevelFor(difficulty);
   int get lives => DifficultyConfig.livesFor(difficulty);
+  int get papers => DifficultyConfig.papersFor(difficulty);
   double get coinMultiplier => DifficultyConfig.coinMultiplierFor(difficulty);
+  double get speedMultiplier =>
+      DifficultyConfig.speedMultiplierFor(difficulty);
+  double get spawnIntervalMultiplier =>
+      DifficultyConfig.spawnIntervalMultiplierFor(difficulty);
 }

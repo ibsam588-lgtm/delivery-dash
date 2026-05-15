@@ -115,19 +115,30 @@ class ParkedCarComponent extends PositionComponent
   }
 }
 
-/// 3/4 top-down isometric car. Rich, chunky, readable from any angle.
+/// Top-down isometric car. Rich, chunky, readable from any angle.
+/// When [isOncoming] is true, the sprite is flipped 180° so the headlights
+/// face the bottom of the screen (toward the player).
+/// When [windshieldBroken] is true, draws a shattered windshield overlay
+/// (used by parked cars after a paper hits them).
 void renderTopDownCar(
   Canvas canvas,
   double w,
   double h,
   Color bodyColor, {
+  bool isOncoming = false,
   bool windshieldBroken = false,
 }) {
+  if (isOncoming) {
+    canvas.save();
+    canvas.translate(w / 2, h / 2);
+    canvas.rotate(pi);
+    canvas.translate(-w / 2, -h / 2);
+  }
   final lightColor = Color.fromARGB(
     255,
-    ((bodyColor.r * 255 + 22).clamp(0.0, 255.0)).round(),
-    ((bodyColor.g * 255 + 22).clamp(0.0, 255.0)).round(),
-    ((bodyColor.b * 255 + 22).clamp(0.0, 255.0)).round(),
+    ((bodyColor.r * 255 + 30).clamp(0.0, 255.0)).round(),
+    ((bodyColor.g * 255 + 30).clamp(0.0, 255.0)).round(),
+    ((bodyColor.b * 255 + 30).clamp(0.0, 255.0)).round(),
   );
   final darkColor = Color.fromARGB(
     255,
@@ -202,6 +213,30 @@ void renderTopDownCar(
     windshieldPath,
     Paint()..color = const Color(0xCC90CAF9),
   );
+  // Smashed windshield overlay — dark interior + radial cracks.
+  if (windshieldBroken) {
+    canvas.save();
+    canvas.clipPath(windshieldPath);
+    canvas.drawPath(
+      windshieldPath,
+      Paint()..color = const Color(0xCC1A1A1A),
+    );
+    final cx = w * 0.50;
+    final cy = h * 0.29;
+    final crackPaint = Paint()
+      ..color = const Color(0xFFE0E0E0)
+      ..strokeWidth = 0.9
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 8; i++) {
+      final ang = i * pi / 4;
+      canvas.drawLine(
+        Offset(cx, cy),
+        Offset(cx + cos(ang) * w * 0.34, cy + sin(ang) * h * 0.12),
+        crackPaint,
+      );
+    }
+    canvas.restore();
+  }
   // Glare streak.
   canvas.drawLine(
     Offset(w * 0.30, h * 0.23),
@@ -347,49 +382,5 @@ void renderTopDownCar(
       ..strokeWidth = 1.2,
   );
 
-  // ── Broken windshield overlay (spiderweb crack) ──────────────────────────
-  if (windshieldBroken) {
-    final impactX = w * 0.50;
-    final impactY = h * 0.30;
-    final crackPaint = Paint()
-      ..color = const Color(0xFF2A2A2A)
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round;
-    final branchPaint = Paint()
-      ..color = const Color(0xFF1A1A1A)
-      ..strokeWidth = 0.8
-      ..strokeCap = StrokeCap.round;
-    for (int i = 0; i < 8; i++) {
-      final ang = i * 2 * pi / 8;
-      final rayLen = w * 0.18;
-      final ex = impactX + cos(ang) * rayLen;
-      final ey = impactY + sin(ang) * rayLen * 0.5;
-      canvas.drawLine(Offset(impactX, impactY), Offset(ex, ey), crackPaint);
-      // Branches.
-      for (final t in [0.4, 0.7]) {
-        final bx = impactX + cos(ang) * rayLen * t;
-        final by = impactY + sin(ang) * rayLen * 0.5 * t;
-        final bAng = ang + (t < 0.5 ? 0.55 : -0.55);
-        canvas.drawLine(
-          Offset(bx, by),
-          Offset(
-            bx + cos(bAng) * rayLen * 0.22,
-            by + sin(bAng) * rayLen * 0.11,
-          ),
-          branchPaint,
-        );
-      }
-    }
-    // Shatter shards at center.
-    final shardPaint = Paint()..color = const Color(0xFF1A1A1A);
-    canvas.drawPath(
-      Path()
-        ..moveTo(impactX - 2, impactY)
-        ..lineTo(impactX, impactY - 3)
-        ..lineTo(impactX + 2, impactY)
-        ..close(),
-      shardPaint,
-    );
-    canvas.drawCircle(Offset(impactX, impactY), 2.5, shardPaint);
-  }
+  if (isOncoming) canvas.restore();
 }

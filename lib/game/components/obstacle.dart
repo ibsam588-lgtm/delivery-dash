@@ -55,6 +55,7 @@ class ObstacleComponent extends PositionComponent
   final bool onRightSidewalk;
   final double speedFactor;
   final bool isOvertaker;
+  final bool isOncoming;
 
   bool _hasHitPlayer = false;
   bool _paperedOnce = false;
@@ -130,6 +131,7 @@ class ObstacleComponent extends PositionComponent
     this.speedFactor = 1.0,
     this.isOvertaker = false,
     this.onRightSidewalk = false,
+    this.isOncoming = false,
   })  : carVariant = carVariant ?? Random().nextInt(6),
         super(
           size: _sizeFor(type),
@@ -187,7 +189,9 @@ class ObstacleComponent extends PositionComponent
       x = lm.roadXFromFraction(laneFraction);
     }
     _baseX = x;
-    position = Vector2(x, -size.y);
+    // Oncoming cars start below the screen and travel toward the horizon.
+    final spawnY = isOncoming ? gameRef.size.y + size.y : -size.y;
+    position = Vector2(x, spawnY);
     add(RectangleHitbox(
       size: size * 0.78,
       position: size * 0.11,
@@ -266,10 +270,15 @@ class ObstacleComponent extends PositionComponent
     _animTimer += dt;
 
     final road = gameRef.scrollSpeed;
-    final vy = type == ObstacleType.car
-        ? (isOvertaker ? road * 1.3 : road * speedFactor)
-        : road;
-    position.y += vy * dt;
+    if (isOncoming && type == ObstacleType.car) {
+      // Oncoming cars travel UP the screen at 80% of road speed.
+      position.y -= road * 0.8 * dt;
+    } else {
+      final vy = type == ObstacleType.car
+          ? (isOvertaker ? road * 1.3 : road * speedFactor)
+          : road;
+      position.y += vy * dt;
+    }
 
     // Dog run-off (after tumble completes).
     if (_dogRunOff) {
@@ -362,6 +371,8 @@ class ObstacleComponent extends PositionComponent
     }
 
     if (position.y > gameRef.size.y + size.y) {
+      removeFromParent();
+    } else if (isOncoming && position.y < -size.y) {
       removeFromParent();
     }
   }
@@ -467,6 +478,7 @@ class ObstacleComponent extends PositionComponent
       size.x,
       size.y,
       _carBodyColors[carVariant % _carBodyColors.length],
+      isOncoming: isOncoming,
       windshieldBroken: _carWindowBroken,
     );
     // Newspaper windshield splat.

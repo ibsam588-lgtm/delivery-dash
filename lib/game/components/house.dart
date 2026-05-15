@@ -99,9 +99,9 @@ const List<Color> _flowerColors = [
 /// Big, isometric 3-face Paperboy-style house.
 class HouseComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  static const double rowSpacing = 230.0;
-  static const double fixedWidth = 200.0;
-  static const double fixedHeight = 220.0;
+  static const double rowSpacing = 250.0;
+  static const double fixedWidth = 220.0;
+  static const double fixedHeight = 240.0;
 
   static const double _parallaxFactor = 1.0;
 
@@ -109,6 +109,11 @@ class HouseComponent extends PositionComponent
   int _index;
   final Random _rng = Random();
   final bool onRight;
+
+  // The X position is locked once on spawn / wrap. Subsequent updates never
+  // change X — this is what makes houses visually stable instead of sliding
+  // onto the road as roadLeftAt(y) shifts during scroll.
+  double _fixedX = 0.0;
 
   MailboxComponent? _mailbox;
   final List<HouseWindow> _windows = [];
@@ -128,20 +133,26 @@ class HouseComponent extends PositionComponent
   _Palette _palette() => _palettes[_index % _palettes.length];
   Color _curtainColor() => _curtainColors[_index % _curtainColors.length];
 
-  /// Set house X and size based on the sidewalk width at the current Y.
+  /// Set house X and size based on the sidewalk width.
+  /// Width is sized off the top-of-screen (widest left-sidewalk) reference so
+  /// the size never depends on scroll Y. X is placed at the curb for the
+  /// current Y; the caller is responsible for then locking [_fixedX].
   void _alignToSidewalk() {
     final lm = gameRef.laneManager;
+    // Use top-of-screen Y so sidewalk-width reference is consistent across
+    // the entire scroll lifetime of the house.
+    const safeY = 0.0;
     if (onRight) {
-      final available = gameRef.size.x - lm.roadRightAt(position.y) - 12;
-      final fitWidth = available.clamp(60.0, fixedWidth);
+      final maxSideWalkW = gameRef.size.x - lm.roadRightAt(safeY) - 12;
+      final fitWidth = maxSideWalkW.clamp(60.0, fixedWidth);
       if ((fitWidth - size.x).abs() > 0.5) {
         size = Vector2(fitWidth, fitWidth * (fixedHeight / fixedWidth));
         _layoutWindows();
       }
       position.x = lm.roadRightAt(position.y) + 8;
     } else {
-      final available = lm.roadLeftAt(position.y) - 4;
-      final fitWidth = available.clamp(60.0, fixedWidth);
+      final maxSideWalkW = lm.roadLeftAt(safeY) - 8;
+      final fitWidth = maxSideWalkW.clamp(60.0, fixedWidth);
       if ((fitWidth - size.x).abs() > 0.5) {
         size = Vector2(fitWidth, fitWidth * (fixedHeight / fixedWidth));
         _layoutWindows();
@@ -155,6 +166,7 @@ class HouseComponent extends PositionComponent
   Future<void> onLoad() async {
     position = Vector2(0, _initialY);
     _alignToSidewalk();
+    _fixedX = position.x;
     _regenerateMailbox();
     _spawnWindows();
   }
@@ -552,7 +564,6 @@ class HouseComponent extends PositionComponent
     super.update(dt);
     if (gameRef.state != GameState.playing) return;
     position.y += gameRef.scrollSpeed * _parallaxFactor * dt;
-    // DO NOT track road edge here — only align on load / wrap.
 
     final newPri = (position.y / 10).clamp(-10, 95).round();
     if (newPri != priority) priority = newPri;
@@ -562,11 +573,15 @@ class HouseComponent extends PositionComponent
       position.y -= rows * rowSpacing;
       _index += 2;
       _alignToSidewalk();
+      _fixedX = position.x;
       _regenerateMailbox();
       _layoutWindows();
       for (final win in _windows) {
         win.restore();
       }
     }
+
+    // Lock X to the value captured at spawn / last wrap — prevents any drift.
+    position.x = _fixedX;
   }
 }

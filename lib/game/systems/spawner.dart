@@ -44,7 +44,8 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     final cfg = LevelConfig.of(gameRef.level);
     final base = cfg.spawnInterval;
     final speedFactor = cfg.startSpeed / gameRef.scrollSpeed;
-    return (base * speedFactor).clamp(0.4, base);
+    final diffMult = gameRef.config.spawnIntervalMultiplier;
+    return (base * speedFactor * diffMult).clamp(0.4, base * diffMult);
   }
 
   @override
@@ -119,13 +120,18 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
 
     switch (type) {
       case ObstacleType.car:
+        final oncoming = _rng.nextDouble() < 0.30;
         final factor = 0.8 + _rng.nextDouble() * 0.4;
-        final overtaker = _rng.nextDouble() < 0.12;
+        // Overtaking is disabled for oncoming traffic (different lane logic).
+        final overtaker = !oncoming && _rng.nextDouble() < 0.12;
         gameRef.add(ObstacleComponent(
           type: type,
-          laneFraction: _carLaneFraction(),
+          laneFraction: oncoming
+              ? _oncomingCarLaneFraction()
+              : _carLaneFraction(),
           speedFactor: factor,
           isOvertaker: overtaker,
+          isOncoming: oncoming,
         ));
         break;
       case ObstacleType.worker:
@@ -194,6 +200,12 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
       default:
         return 0.70 + _rng.nextDouble() * 0.10;
     }
+  }
+
+  /// Lane reserved for oncoming cars — kept to the left half of the road so
+  /// it visually reads as the "other lane" of traffic.
+  double _oncomingCarLaneFraction() {
+    return 0.10 + _rng.nextDouble() * 0.15;
   }
 
   void _spawnPaperPack() {

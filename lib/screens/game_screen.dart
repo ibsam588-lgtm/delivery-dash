@@ -27,8 +27,10 @@ class _GameScreenState extends State<GameScreen> {
     super.didChangeDependencies();
     if (_game != null) return;
 
-    // Always start at Day 1 — difficulty selector has been removed.
-    const difficulty = Difficulty.easy;
+    // Difficulty is passed from the main menu's launch buttons (defaults to
+    // medium if the screen is opened without one).
+    final arg = ModalRoute.of(context)?.settings.arguments;
+    final difficulty = arg is Difficulty ? arg : Difficulty.medium;
 
     final store = StoreService.instance;
     final config = GameConfig(
@@ -83,7 +85,7 @@ class _GameScreenState extends State<GameScreen> {
     if (start == null || startTime == null) return;
     final dur = DateTime.now().difference(startTime).inMilliseconds;
     if (!_moved && dur <= _tapMaxDurationMs) {
-      _game?.onTap();
+      _game?.onTap(e.localPosition.dx);
     }
     _moved = false;
   }
@@ -204,7 +206,7 @@ class _TutorialOverlay extends StatelessWidget {
                   Border.all(color: const Color(0xFFFFC107), width: 1.5),
             ),
             child: Text(
-              'DRAG ← → to move   •   TAP to throw',
+              'DRAG to move  •  TAP LEFT/RIGHT to throw',
               textAlign: TextAlign.center,
               style: GoogleFonts.pressStart2p(
                 color: Colors.white,
