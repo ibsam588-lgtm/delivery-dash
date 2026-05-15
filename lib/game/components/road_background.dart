@@ -67,6 +67,7 @@ class RoadBackground extends PositionComponent
 
   @override
   void update(double dt) {
+    super.update(dt);
     if (gameRef.state != GameState.playing) return;
     _dashOffset += gameRef.scrollSpeed * dt;
     if (_dashOffset >= _cycle) _dashOffset %= _cycle;

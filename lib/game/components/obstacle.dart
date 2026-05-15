@@ -124,6 +124,11 @@ class ObstacleComponent extends PositionComponent
   // Car windshield broken state (set when paper hits a car).
   bool _carWindowBroken = false;
 
+  /// When set, [onLoad] keeps this position instead of computing a default
+  /// spawn position from the lane fraction. Used by ConstructionZone to
+  /// place its zigzag of cones precisely along the zone band.
+  final Vector2? initialPositionOverride;
+
   ObstacleComponent({
     required this.type,
     required this.laneFraction,
@@ -132,6 +137,7 @@ class ObstacleComponent extends PositionComponent
     this.isOvertaker = false,
     this.onRightSidewalk = false,
     this.isOncoming = false,
+    this.initialPositionOverride,
   })  : carVariant = carVariant ?? Random().nextInt(6),
         super(
           size: _sizeFor(type),
@@ -198,12 +204,16 @@ class ObstacleComponent extends PositionComponent
       x = lm.roadXFromFraction(laneFraction);
     }
     _baseX = x;
-    // Spawn just past the horizon so obstacles appear *inside* the road
-    // rather than in the sky above it. Oncoming cars travel UP and start
-    // from below the screen.
-    final spawnY =
-        isOncoming ? gameRef.size.y + size.y : gameRef.size.y * 0.30;
-    position = Vector2(x, spawnY);
+    if (initialPositionOverride != null) {
+      position = initialPositionOverride!.clone();
+    } else {
+      // Spawn just past the horizon so obstacles appear *inside* the road
+      // rather than in the sky above it. Oncoming cars travel UP and start
+      // from below the screen.
+      final spawnY =
+          isOncoming ? gameRef.size.y + size.y : gameRef.size.y * 0.30;
+      position = Vector2(x, spawnY);
+    }
     add(RectangleHitbox(
       size: size * 0.78,
       position: size * 0.11,

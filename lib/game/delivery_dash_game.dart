@@ -78,8 +78,14 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   /// unreadable and component pile-up causes frame hitches / hangs.
   static const double maxScrollSpeed = 600.0;
 
-  double get scrollSpeed =>
-      (currentSpeed * _slowFactor * _zoneSlow).clamp(0.0, maxScrollSpeed);
+  /// Effective world scroll speed. Returns 0 when the game isn't actively
+  /// playing so every component that scrolls with `gameRef.scrollSpeed`
+  /// freezes during pause / game over — no need for each component to
+  /// duplicate the state check.
+  double get scrollSpeed {
+    if (state != GameState.playing) return 0;
+    return (currentSpeed * _slowFactor * _zoneSlow).clamp(0.0, maxScrollSpeed);
+  }
 
   void applyConstructionSlow() {
     _zoneSlow = 0.7;

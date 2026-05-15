@@ -43,9 +43,13 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   double get _obstacleInterval {
     final cfg = LevelConfig.of(gameRef.level);
     final base = cfg.spawnInterval;
-    final speedFactor = cfg.startSpeed / gameRef.scrollSpeed;
+    final scroll = gameRef.scrollSpeed;
+    // Guard against zero (paused/gameOver) — caller already checks state but
+    // defending here avoids a NaN/Infinity that could cascade through clamp.
+    final speedFactor = scroll > 1 ? cfg.startSpeed / scroll : 1.0;
     final diffMult = gameRef.config.spawnIntervalMultiplier;
-    return (base * speedFactor * diffMult).clamp(0.4, base * diffMult);
+    final upper = base * diffMult;
+    return (base * speedFactor * diffMult).clamp(0.4, upper < 0.4 ? 0.4 : upper);
   }
 
   @override

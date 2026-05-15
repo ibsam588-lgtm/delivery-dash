@@ -36,16 +36,16 @@ class ConstructionZoneComponent extends PositionComponent
     final lm = gameRef.laneManager;
     for (int i = 0; i < fractions.length; i++) {
       final yOff = 30.0 + i * 45.0;
-      final cone = ObstacleComponent(
+      // Pass the desired position via override — otherwise ObstacleComponent.onLoad
+      // resets it to a default spawn point near the horizon.
+      gameRef.add(ObstacleComponent(
         type: ObstacleType.cone,
         laneFraction: fractions[i],
-      );
-      gameRef.add(cone);
-      // Snap the cone's Y onto the zone band so cones visibly fill it.
-      cone.position = Vector2(
-        lm.roadXFromFraction(fractions[i]),
-        position.y + yOff,
-      );
+        initialPositionOverride: Vector2(
+          lm.roadXFromFraction(fractions[i]),
+          position.y + yOff,
+        ),
+      ));
     }
   }
 

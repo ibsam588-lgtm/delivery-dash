@@ -14,10 +14,15 @@ class IntersectionComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
   static const double bandHeight = 110;
 
+  // Cap concurrent traffic per intersection so a slow-scrolling or paused
+  // game can't accumulate dozens of crossing cars and bog down the game.
+  static const int _maxCarsPerIntersection = 3;
+
   final Random _rng = Random();
   double _spawnTimer = 0;
   bool _spawnedFirst = false;
   bool _spawnedPedestrians = false;
+  int _carsSpawned = 0;
 
   IntersectionComponent()
       : super(
@@ -48,16 +53,20 @@ class IntersectionComponent extends PositionComponent
         _spawnedPedestrians = true;
         _spawnPedestrians();
       }
-      _spawnTimer += dt;
-      if (_spawnTimer >= 0.8) {
-        _spawnTimer = 0;
-        if (_rng.nextDouble() < 0.7) _spawnCar();
+      if (_carsSpawned < _maxCarsPerIntersection) {
+        _spawnTimer += dt;
+        if (_spawnTimer >= 0.8) {
+          _spawnTimer = 0;
+          if (_rng.nextDouble() < 0.7) _spawnCar();
+        }
       }
     }
     if (position.y > gameRef.size.y) removeFromParent();
   }
 
   void _spawnCar() {
+    if (_carsSpawned >= _maxCarsPerIntersection) return;
+    _carsSpawned++;
     final leftToRight = _rng.nextBool();
     gameRef.add(CrossingCarComponent(
       bandY: position.y + bandHeight / 2,

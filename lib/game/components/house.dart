@@ -558,9 +558,10 @@ class HouseComponent extends PositionComponent
     position.y += gameRef.scrollSpeed * _parallaxFactor * dt;
 
     // Recycle once the house has fully scrolled past the bottom. With
-    // anchor=bottomLeft the visible band ends at position.y, so once
-    // position.y > screenH the house is fully off-screen.
-    if (position.y > gameRef.size.y) {
+    // anchor=bottomLeft the rendered band spans [position.y - size.y,
+    // position.y], so the house is only fully below the screen when its
+    // top edge has crossed: position.y - size.y > screenH.
+    if (position.y > gameRef.size.y + size.y) {
       final rows =
           ((position.y - gameRef.size.y) / rowSpacing).ceil().clamp(1, 100);
       position.y -= rows * rowSpacing;
