@@ -30,19 +30,17 @@ class PlayerComponent extends PositionComponent
   bool _pedalPhase = false;
   double _swayTimer = 0;
   double _throwArmTimer = 0;
-  bool _throwArmLeft = true;
   static const double _wetDuration = 0.4;
   late Sprite _sprite;
 
   PlayerComponent({this.isVip = false})
-      : super(size: Vector2(80, 110), anchor: Anchor.center, priority: 100);
+      : super(size: Vector2(90, 120), anchor: Anchor.center, priority: 100);
 
   double get opacity => _opacity;
   set opacity(double v) => _opacity = v.clamp(0.0, 1.0);
 
   void triggerThrowArm({bool throwLeft = true}) {
     _throwArmTimer = _throwArmDuration;
-    _throwArmLeft = throwLeft;
   }
 
   @override
@@ -117,105 +115,23 @@ class PlayerComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    // Wrap everything in an opacity layer when flashing (invincibility).
-    // saveLayer must be outermost — before any rotation — so its Rect bounds
-    // are in the unrotated component coordinate space and the nesting is clean.
     final needsLayer = _opacity < 1.0;
     if (needsLayer) {
       canvas.saveLayer(
-        Rect.fromLTWH(0, 0, size.x, size.y),
+        null,
         Paint()
           ..color = Color.fromARGB((_opacity * 255).round(), 255, 255, 255),
       );
     }
-
-    // Ground shadow.
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(size.x / 2, size.y - 2),
-        width: size.x * 0.85,
-        height: 14,
-      ),
-      Paint()..color = const Color(0x88000000),
-    );
-
-    if (gameRef.level >= 5) {
-      _renderSpeedLines(canvas);
-    }
-
-    // Sway rotation around component centre.
+    // Apply gentle sway
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
-    final swayRad = (_swayAmplitudeDeg * pi / 180) *
-        sin(_swayTimer * 2 * pi * _swayHz);
-    canvas.rotate(swayRad);
+    canvas.rotate(_swayTimer > 0
+        ? sin(_swayTimer * _swayHz * 2 * pi) * _swayAmplitudeDeg * pi / 180
+        : 0);
     canvas.translate(-size.x / 2, -size.y / 2);
-
-    // Pedal phase gives a subtle 1-2px vertical bob.
-    final bob = _pedalPhase ? -1.0 : 1.0;
-    canvas.save();
-    canvas.translate(0, bob);
     _sprite.render(canvas, position: Vector2.zero(), size: size);
     canvas.restore();
-    if (isVip) {
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, size.x, size.y),
-        Paint()..color = vipTint,
-      );
-    }
-
-    // Throwing arm overlay (drawn over sprite).
-    if (_throwArmTimer > 0) {
-      final w = size.x;
-      final h = size.y;
-      final t = _throwArmTimer / _throwArmDuration;
-      final base = _throwArmLeft
-          ? Offset(w * 0.15, h * 0.37)
-          : Offset(w * 0.85, h * 0.37);
-      final dir = _throwArmLeft ? -1.0 : 1.0;
-      final tip = Offset(base.dx + dir * (22 * t + 6), base.dy - 8 * t);
-      canvas.drawLine(
-        base,
-        tip,
-        Paint()
-          ..color = const Color(0xFF1565C0)
-          ..strokeWidth = 5
-          ..strokeCap = StrokeCap.round,
-      );
-      canvas.drawCircle(tip, 4.0, Paint()..color = const Color(0xFFFFCC80));
-    }
-
-    if (_wetTimer > 0) {
-      final phase = _wetTimer / _wetDuration;
-      final alpha = (1 - (phase - 0.5).abs() * 2) * 0.4;
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, size.x, size.y),
-        Paint()..color = const Color(0xFF42A5F5).withValues(alpha: alpha),
-      );
-    }
-
-    canvas.restore(); // sway rotation
-
-    if (needsLayer) canvas.restore(); // opacity layer
+    if (needsLayer) canvas.restore();
   }
-
-  void _renderSpeedLines(Canvas canvas) {
-    final speedFraction =
-        ((gameRef.scrollSpeed - 300) / 200).clamp(0.0, 1.0);
-    if (speedFraction <= 0) return;
-    final linePaint = Paint()
-      ..color = const Color(0xFFFFFFFF).withValues(alpha: speedFraction * 0.7)
-      ..strokeWidth = 1.6
-      ..strokeCap = StrokeCap.round;
-    for (int i = 0; i < 4; i++) {
-      final lineY = size.y * (0.30 + i * 0.12);
-      final lineLen = 24 + i * 8;
-      canvas.drawLine(
-        Offset(-lineLen - 4, lineY),
-        Offset(-4, lineY),
-        linePaint,
-      );
-    }
-  }
-
 }

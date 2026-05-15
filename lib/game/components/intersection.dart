@@ -72,7 +72,7 @@ class IntersectionComponent extends PositionComponent
         }
       }
     }
-    if (position.y > gameRef.size.y) removeFromParent();
+    if (position.y > gameRef.size.y + bandHeight) removeFromParent();
   }
 
   void _spawnCar() {

@@ -108,7 +108,6 @@ class HouseComponent extends PositionComponent
 
   static const double _parallaxFactor = 1.0;
 
-  final double _initialY;
   int _index;
   final Random _rng = Random();
   final bool onRight;
@@ -123,11 +122,9 @@ class HouseComponent extends PositionComponent
   bool _hasDoorMat = false;
 
   HouseComponent({
-    required double initialY,
     required int index,
     this.onRight = false,
-  })  : _initialY = initialY,
-        _index = index,
+  })  : _index = index,
         super(
           size: Vector2(120, fixedHeight), // width updated in onLoad
           anchor: Anchor.bottomLeft,
@@ -143,7 +140,10 @@ class HouseComponent extends PositionComponent
     size = Vector2(gameRef.laneManager.roadLeft, fixedHeight);
     // X is pinned to the screen edge — never changes after this point.
     _pinnedX = onRight ? gameRef.size.x - size.x : 0.0;
-    position = Vector2(_pinnedX, _initialY);
+    // Spread initial houses ABOVE the screen so they scroll in from ahead.
+    // Range: [-fixedHeight, -fixedHeight * 5].
+    final spreadY = -fixedHeight - _rng.nextDouble() * fixedHeight * 4;
+    position = Vector2(_pinnedX, spreadY);
     _spawnWindows();
     _regenerateMailbox();
     _maybeSpawnDoorMat();
@@ -555,15 +555,10 @@ class HouseComponent extends PositionComponent
     if (gameRef.state != GameState.playing) return;
     position.y += gameRef.scrollSpeed * _parallaxFactor * dt;
 
-    // Recycle once the house has fully scrolled past the bottom. With
-    // anchor=bottomLeft the rendered band spans [position.y - size.y,
-    // position.y], so the house is only fully below the screen when its
-    // top edge has crossed: position.y - size.y > screenH.
-    if (position.y > gameRef.size.y + size.y) {
-      final rows =
-          ((position.y - gameRef.size.y) / rowSpacing).ceil().clamp(1, 100);
-      position.y -= rows * rowSpacing;
-      _index = (_index + 2) % _palettes.length;
+    if (position.y > gameRef.size.y + fixedHeight) {
+      // Jump back to just above the screen top so house scrolls in from ahead
+      position.y = -fixedHeight - (_rng.nextDouble() * fixedHeight * 0.5);
+      _index = (_index + 1 + _rng.nextInt(3)) % _palettes.length;
       _layoutWindows();
       for (final win in _windows) {
         win.restore();

@@ -168,10 +168,11 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
     final rows = (size.y / HouseComponent.rowSpacing).ceil() + 2;
     for (int i = 0; i < rows; i++) {
-      final y = i * HouseComponent.rowSpacing - HouseComponent.rowSpacing;
       // Left-side houses (even index) and right-side houses (odd offset).
-      add(HouseComponent(initialY: y, index: i));
-      add(HouseComponent(initialY: y, index: i + 1, onRight: true));
+      // Each house spreads its own Y in onLoad — positioned above the screen
+      // so they scroll into view from the top.
+      add(HouseComponent(index: i));
+      add(HouseComponent(index: i + 1, onRight: true));
     }
 
     player = PlayerComponent(isVip: config.vipSkin);

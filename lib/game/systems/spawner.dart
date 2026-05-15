@@ -17,7 +17,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   double _packDistanceMark = 0;
   double _lampDistanceMark = 0;
   double _parkedCarDistanceMark = 0;
-  double _intersectionDistanceMark = 0;
+  double _intersectionDistanceMark = -300.0;
   double _zoneDistanceMark = 0;
   double _catDistanceMark = 0;
   double _decorTimer = 0;
@@ -26,7 +26,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   static const double paperPackDistanceInterval = 400;
   static const double lampDistanceInterval = 90;
   static const double parkedCarDistanceInterval = 220;
-  static const double intersectionDistanceInterval = 400;
+  static const double intersectionDistanceInterval = 300.0;
   static const double constructionZoneDistanceInterval = 550;
   static const double catDistanceInterval = 620; // ~3-4 house rows
   static const double decorSpawnInterval = 1.8; // seconds between decor batches
