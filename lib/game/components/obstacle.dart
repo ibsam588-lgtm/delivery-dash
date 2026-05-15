@@ -91,12 +91,12 @@ class ObstacleComponent extends PositionComponent
 
   // ── Car body colours (6 variants) ────────────────────────────────────────
   static const List<Color> _carBodyColors = [
-    Color(0xFFCC2424), // deep red
-    Color(0xFF1A237E), // navy blue
-    Color(0xFF757575), // silver grey
-    Color(0xFF1A1A1A), // black
+    Color(0xFFCC1111), // bold red
+    Color(0xFF1565C0), // bold blue
+    Color(0xFFFFD600), // bold yellow
     Color(0xFFF5F5F5), // white
     Color(0xFF2E7D32), // forest green
+    Color(0xFFE65100), // bold orange
   ];
 
   ObstacleComponent({

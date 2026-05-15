@@ -12,11 +12,9 @@ import 'parked_car.dart';
 class PaperComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
   static const double _baseSpeed = 540.0;
-  static const double _seekRange = 300.0;
   static const double _spinPerSec = 12.0;
 
-  Vector2 _velocity;
-  MailboxComponent? _target;
+  final Vector2 _velocity;
   bool _hasHit = false;
   double _life = 1.6;
 
@@ -39,22 +37,6 @@ class PaperComponent extends PositionComponent
   @override
   Future<void> onLoad() async {
     add(RectangleHitbox(size: size * 0.8, position: size * 0.1));
-    _acquireTarget();
-  }
-
-  void _acquireTarget() {
-    MailboxComponent? best;
-    double bestDist = _seekRange;
-    for (final mb in gameRef.descendants().whereType<MailboxComponent>()) {
-      if (!mb.isBlue) continue;
-      final worldPos = mb.absolutePosition;
-      final d = (worldPos - position).length;
-      if (d < bestDist) {
-        bestDist = d;
-        best = mb;
-      }
-    }
-    _target = best;
   }
 
   @override
@@ -64,16 +46,6 @@ class PaperComponent extends PositionComponent
     if (_life <= 0) {
       removeFromParent();
       return;
-    }
-
-    final target = _target;
-    if (target != null && target.isMounted) {
-      final targetPos = target.absolutePosition;
-      final diff = targetPos - position;
-      if (diff.length > 1) {
-        final desired = diff.normalized() * _baseSpeed;
-        _velocity = _velocity * 0.78 + desired * 0.22;
-      }
     }
 
     position += _velocity * dt;

@@ -326,14 +326,17 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     player.triggerThrowArm();
 
     if (config.paperBlitz) {
-      for (final a in const [-18.0, 0.0, 18.0]) {
+      for (final a in const [-56.0, -38.0, -20.0]) {
         add(PaperComponent(
           startPosition: player.position.clone(),
           angleDeg: a,
         ));
       }
     } else {
-      add(PaperComponent(startPosition: player.position.clone()));
+      add(PaperComponent(
+        startPosition: player.position.clone(),
+        angleDeg: -38.0,
+      ));
     }
   }
 

@@ -22,8 +22,8 @@ class HouseComponent extends PositionComponent
   static const double fixedWidth = 100.0;
   static const double fixedHeight = 112.0;
 
-  // Houses scroll at 90% of road speed for parallax depth feel.
-  static const double _parallaxFactor = 0.90;
+  // Houses scroll at exactly road speed — no parallax drift.
+  static const double _parallaxFactor = 1.0;
 
   final double _initialY;
   int _index;
@@ -52,17 +52,6 @@ class HouseComponent extends PositionComponent
 
   void _setVariant() {
     _isTall = _index % 5 == 0;
-  }
-
-  /// Update X to track the road edge at the current Y (diagonal road effect).
-  void _trackRoadEdge() {
-    final lm = gameRef.laneManager;
-    if (onRight) {
-      position.x = lm.roadRightAt(position.y) + 4;
-    } else {
-      final x = lm.roadLeftAt(position.y) - size.x - 4;
-      position.x = x < 0 ? 0 : x;
-    }
   }
 
   void _alignToSidewalk() {
@@ -532,9 +521,6 @@ class HouseComponent extends PositionComponent
     super.update(dt);
     if (gameRef.state != GameState.playing) return;
     position.y += gameRef.scrollSpeed * _parallaxFactor * dt;
-
-    // Track the diagonal road edge so houses slide with the road.
-    _trackRoadEdge();
 
     // Y-based depth priority: houses lower on screen draw in front.
     final newPri = (position.y / 10).clamp(-10, 95).round();
