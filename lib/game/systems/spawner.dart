@@ -229,7 +229,8 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   }
 
   void _spawnParkedCar() {
-    gameRef.add(ParkedCarComponent(variant: _rng.nextInt(6)));
+    gameRef.add(ParkedCarComponent(
+        variant: _rng.nextInt(ParkedCarComponent.variantCount)));
   }
 
   void _spawnIntersection() {

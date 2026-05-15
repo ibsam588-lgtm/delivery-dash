@@ -4,6 +4,7 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/painting.dart' hide Gradient;
 import '../delivery_dash_game.dart';
+import 'parked_car.dart' show renderTopDownCar;
 import 'player.dart';
 
 /// Crossroads — the main road continues, a cross-street goes left/right.
@@ -299,13 +300,6 @@ class CrossingCarComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
   static const double speed = 280;
 
-  static const List<Color> _bodyColors = [
-    Color(0xFFE53935),
-    Color(0xFF1565C0),
-    Color(0xFF9E9E9E),
-    Color(0xFFFBC02D),
-  ];
-
   final bool inLeftStrip;
   final int variant;
   bool _hasHit = false;
@@ -315,7 +309,7 @@ class CrossingCarComponent extends PositionComponent
     required this.inLeftStrip,
     required this.variant,
   }) : super(
-          size: Vector2(90, 40),
+          size: Vector2(50, 90),
           anchor: Anchor.center,
           priority: 10,
         ) {
@@ -330,8 +324,8 @@ class CrossingCarComponent extends PositionComponent
         ? lm.roadLeft / 2
         : lm.roadRight + (gameRef.size.x - lm.roadRight) / 2;
     add(RectangleHitbox(
-      size: Vector2(size.x * 0.88, size.y * 0.80),
-      position: Vector2(size.x * 0.06, size.y * 0.10),
+      size: Vector2(size.x * 0.88, size.y * 0.85),
+      position: Vector2(size.x * 0.06, size.y * 0.075),
     ));
   }
 
@@ -347,13 +341,16 @@ class CrossingCarComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    _renderSideViewCar(
-      canvas,
-      size.x,
-      size.y,
-      _bodyColors[variant % _bodyColors.length],
-      inLeftStrip, // left-strip car faces right; right-strip car faces left
+    // Drop shadow.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(size.x / 2, size.y - 4),
+        width: size.x * 0.85,
+        height: 10,
+      ),
+      Paint()..color = const Color(0x66000000),
     );
+    renderTopDownCar(canvas, size.x, size.y, variant);
   }
 
   @override
@@ -366,156 +363,6 @@ class CrossingCarComponent extends PositionComponent
       gameRef.onPlayerHitObstacle();
     }
   }
-}
-
-/// Draws a side-view car in a [w]×[h] canvas. [facingRight] mirrors the car.
-void _renderSideViewCar(
-    Canvas canvas, double w, double h, Color body, bool facingRight) {
-  if (!facingRight) {
-    canvas.save();
-    canvas.translate(w, 0);
-    canvas.scale(-1, 1);
-  }
-
-  // Shadow.
-  canvas.drawOval(
-    Rect.fromCenter(
-      center: Offset(w * 0.50, h * 0.96),
-      width: w * 0.80,
-      height: h * 0.14,
-    ),
-    Paint()..color = const Color(0x44000000),
-  );
-
-  // Body silhouette (sedan profile).
-  final bodyPath = Path()
-    ..moveTo(w * 0.04, h * 0.60)
-    ..lineTo(w * 0.10, h * 0.26)
-    ..lineTo(w * 0.26, h * 0.04)
-    ..lineTo(w * 0.64, h * 0.04)
-    ..lineTo(w * 0.82, h * 0.26)
-    ..lineTo(w * 0.96, h * 0.52)
-    ..lineTo(w * 0.96, h * 0.68)
-    ..lineTo(w * 0.04, h * 0.68)
-    ..close();
-  canvas.drawPath(bodyPath, Paint()..color = body);
-
-  // Body gradient shading.
-  canvas.drawPath(
-    bodyPath,
-    Paint()
-      ..shader = ui.Gradient.linear(
-        Offset(0, h * 0.04),
-        Offset(0, h * 0.68),
-        [const Color(0x44FFFFFF), const Color(0x00FFFFFF)],
-      ),
-  );
-
-  // Cabin glass.
-  final windowPath = Path()
-    ..moveTo(w * 0.12, h * 0.28)
-    ..lineTo(w * 0.28, h * 0.07)
-    ..lineTo(w * 0.62, h * 0.07)
-    ..lineTo(w * 0.80, h * 0.28)
-    ..close();
-  canvas.drawPath(windowPath, Paint()..color = const Color(0x9990CAF9));
-  canvas.drawPath(
-    windowPath,
-    Paint()
-      ..color = const Color(0x55000000)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0,
-  );
-  // B-pillar.
-  canvas.drawLine(
-    Offset(w * 0.50, h * 0.07),
-    Offset(w * 0.51, h * 0.28),
-    Paint()
-      ..color = const Color(0xFF333333)
-      ..strokeWidth = 4.0,
-  );
-
-  // Door line.
-  canvas.drawLine(
-    Offset(w * 0.50, h * 0.28),
-    Offset(w * 0.50, h * 0.65),
-    Paint()
-      ..color = const Color(0x33000000)
-      ..strokeWidth = 1.5,
-  );
-
-  // Wheels.
-  _drawSideWheel(canvas, Offset(w * 0.19, h * 0.78), h * 0.25);
-  _drawSideWheel(canvas, Offset(w * 0.79, h * 0.78), h * 0.25);
-
-  // Wheel arches.
-  canvas.drawArc(
-    Rect.fromCenter(
-        center: Offset(w * 0.19, h * 0.70), width: h * 0.54, height: h * 0.44),
-    pi, pi, false,
-    Paint()
-      ..color = _darkenC(body, 0.12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5.0,
-  );
-  canvas.drawArc(
-    Rect.fromCenter(
-        center: Offset(w * 0.79, h * 0.70), width: h * 0.54, height: h * 0.44),
-    pi, pi, false,
-    Paint()
-      ..color = _darkenC(body, 0.12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5.0,
-  );
-
-  // Headlight.
-  canvas.drawOval(
-    Rect.fromCenter(
-        center: Offset(w * 0.07, h * 0.44), width: w * 0.07, height: h * 0.15),
-    Paint()..color = const Color(0xFFFFEE99),
-  );
-  // Tail light.
-  canvas.drawOval(
-    Rect.fromCenter(
-        center: Offset(w * 0.93, h * 0.44), width: w * 0.07, height: h * 0.15),
-    Paint()..color = const Color(0xFFEF5350),
-  );
-
-  // Body outline.
-  canvas.drawPath(
-    bodyPath,
-    Paint()
-      ..color = const Color(0x44000000)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0,
-  );
-
-  if (!facingRight) canvas.restore();
-}
-
-void _drawSideWheel(Canvas canvas, Offset center, double r) {
-  canvas.drawCircle(center, r * 1.05, Paint()..color = const Color(0xFF111111));
-  canvas.drawCircle(center, r, Paint()..color = const Color(0xFF1A1A1A));
-  canvas.drawCircle(center, r * 0.62, Paint()..color = const Color(0xFFAAAAAA));
-  for (int i = 0; i < 5; i++) {
-    final a = i * 2 * pi / 5;
-    canvas.drawLine(
-      Offset(center.dx + cos(a) * r * 0.10, center.dy + sin(a) * r * 0.10),
-      Offset(center.dx + cos(a) * r * 0.58, center.dy + sin(a) * r * 0.58),
-      Paint()..color = const Color(0xFF777777)..strokeWidth = 1.5,
-    );
-  }
-  canvas.drawCircle(center, r * 0.15, Paint()..color = const Color(0xFF555555));
-}
-
-Color _darkenC(Color c, double amount) {
-  final inv = 1.0 - amount;
-  return Color.fromARGB(
-    ((c.a * 255).clamp(0.0, 255.0)).round(),
-    ((c.r * 255 * inv).clamp(0.0, 255.0)).round(),
-    ((c.g * 255 * inv).clamp(0.0, 255.0)).round(),
-    ((c.b * 255 * inv).clamp(0.0, 255.0)).round(),
-  );
 }
 
 /// Simple pedestrian walking across the zebra crossing.

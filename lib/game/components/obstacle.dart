@@ -111,16 +111,6 @@ class ObstacleComponent extends PositionComponent
   // Worker variant — index 0 = shoveler, 1 = jackhammer (chosen randomly).
   late final int _workerVariant = Random().nextInt(2);
 
-  // ── Car body colours (6 variants — match parked_car palette) ─────────────
-  static const List<Color> _carBodyColors = [
-    Color(0xFFE53935), // bright red
-    Color(0xFF1E88E5), // bright blue
-    Color(0xFFFDD835), // bright yellow
-    Color(0xFFF5F5F5), // white
-    Color(0xFF43A047), // green
-    Color(0xFFFF7043), // orange
-  ];
-
   // Car windshield broken state (set when paper hits a car).
   bool _carWindowBroken = false;
 
@@ -138,7 +128,7 @@ class ObstacleComponent extends PositionComponent
     this.onRightSidewalk = false,
     this.isOncoming = false,
     this.initialPositionOverride,
-  })  : carVariant = carVariant ?? Random().nextInt(6),
+  })  : carVariant = carVariant ?? Random().nextInt(4),
         super(
           size: _sizeFor(type),
           anchor: Anchor.center,
@@ -499,10 +489,28 @@ class ObstacleComponent extends PositionComponent
       canvas,
       size.x,
       size.y,
-      _carBodyColors[carVariant % _carBodyColors.length],
+      carVariant,
       isOncoming: isOncoming,
-      windshieldBroken: _carWindowBroken,
     );
+    if (_carWindowBroken) {
+      // Cracks overlay on the windshield area.
+      final w = size.x;
+      final h = size.y;
+      final cx = w * 0.50;
+      final cy = h * 0.16;
+      final crackPaint = Paint()
+        ..color = const Color(0xFFE0E0E0)
+        ..strokeWidth = 0.9
+        ..strokeCap = StrokeCap.round;
+      for (int i = 0; i < 8; i++) {
+        final ang = i * pi / 4;
+        canvas.drawLine(
+          Offset(cx, cy),
+          Offset(cx + cos(ang) * w * 0.34, cy + sin(ang) * h * 0.10),
+          crackPaint,
+        );
+      }
+    }
     // Newspaper windshield splat.
     if (_splatTimer > 0) {
       final alpha = (_splatTimer / _splatDuration).clamp(0.0, 1.0);
