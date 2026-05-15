@@ -13,8 +13,6 @@ import 'dart:ui';
 
 const double _roadTopFactor = 0.52;
 const double _roadBottomFactor = 1.58;
-const double _scaleTop = 0.40;
-const double _scaleBottom = 1.0;
 
 double _t(double y, double h) {
   if (h <= 0) return 1;
@@ -24,10 +22,15 @@ double _t(double y, double h) {
   return v;
 }
 
-/// Depth scale — sprites appear smaller near the horizon.
-///   y/h == 0 → 0.40 scale,  y/h == 1 → 1.0 scale.
-double depthScale(double y, double h) =>
-    _scaleTop + (_scaleBottom - _scaleTop) * _t(y, h);
+/// Depth scale — sprites appear small at the horizon and full-size at the
+/// player's reference depth (~78% down the screen).
+///   y == 0.28*H (horizon): scale = 0.15  (tiny, in the distance)
+///   y == 0.78*H (player):  scale = 1.00  (full size)
+double depthScale(double y, double h) {
+  if (h <= 0) return 1.0;
+  final t = ((y - h * 0.28) / (h * 0.50)).clamp(0.0, 1.0);
+  return 0.15 + 0.85 * t;
+}
 
 /// Legacy road-width factor (kept for backward compat).
 double roadWidthFactor(double y, double h) =>

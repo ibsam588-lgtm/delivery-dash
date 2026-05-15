@@ -47,7 +47,7 @@ class PlayerComponent extends PositionComponent
 
   @override
   Future<void> onLoad() async {
-    position = Vector2(gameRef.size.x * 0.5, gameRef.size.y * 0.85);
+    position = Vector2(gameRef.size.x * 0.5, gameRef.size.y * 0.78);
     _targetX = position.x;
     add(RectangleHitbox(
       size: Vector2(56, 78),
@@ -86,8 +86,8 @@ class PlayerComponent extends PositionComponent
     final t = (_followSpeed * dt).clamp(0.0, 1.0);
     position.x += dx * t;
 
-    // Keep player pinned at 85% down (camera depth).
-    position.y = gameRef.size.y * 0.85;
+    // Keep player pinned at 78% down (camera depth).
+    position.y = gameRef.size.y * 0.78;
 
     if (_wetTimer > 0) {
       _wetTimer = (_wetTimer - dt).clamp(0.0, _wetDuration);
@@ -188,272 +188,226 @@ class PlayerComponent extends PositionComponent
   void _renderBike(Canvas canvas) {
     final w = size.x;
     final h = size.y;
-    final cx = w * 0.5;
 
-    // ── Distant front wheel partially visible between rider's legs ─────────
-    final frontWheelCenter = Offset(cx, h * 0.52);
-    final frontTyre = Paint()..color = const Color(0xFF1A1A1A);
-    canvas.drawCircle(frontWheelCenter, 18, frontTyre);
-    canvas.drawCircle(
-      frontWheelCenter,
-      14,
-      Paint()..color = const Color(0xFF888888),
-    );
-    canvas.drawCircle(
-      frontWheelCenter,
-      3,
-      Paint()..color = const Color(0xFFC8C8C8),
+    // ── Ground shadow ─────────────────────────────────────────────────────
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.5, h * 0.96),
+        width: w * 0.7,
+        height: h * 0.06,
+      ),
+      Paint()..color = const Color(0x55000000),
     );
 
-    // ── Rear wheel (large, closest to camera) ──────────────────────────────
-    final rearWheelCenter = Offset(cx, h * 0.75);
-    // Outer tyre.
+    // ── Rear wheel (back-view: full circle, centred) ──────────────────────
+    final wheelCenter = Offset(w * 0.5, h * 0.76);
+    const tyreR = 19.0;
+    const rimR = 15.0;
     canvas.drawCircle(
-      rearWheelCenter,
-      32,
-      Paint()..color = const Color(0xFF1A1A1A),
-    );
-    // Rim.
+        wheelCenter, tyreR, Paint()..color = const Color(0xFF1A1A1A));
     canvas.drawCircle(
-      rearWheelCenter,
-      27,
-      Paint()..color = const Color(0xFFC8C8C8),
-    );
-    // Spokes.
+        wheelCenter, rimR, Paint()..color = const Color(0xFFB0B0B0));
     final spokePaint = Paint()
       ..color = const Color(0xFF888888)
-      ..strokeWidth = 1.4;
+      ..strokeWidth = 1.2;
     for (int i = 0; i < 8; i++) {
       final a = i * pi / 4 + _wheelAngle;
       canvas.drawLine(
-        rearWheelCenter,
-        Offset(
-          rearWheelCenter.dx + cos(a) * 26,
-          rearWheelCenter.dy + sin(a) * 26,
-        ),
+        Offset(wheelCenter.dx + cos(a) * 3, wheelCenter.dy + sin(a) * 3),
+        Offset(wheelCenter.dx + cos(a) * rimR * 0.88,
+            wheelCenter.dy + sin(a) * rimR * 0.88),
         spokePaint,
       );
     }
-    // Hub.
     canvas.drawCircle(
-      rearWheelCenter,
-      5,
-      Paint()..color = const Color(0xFFE8E8E8),
-    );
+        wheelCenter, 4.0, Paint()..color = const Color(0xFFE0E0E0));
 
-    // ── Frame visible from behind ──────────────────────────────────────────
+    // ── Bike frame visible on both sides ──────────────────────────────────
     final framePaint = Paint()
-      ..color = const Color(0xFFE53935)
-      ..strokeWidth = 3.4
+      ..color = const Color(0xFFD32F2F)
+      ..strokeWidth = 3.0
       ..strokeCap = StrokeCap.round;
-
-    // Chainstays — V-shape from rear axle outward/upward.
+    // Left seat stay.
     canvas.drawLine(
-      rearWheelCenter,
-      Offset(cx - 10, h * 0.62),
+      Offset(wheelCenter.dx - 5, wheelCenter.dy - tyreR + 2),
+      Offset(w * 0.34, h * 0.56),
       framePaint,
     );
+    // Right seat stay.
     canvas.drawLine(
-      rearWheelCenter,
-      Offset(cx + 10, h * 0.62),
+      Offset(wheelCenter.dx + 5, wheelCenter.dy - tyreR + 2),
+      Offset(w * 0.66, h * 0.56),
       framePaint,
     );
-    // Seat stays from axle to seat post.
+    // Seat post (vertical).
     canvas.drawLine(
-      rearWheelCenter,
-      Offset(cx, h * 0.44),
+      Offset(w * 0.5, h * 0.56),
+      Offset(w * 0.5, h * 0.44),
       framePaint,
     );
 
-    // Seat post.
-    canvas.drawLine(
-      Offset(cx, h * 0.75),
-      Offset(cx, h * 0.42),
-      Paint()
-        ..color = const Color(0xFF333333)
-        ..strokeWidth = 4
-        ..strokeCap = StrokeCap.round,
-    );
-
-    // Seat.
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(cx, h * 0.42),
-        width: 30,
-        height: 8,
-      ),
-      Paint()..color = const Color(0xFF1A1A1A),
-    );
-
-    // ── Rider — back view ──────────────────────────────────────────────────
-    // Torso: blue jacket as a rounded rectangle.
-    final jacketRect = RRect.fromRectAndRadius(
-      Rect.fromLTRB(w * 0.28, h * 0.18, w * 0.72, h * 0.45),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(
-      jacketRect,
-      Paint()
-        ..shader = Gradient.linear(
-          Offset(w * 0.28, h * 0.18),
-          Offset(w * 0.72, h * 0.45),
-          [const Color(0xFF1976D2), const Color(0xFF0D47A1)],
-        ),
-    );
-    canvas.drawRRect(
-      jacketRect,
-      Paint()
-        ..color = const Color(0xFF0A2E5C)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
-    );
-    if (isVip) {
-      canvas.drawRRect(jacketRect, Paint()..color = vipTint);
-    }
-
-    // Backpack on rider's back.
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTRB(w * 0.36, h * 0.22, w * 0.64, h * 0.40),
-        const Radius.circular(4),
-      ),
-      Paint()..color = const Color(0xFF5D4037),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.36, h * 0.30, w * 0.28, 2),
-      Paint()..color = const Color(0xFF3E2723),
-    );
-
-    // ── Arms going out to handlebars ─────────────────────────────────────
-    final armPaint = Paint()
-      ..color = const Color(0xFF1976D2)
-      ..strokeWidth = 6
-      ..strokeCap = StrokeCap.round;
-    final leftShoulder = Offset(w * 0.30, h * 0.24);
-    final rightShoulder = Offset(w * 0.70, h * 0.24);
-    final leftGrip = Offset(w * 0.18, h * 0.34);
-    final rightGrip = Offset(w * 0.82, h * 0.34);
-    canvas.drawLine(leftShoulder, leftGrip, armPaint);
-    canvas.drawLine(rightShoulder, rightGrip, armPaint);
-
-    // Forearms — slightly lighter colour.
-    final forearmPaint = Paint()
-      ..color = const Color(0xFF42A5F5)
-      ..strokeWidth = 5
+    // ── Saddle ────────────────────────────────────────────────────────────
+    final saddlePaint = Paint()
+      ..color = const Color(0xFF212121)
+      ..strokeWidth = 5.0
       ..strokeCap = StrokeCap.round;
     canvas.drawLine(
-      Offset(w * 0.24, h * 0.30),
-      leftGrip,
-      forearmPaint,
-    );
+        Offset(w * 0.36, h * 0.44), Offset(w * 0.64, h * 0.44), saddlePaint);
+
+    // ── Front fork (foreshortened stub below rider) ───────────────────────
     canvas.drawLine(
-      Offset(w * 0.76, h * 0.30),
-      rightGrip,
-      forearmPaint,
+      Offset(w * 0.5, h * 0.76 - tyreR),
+      Offset(w * 0.5, h * 0.62),
+      Paint()
+        ..color = const Color(0xFFD32F2F)
+        ..strokeWidth = 2.5,
     );
 
-    // Hands.
-    final handPaint = Paint()..color = const Color(0xFFFFCC99);
-    canvas.drawCircle(leftGrip, 4, handPaint);
-    canvas.drawCircle(rightGrip, 4, handPaint);
-
-    // ── Handlebar (horizontal bar between hands) ──────────────────────────
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTRB(w * 0.16, h * 0.33, w * 0.84, h * 0.355),
-        const Radius.circular(3),
-      ),
-      Paint()..color = const Color(0xFF222222),
-    );
-
-    // ── Legs (visible on each side of bike) ────────────────────────────────
-    final pedalAngle = _pedalPhase ? 0.0 : pi;
+    // ── Rider legs (visible each side of bike) ────────────────────────────
     final legPaint = Paint()
       ..color = const Color(0xFF1A237E)
-      ..strokeWidth = 8
+      ..strokeWidth = 5.0
       ..strokeCap = StrokeCap.round;
+    final phase = _pedalPhase ? 1.0 : -1.0;
+    // Left thigh down and out.
+    canvas.drawLine(
+        Offset(w * 0.38, h * 0.52),
+        Offset(w * 0.28 - phase * 4, h * 0.68),
+        legPaint);
+    // Left calf to pedal.
+    canvas.drawLine(
+        Offset(w * 0.28 - phase * 4, h * 0.68),
+        Offset(w * 0.24 - phase * 2, h * 0.80),
+        legPaint);
+    // Right leg (opposite phase).
+    canvas.drawLine(
+        Offset(w * 0.62, h * 0.52),
+        Offset(w * 0.72 + phase * 4, h * 0.68),
+        legPaint);
+    canvas.drawLine(
+        Offset(w * 0.72 + phase * 4, h * 0.68),
+        Offset(w * 0.76 + phase * 2, h * 0.80),
+        legPaint);
 
-    final hipL = Offset(w * 0.36, h * 0.46);
-    final hipR = Offset(w * 0.64, h * 0.46);
-    final kneeL = Offset(w * 0.30, h * 0.62 + sin(pedalAngle) * 4);
-    final kneeR = Offset(w * 0.70, h * 0.62 + sin(pedalAngle + pi) * 4);
-    final pedalL = Offset(w * 0.34, h * 0.78 + sin(pedalAngle) * 4);
-    final pedalR = Offset(w * 0.66, h * 0.78 + sin(pedalAngle + pi) * 4);
+    // Pedals.
+    final pedalPaint = Paint()
+      ..color = const Color(0xFF424242)
+      ..strokeWidth = 4.0
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+        Offset(w * 0.18, h * 0.80), Offset(w * 0.30, h * 0.80), pedalPaint);
+    canvas.drawLine(
+        Offset(w * 0.70, h * 0.80), Offset(w * 0.82, h * 0.80), pedalPaint);
 
-    canvas.drawLine(hipL, kneeL, legPaint);
-    canvas.drawLine(kneeL, pedalL, legPaint);
-    canvas.drawLine(hipR, kneeR, legPaint);
-    canvas.drawLine(kneeR, pedalR, legPaint);
-
-    // Pedals (horizontal rectangles).
-    final pedalPaint = Paint()..color = const Color(0xFF111111);
-    canvas.drawRect(
-      Rect.fromCenter(center: pedalL, width: 12, height: 4),
-      pedalPaint,
-    );
-    canvas.drawRect(
-      Rect.fromCenter(center: pedalR, width: 12, height: 4),
-      pedalPaint,
-    );
-
-    // ── Helmet (round, viewed from behind) ────────────────────────────────
-    final helmetCenter = Offset(cx, h * 0.14);
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: helmetCenter,
-        width: w * 0.32,
-        height: w * 0.30,
-      ),
-      Paint()..color = const Color(0xFFFFD600),
-    );
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: helmetCenter,
-        width: w * 0.32,
-        height: w * 0.30,
-      ),
+    // ── Torso (filled trapezoid jacket) ───────────────────────────────────
+    final torsoPath = Path()
+      ..moveTo(w * 0.28, h * 0.44)
+      ..lineTo(w * 0.72, h * 0.44)
+      ..lineTo(w * 0.64, h * 0.18)
+      ..lineTo(w * 0.36, h * 0.18)
+      ..close();
+    canvas.drawPath(torsoPath, Paint()..color = const Color(0xFF1565C0));
+    // Jacket pocket line.
+    canvas.drawLine(
+      Offset(w * 0.36, h * 0.34),
+      Offset(w * 0.64, h * 0.34),
       Paint()
-        ..color = const Color(0xFFB37700)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4,
+        ..color = const Color(0xFF0D47A1)
+        ..strokeWidth = 1.5,
     );
-    // Helmet rear vent stripe.
-    canvas.drawRect(
+    if (isVip) {
+      canvas.drawPath(torsoPath, Paint()..color = vipTint);
+    }
+
+    // ── Handlebars ────────────────────────────────────────────────────────
+    // Stem.
+    canvas.drawLine(
+      Offset(w * 0.5, h * 0.24),
+      Offset(w * 0.5, h * 0.18),
+      Paint()
+        ..color = const Color(0xFF424242)
+        ..strokeWidth = 3.5,
+    );
+    // Bar.
+    canvas.drawLine(
+      Offset(w * 0.18, h * 0.22),
+      Offset(w * 0.82, h * 0.22),
+      Paint()
+        ..color = const Color(0xFF616161)
+        ..strokeWidth = 4.5
+        ..strokeCap = StrokeCap.round,
+    );
+    // Grips (darker ends).
+    canvas.drawLine(
+        Offset(w * 0.18, h * 0.22),
+        Offset(w * 0.26, h * 0.22),
+        Paint()
+          ..color = const Color(0xFF212121)
+          ..strokeWidth = 6.0
+          ..strokeCap = StrokeCap.round);
+    canvas.drawLine(
+        Offset(w * 0.74, h * 0.22),
+        Offset(w * 0.82, h * 0.22),
+        Paint()
+          ..color = const Color(0xFF212121)
+          ..strokeWidth = 6.0
+          ..strokeCap = StrokeCap.round);
+
+    // Arms: from grip to shoulder.
+    final armPaint = Paint()
+      ..color = const Color(0xFF1565C0)
+      ..strokeWidth = 5.0
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+        Offset(w * 0.26, h * 0.22), Offset(w * 0.30, h * 0.40), armPaint);
+    canvas.drawLine(
+        Offset(w * 0.74, h * 0.22), Offset(w * 0.70, h * 0.40), armPaint);
+
+    // ── Head & Helmet ─────────────────────────────────────────────────────
+    // Head (back of head — just a round shape, no face).
+    canvas.drawCircle(
+        Offset(w * 0.5, h * 0.12), 8.0, Paint()..color = const Color(0xFFFFCC99));
+
+    // Helmet — top dome arc covering top half of head.
+    final helmetPath = Path();
+    helmetPath.addArc(
       Rect.fromCenter(
-        center: helmetCenter,
-        width: w * 0.20,
-        height: 2,
-      ),
-      Paint()..color = const Color(0xFFB37700),
+          center: Offset(w * 0.5, h * 0.10), width: 32, height: 24),
+      pi,
+      pi,
     );
-    // Chin strap lines on sides.
-    final strapPaint = Paint()
-      ..color = const Color(0xFF333333)
-      ..strokeWidth = 1.2;
+    helmetPath.lineTo(w * 0.5 + 16, h * 0.10);
+    helmetPath.close();
+    canvas.drawPath(helmetPath, Paint()..color = const Color(0xFFFFD600));
+    // Helmet strap (thin lines down each side).
     canvas.drawLine(
-      Offset(helmetCenter.dx - w * 0.15, helmetCenter.dy + 2),
-      Offset(helmetCenter.dx - w * 0.12, helmetCenter.dy + h * 0.08),
-      strapPaint,
+      Offset(w * 0.5 - 8, h * 0.14),
+      Offset(w * 0.5 - 6, h * 0.18),
+      Paint()
+        ..color = const Color(0xFF5D4037)
+        ..strokeWidth = 1.5,
     );
     canvas.drawLine(
-      Offset(helmetCenter.dx + w * 0.15, helmetCenter.dy + 2),
-      Offset(helmetCenter.dx + w * 0.12, helmetCenter.dy + h * 0.08),
-      strapPaint,
+      Offset(w * 0.5 + 8, h * 0.14),
+      Offset(w * 0.5 + 6, h * 0.18),
+      Paint()
+        ..color = const Color(0xFF5D4037)
+        ..strokeWidth = 1.5,
     );
 
     // ── Throwing arm overlay (in the chosen throw direction) ──────────────
     if (_throwArmTimer > 0) {
       final t = _throwArmTimer / _throwArmDuration;
       final base = _throwArmLeft
-          ? Offset(w * 0.30, h * 0.28)
-          : Offset(w * 0.70, h * 0.28);
+          ? Offset(w * 0.30, h * 0.30)
+          : Offset(w * 0.70, h * 0.30);
       final dir = _throwArmLeft ? -1.0 : 1.0;
       final tip = Offset(base.dx + dir * (20 * t + 8), base.dy - 10 * t);
       canvas.drawLine(
         base,
         tip,
         Paint()
-          ..color = const Color(0xFF1976D2)
+          ..color = const Color(0xFF1565C0)
           ..strokeWidth = 5
           ..strokeCap = StrokeCap.round,
       );

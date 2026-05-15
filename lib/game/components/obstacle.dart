@@ -198,8 +198,11 @@ class ObstacleComponent extends PositionComponent
       x = lm.roadXFromFraction(laneFraction);
     }
     _baseX = x;
-    // Oncoming cars start below the screen and travel toward the horizon.
-    final spawnY = isOncoming ? gameRef.size.y + size.y : -size.y;
+    // Spawn just past the horizon so obstacles appear *inside* the road
+    // rather than in the sky above it. Oncoming cars travel UP and start
+    // from below the screen.
+    final spawnY =
+        isOncoming ? gameRef.size.y + size.y : gameRef.size.y * 0.30;
     position = Vector2(x, spawnY);
     add(RectangleHitbox(
       size: size * 0.78,

@@ -26,7 +26,9 @@ class PaperPackComponent extends PositionComponent
   @override
   Future<void> onLoad() async {
     final lm = gameRef.laneManager;
-    position = Vector2(lm.roadXFromFraction(laneFraction), -size.y);
+    // Spawn just past the horizon so the pack appears in the road, not above it.
+    position =
+        Vector2(lm.roadXFromFraction(laneFraction), gameRef.size.y * 0.30);
     add(RectangleHitbox(
       size: size * 0.85,
       position: size * 0.075,

@@ -101,9 +101,13 @@ const List<Color> _flowerColors = [
 /// left or right edge of the screen — never moves horizontally.
 class HouseComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  static const double rowSpacing = 290.0;
-  static const double fixedWidth = 260.0;
-  static const double fixedHeight = 280.0;
+  // Narrow enough to fit inside the sidewalk strip on either edge of the
+  // screen. The road takes the centre ~70% of the screen at player depth,
+  // so each sidewalk is ~15%. 110px is a sensible mid-range that doesn't
+  // overlap the road on common phone widths.
+  static const double rowSpacing = 165.0;
+  static const double fixedWidth = 110.0;
+  static const double fixedHeight = 154.0;
 
   static const double _parallaxFactor = 1.0;
 
@@ -126,7 +130,7 @@ class HouseComponent extends PositionComponent
         super(
           size: Vector2(fixedWidth, fixedHeight),
           anchor: Anchor.bottomLeft,
-          priority: -5,
+          priority: -20,
         );
 
   _Palette _palette() => _palettes[_index % _palettes.length];
@@ -548,9 +552,6 @@ class HouseComponent extends PositionComponent
     super.update(dt);
     if (gameRef.state != GameState.playing) return;
     position.y += gameRef.scrollSpeed * _parallaxFactor * dt;
-
-    final newPri = (position.y / 10).clamp(-10, 95).round();
-    if (newPri != priority) priority = newPri;
 
     if (position.y > gameRef.size.y + size.y) {
       final rows = ((position.y - gameRef.size.y) / rowSpacing).ceil();
