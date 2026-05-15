@@ -43,7 +43,9 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   double get _obstacleInterval {
     final cfg = LevelConfig.of(gameRef.level);
     final base = cfg.spawnInterval;
-    final speedFactor = cfg.startSpeed / gameRef.scrollSpeed;
+    final scroll = gameRef.scrollSpeed;
+    // Guard against zero when the game is paused or just initializing.
+    final speedFactor = scroll > 1 ? cfg.startSpeed / scroll : 1.0;
     return (base * speedFactor).clamp(0.4, base);
   }
 
@@ -64,7 +66,9 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
       _spawnDecor();
     }
 
-    final d = gameRef.distanceMeters;
+    // Use the lifetime route distance for spawn cadence. Level distance resets
+    // at each day/level boundary, but spawner markers must keep increasing.
+    final d = gameRef.totalDistanceMeters;
     if (d - _packDistanceMark >= paperPackDistanceInterval) {
       _packDistanceMark = d;
       _spawnPaperPack();
