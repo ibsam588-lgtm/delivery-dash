@@ -3,59 +3,65 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 import '../delivery_dash_game.dart';
 
-/// Rich Paperboy-style diagonal road, sidewalks, sky and grass.
+/// Straight-ahead "Road Rash" style trapezoid road.
+/// Wide at the bottom (player), narrow at the top (horizon).
 class RoadBackground extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
+  // Horizon: 28% down from top.
+  static const double _horizonFrac = 0.28;
+
   // Sky
-  static const Color _skyTop = Color(0xFFB0BEC5);
-  static const Color _skyHorizon = Color(0xFFF5E6C8);
+  static const Color _skyTop = Color(0xFF87CEEB);
+  static const Color _skyHorizon = Color(0xFFD4E8C2);
 
-  // Grass / sidewalk
-  static const Color _grassBase = Color(0xFF4CAF50);
+  // Grass / scenery
+  static const Color _grassColor = Color(0xFF4CAF50);
   static const Color _grassDark = Color(0xFF388E3C);
-  static const Color _cementColor = Color(0xFFB8C0C8);
-  static const Color _cementShadow = Color(0xFF8A929A);
 
-  // Road
-  static const Color _roadColor = Color(0xFF5A5A5A);
-  static const Color _roadPebble = Color(0xFF646464);
-  static const Color _curbColor = Color(0xFFFFFFFF);
+  // Footpath (concrete)
+  static const Color _footpathColor = Color(0xFFB8BEC4);
+  static const Color _footpathEdge = Color(0xFF8A929A);
+
+  // Footpath width at the player depth (scales with perspective via roadLeftAt).
+  static const double _footpathWidthBot = 48.0;
+
+  // Asphalt road colours
+  static const Color _roadNear = Color(0xFF404040);
+  static const Color _roadFar = Color(0xFF707070);
+
+  // Lane markings
   static const Color _laneLineColor = Color(0xFFFFFFFF);
+  static const Color _shoulderColor = Color(0xFFE5E5E5);
 
-  static const double _dashLen = 40.0;
-  static const double _gapLen = 30.0;
+  static const double _dashLen = 30.0;
+  static const double _gapLen = 22.0;
   static const double _cycle = _dashLen + _gapLen;
-  static const double _cementStripWidth = 40.0;
-
-  final Paint _roadPaint = Paint()..color = _roadColor;
-  final Paint _grassPaint = Paint()..color = _grassBase;
-  final Paint _cementPaint = Paint()..color = _cementColor;
 
   double _dashOffset = 0;
 
-  final List<Offset> _pebbles = [];
-  final List<_GrassPatch> _grassPatches = [];
+  // Horizon silhouette buildings (deterministic).
+  final List<_HorizonBuilding> _horizonBuildings = [];
 
   RoadBackground({required Vector2 gameSize})
       : super(size: gameSize, position: Vector2.zero(), priority: -10) {
-    _generateTextures(gameSize);
+    _generateScenery(gameSize);
   }
 
-  void _generateTextures(Vector2 s) {
-    final rng = Random(42);
-    // Pebbles scattered across road area.
-    for (int i = 0; i < 260; i++) {
-      _pebbles.add(Offset(
-        s.x * (0.02 + rng.nextDouble() * 0.86),
-        rng.nextDouble() * s.y,
-      ));
-    }
-    // Darker grass patches scattered over sidewalks.
-    for (int i = 0; i < 90; i++) {
-      _grassPatches.add(_GrassPatch(
-        Offset(rng.nextDouble() * s.x, rng.nextDouble() * s.y),
-        6.0 + rng.nextDouble() * 12.0,
-      ));
+  void _generateScenery(Vector2 s) {
+    final rng = Random(7);
+    final w = s.x;
+    // Buildings / trees silhouettes along the horizon line.
+    double x = 0;
+    while (x < w) {
+      final isTree = rng.nextBool();
+      final bw = isTree
+          ? 8.0 + rng.nextDouble() * 6.0
+          : 18.0 + rng.nextDouble() * 22.0;
+      final bh = isTree
+          ? 14.0 + rng.nextDouble() * 14.0
+          : 12.0 + rng.nextDouble() * 28.0;
+      _horizonBuildings.add(_HorizonBuilding(x, bw, bh, isTree));
+      x += bw + 2.0 + rng.nextDouble() * 4.0;
     }
   }
 
@@ -71,153 +77,169 @@ class RoadBackground extends PositionComponent
     final w = size.x;
     final h = size.y;
     final lm = gameRef.laneManager;
+    final horizonY = h * _horizonFrac;
 
-    final leftBot = lm.roadLeftAt(h);
-    final rightBot = lm.roadRightAt(h);
-    final leftTop = lm.roadLeftAt(0);
-    final rightTop = lm.roadRightAt(0);
-    final centerBot = lm.roadCenterAt(h);
-    final centerTop = lm.roadCenterAt(0);
-
-    // ── Sky gradient (top 10%) ────────────────────────────────────────────
-    final skyH = h * 0.10;
+    // ── Sky gradient ──────────────────────────────────────────────────────
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, w, skyH),
+      Rect.fromLTWH(0, 0, w, horizonY),
       Paint()
         ..shader = Gradient.linear(
           Offset.zero,
-          Offset(0, skyH),
+          Offset(0, horizonY),
           [_skyTop, _skyHorizon],
         ),
     );
 
-    // ── Grass everywhere below sky ───────────────────────────────────────
-    canvas.drawRect(Rect.fromLTWH(0, skyH, w, h - skyH), _grassPaint);
-
-    // Darker patches scattered.
-    final patchPaint = Paint()..color = _grassDark;
-    for (final patch in _grassPatches) {
-      if (patch.center.dy < skyH) continue;
-      canvas.drawOval(
-        Rect.fromCenter(
-            center: patch.center,
-            width: patch.radius,
-            height: patch.radius * 0.6),
-        patchPaint,
-      );
+    // ── Horizon silhouette band ──────────────────────────────────────────
+    final silhouettePaint = Paint()..color = const Color(0xFF2E3A2F);
+    for (final b in _horizonBuildings) {
+      if (b.isTree) {
+        // Tree silhouette — triangle on a tiny trunk.
+        canvas.drawRect(
+          Rect.fromLTWH(b.x + b.width * 0.42, horizonY - 2, b.width * 0.16, 2),
+          silhouettePaint,
+        );
+        final path = Path()
+          ..moveTo(b.x + b.width / 2, horizonY - b.height)
+          ..lineTo(b.x, horizonY - 2)
+          ..lineTo(b.x + b.width, horizonY - 2)
+          ..close();
+        canvas.drawPath(path, silhouettePaint);
+      } else {
+        canvas.drawRect(
+          Rect.fromLTWH(b.x, horizonY - b.height, b.width, b.height),
+          silhouettePaint,
+        );
+        // Window glint.
+        if (b.height > 16) {
+          canvas.drawRect(
+            Rect.fromLTWH(
+              b.x + b.width * 0.20,
+              horizonY - b.height * 0.6,
+              b.width * 0.12,
+              2,
+            ),
+            Paint()..color = const Color(0xFFFFE082),
+          );
+        }
+      }
     }
 
-    // ── Left cement footpath (curb side of left grass) ───────────────────
-    canvas.drawPath(
-      Path()
-        ..moveTo(leftBot - _cementStripWidth, h)
-        ..lineTo(leftBot, h)
-        ..lineTo(leftTop, 0)
-        ..lineTo(leftTop - _cementStripWidth, 0)
-        ..close(),
-      _cementPaint,
+    // ── Grass everywhere below horizon ────────────────────────────────────
+    canvas.drawRect(
+      Rect.fromLTWH(0, horizonY, w, h - horizonY),
+      Paint()..color = _grassColor,
     );
-    // Darker edge line on the OUTER side (grass side) of the cement.
-    canvas.drawLine(
-      Offset(leftTop - _cementStripWidth, 0),
-      Offset(leftBot - _cementStripWidth, h),
-      Paint()
-        ..color = _cementShadow
-        ..strokeWidth = 1.6,
+
+    // Distant grass — a slightly darker band right at the horizon.
+    canvas.drawRect(
+      Rect.fromLTWH(0, horizonY, w, 8),
+      Paint()..color = _grassDark,
     );
-    // Darker edge line on the INNER side (road side) of the cement.
+
+    // ── Geometry ──────────────────────────────────────────────────────────
+    final leftBot = lm.roadLeftAt(h);
+    final rightBot = lm.roadRightAt(h);
+    final leftTop = lm.roadLeftAt(horizonY);
+    final rightTop = lm.roadRightAt(horizonY);
+
+    // Footpath widths at top (perspective-scaled) and bottom.
+    const fpBot = _footpathWidthBot;
+    final fpTop = fpBot * (lm.roadWidthAt(horizonY) / lm.roadWidthAt(h));
+
+    // ── Left footpath (between grass and road left edge) ──────────────────
+    final leftFootPath = Path()
+      ..moveTo(leftBot - fpBot, h)
+      ..lineTo(leftBot, h)
+      ..lineTo(leftTop, horizonY)
+      ..lineTo(leftTop - fpTop, horizonY)
+      ..close();
+    canvas.drawPath(leftFootPath, Paint()..color = _footpathColor);
+    // Edge lines.
+    final edgePaint = Paint()
+      ..color = _footpathEdge
+      ..strokeWidth = 1.0;
     canvas.drawLine(
-      Offset(leftTop, 0),
+      Offset(leftTop - fpTop, horizonY),
+      Offset(leftBot - fpBot, h),
+      edgePaint,
+    );
+    canvas.drawLine(
+      Offset(leftTop, horizonY),
       Offset(leftBot, h),
-      Paint()
-        ..color = _cementShadow
-        ..strokeWidth = 1.6,
+      edgePaint,
     );
 
-    // ── Right cement footpath ────────────────────────────────────────────
-    canvas.drawPath(
-      Path()
-        ..moveTo(rightBot, h)
-        ..lineTo(rightBot + _cementStripWidth, h)
-        ..lineTo(rightTop + _cementStripWidth, 0)
-        ..lineTo(rightTop, 0)
-        ..close(),
-      _cementPaint,
-    );
+    // ── Right footpath ────────────────────────────────────────────────────
+    final rightFootPath = Path()
+      ..moveTo(rightBot, h)
+      ..lineTo(rightBot + fpBot, h)
+      ..lineTo(rightTop + fpTop, horizonY)
+      ..lineTo(rightTop, horizonY)
+      ..close();
+    canvas.drawPath(rightFootPath, Paint()..color = _footpathColor);
     canvas.drawLine(
-      Offset(rightTop, 0),
+      Offset(rightTop, horizonY),
       Offset(rightBot, h),
-      Paint()
-        ..color = _cementShadow
-        ..strokeWidth = 1.6,
+      edgePaint,
     );
     canvas.drawLine(
-      Offset(rightTop + _cementStripWidth, 0),
-      Offset(rightBot + _cementStripWidth, h),
-      Paint()
-        ..color = _cementShadow
-        ..strokeWidth = 1.6,
+      Offset(rightTop + fpTop, horizonY),
+      Offset(rightBot + fpBot, h),
+      edgePaint,
     );
 
-    // ── Road parallelogram ────────────────────────────────────────────────
+    // ── Road trapezoid ────────────────────────────────────────────────────
     final roadPath = Path()
       ..moveTo(leftBot, h)
       ..lineTo(rightBot, h)
-      ..lineTo(rightTop, 0)
-      ..lineTo(leftTop, 0)
+      ..lineTo(rightTop, horizonY)
+      ..lineTo(leftTop, horizonY)
       ..close();
-    canvas.drawPath(roadPath, _roadPaint);
+    canvas.drawPath(
+      roadPath,
+      Paint()
+        ..shader = Gradient.linear(
+          Offset(0, horizonY),
+          Offset(0, h),
+          [_roadFar, _roadNear],
+        ),
+    );
 
-    // ── Asphalt pebble texture ────────────────────────────────────────────
-    canvas.save();
-    canvas.clipPath(roadPath);
-    final pebblePaint = Paint()..color = _roadPebble;
-    for (final p in _pebbles) {
-      final t = (1.0 - p.dy / h).clamp(0.0, 1.0);
-      final rLeft = leftBot + (leftTop - leftBot) * t;
-      final rRight = rightBot + (rightTop - rightBot) * t;
-      if (p.dx >= rLeft && p.dx <= rRight) {
-        canvas.drawCircle(p, 1.2, pebblePaint);
-      }
-    }
-    canvas.restore();
+    // ── Road shoulder lines (white edges) ────────────────────────────────
+    final shoulderPaint = Paint()
+      ..color = _shoulderColor
+      ..strokeWidth = 1.4;
+    canvas.drawLine(
+      Offset(leftTop, horizonY),
+      Offset(leftBot, h),
+      shoulderPaint,
+    );
+    canvas.drawLine(
+      Offset(rightTop, horizonY),
+      Offset(rightBot, h),
+      shoulderPaint,
+    );
 
-    // ── Curb (1px bright white at road edges) ─────────────────────────────
-    final curbPaint = Paint()
-      ..color = _curbColor
-      ..strokeWidth = 1.2;
-    canvas.drawLine(Offset(leftTop, 0), Offset(leftBot, h), curbPaint);
-    canvas.drawLine(Offset(rightTop, 0), Offset(rightBot, h), curbPaint);
-
-    // ── Subtle tyre tracks (slightly darker lines on road) ────────────────
-    final trackPaint = Paint()
-      ..color = const Color(0x22000000)
-      ..strokeWidth = 3.0;
-    for (final frac in const [0.32, 0.68]) {
-      final xBot = leftBot + (rightBot - leftBot) * frac;
-      final xTop = leftTop + (rightTop - leftTop) * frac;
-      canvas.drawLine(Offset(xTop, 0), Offset(xBot, h), trackPaint);
-    }
-
-    // ── Dashed centre line (follows diagonal, tilts with road angle) ──────
+    // ── Dashed centre line ────────────────────────────────────────────────
+    // Centre is always at W*0.5 — draw trapezoidal dashes, wider near bottom.
+    final centerX = w * 0.5;
     final lanePaint = Paint()..color = _laneLineColor;
-    var dy = -_cycle + _dashOffset;
+    var dy = horizonY - _cycle + _dashOffset;
     while (dy < h) {
-      final y1 = dy.clamp(0.0, h);
-      final y2 = (dy + _dashLen).clamp(0.0, h);
+      final y1 = dy.clamp(horizonY, h);
+      final y2 = (dy + _dashLen).clamp(horizonY, h);
       if (y2 > y1) {
-        final t1 = (1.0 - y1 / h).clamp(0.0, 1.0);
-        final t2 = (1.0 - y2 / h).clamp(0.0, 1.0);
-        final cx1 = centerBot + (centerTop - centerBot) * t1;
-        final cx2 = centerBot + (centerTop - centerBot) * t2;
-        final hw1 = 1.5 + 3.0 * (y1 / h);
-        final hw2 = 1.5 + 3.0 * (y2 / h);
+        final t1 = ((y1 - horizonY) / (h - horizonY)).clamp(0.0, 1.0);
+        final t2 = ((y2 - horizonY) / (h - horizonY)).clamp(0.0, 1.0);
+        final hw1 = 1.0 + 3.5 * t1;
+        final hw2 = 1.0 + 3.5 * t2;
         canvas.drawPath(
           Path()
-            ..moveTo(cx1 - hw1, y1)
-            ..lineTo(cx1 + hw1, y1)
-            ..lineTo(cx2 + hw2, y2)
-            ..lineTo(cx2 - hw2, y2)
+            ..moveTo(centerX - hw1, y1)
+            ..lineTo(centerX + hw1, y1)
+            ..lineTo(centerX + hw2, y2)
+            ..lineTo(centerX - hw2, y2)
             ..close(),
           lanePaint,
         );
@@ -225,34 +247,23 @@ class RoadBackground extends PositionComponent
       dy += _cycle;
     }
 
-    // ── Horizon depth fade ───────────────────────────────────────────────
-    final horizonRect = Rect.fromLTRB(leftTop - 12, 0, rightTop + 12, h * 0.20);
+    // ── Distance fade — subtle haze near the horizon ─────────────────────
     canvas.drawRect(
-      horizonRect,
+      Rect.fromLTWH(0, horizonY, w, h * 0.10),
       Paint()
         ..shader = Gradient.linear(
-          horizonRect.topCenter,
-          horizonRect.bottomCenter,
-          [const Color(0x55505050), const Color(0x00505050)],
-        ),
-    );
-
-    // ── Bottom vignette for ground contact ────────────────────────────────
-    final vigRect = Rect.fromLTWH(0, h * 0.85, w, h * 0.15);
-    canvas.drawRect(
-      vigRect,
-      Paint()
-        ..shader = Gradient.linear(
-          vigRect.topCenter,
-          vigRect.bottomCenter,
-          [const Color(0x00000000), const Color(0x44000000)],
+          Offset(0, horizonY),
+          Offset(0, horizonY + h * 0.10),
+          [const Color(0x55D4E8C2), const Color(0x00D4E8C2)],
         ),
     );
   }
 }
 
-class _GrassPatch {
-  final Offset center;
-  final double radius;
-  _GrassPatch(this.center, this.radius);
+class _HorizonBuilding {
+  final double x;
+  final double width;
+  final double height;
+  final bool isTree;
+  _HorizonBuilding(this.x, this.width, this.height, this.isTree);
 }

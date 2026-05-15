@@ -139,18 +139,27 @@ class ObstacleComponent extends PositionComponent
           priority: 3,
         );
 
-  bool get isLethal =>
-      type == ObstacleType.car ||
-      type == ObstacleType.dog ||
-      type == ObstacleType.worker ||
-      type == ObstacleType.kidBike;
+  /// Truly hazardous obstacles that hurt the player on collision. Soft
+  /// obstacles (animals, cones, workers, hydrants, trash) just get knocked
+  /// or jumped over.
+  bool get isHazardous {
+    switch (type) {
+      case ObstacleType.car:
+      case ObstacleType.barrier:
+      case ObstacleType.pothole:
+      case ObstacleType.kidBike:
+      case ObstacleType.manhole:
+        return true;
+      case ObstacleType.dog:
+      case ObstacleType.worker:
+      case ObstacleType.cone:
+      case ObstacleType.hydrant:
+      case ObstacleType.trashBin:
+        return false;
+    }
+  }
 
   bool get isDrenching => type == ObstacleType.hydrant;
-
-  bool get isStaticOnSidewalk =>
-      type == ObstacleType.worker ||
-      type == ObstacleType.trashBin ||
-      onRightSidewalk;
 
   bool get hasLateralSweep =>
       type == ObstacleType.dog || type == ObstacleType.kidBike;
@@ -1381,16 +1390,18 @@ class ObstacleComponent extends PositionComponent
     if (_hasHitPlayer) return;
     if (other is PlayerComponent) {
       _hasHitPlayer = true;
-      if (isStaticOnSidewalk && !isLethal) return;
-      if (isDrenching) {
-        gameRef.onPlayerDrenched();
+      // Non-hazardous obstacles never damage the player — they react
+      // (knock over, get drenched, etc.) but the bike rolls through.
+      if (!isHazardous) {
+        if (isDrenching) {
+          gameRef.onPlayerDrenched();
+        }
+        // Trigger the obstacle's own paper-hit reaction so it visibly
+        // reacts to being run through (cone falls, dog tumbles, etc.).
+        onHitByPaper();
         return;
       }
-      if (isLethal) {
-        gameRef.onPlayerHitObstacle();
-      } else {
-        gameRef.onPlayerHitSlowObstacle();
-      }
+      gameRef.onPlayerHitObstacle();
     }
   }
 }

@@ -181,13 +181,14 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
   }
 
-  /// Count visible mailboxes currently within the viewport. Used by
-  /// "smart paper count" logic.
+  /// Count visible undelivered mailboxes currently within the viewport.
+  /// Used by "smart paper count" logic.
   int countVisibleMailboxes() {
     final h = size.y;
     return descendants()
         .whereType<MailboxComponent>()
         .where((m) {
+          if (m.delivered) return false;
           final ap = m.absolutePosition;
           return ap.y >= 0 && ap.y <= h;
         })
@@ -359,6 +360,43 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   }
 
   // ── Events ────────────────────────────────────────────────────────────
+
+  void onPaperHitDoorMat(DoorMatComponent mat, Vector2 position) {
+    mat.onPaperHit();
+    // Door mat counts as a delivery — combo + score, similar to a blue mailbox.
+    comboCount++;
+    deliveredCount++;
+    hud.updateDelivery(deliveredCount);
+    if (comboCount > bestComboThisRun) bestComboThisRun = comboCount;
+    final mult = comboMultiplier(comboCount);
+    final pts = DoorMatComponent.bonusPoints * mult;
+    final bonus = pts - DoorMatComponent.bonusPoints;
+    const coinsBase = 1;
+    final coinMult =
+        config.coinMultiplier * (config.doubleCoins ? 2 : 1);
+    final coins = (coinsBase * coinMult).round();
+    _addScore(pts, position, color: const Color(0xFFFFD600));
+    coinsThisRun += coins;
+    hud.updateCoins(coinsThisRun);
+    hud.updateCombo(comboCount, mult);
+    add(ParticleBurst(
+      position: position,
+      color: const Color(0xFFFFD600),
+      color2: const Color(0xFFFFEB3B),
+      count: 14,
+      spread: 140,
+    ));
+    if (bonus > 0) {
+      add(FloatingText(
+        text: '+$bonus BONUS',
+        position: position - Vector2(0, 18),
+        color: const Color(0xFFFFEB3B),
+      ));
+    }
+    AudioService.instance.playDelivery();
+    hud.updateBonus(bonus);
+    _triggerHitFlash();
+  }
 
   void onPaperHitMailbox(bool isBlue, Vector2 position) {
     if (isBlue) {

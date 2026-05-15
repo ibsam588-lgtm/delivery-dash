@@ -37,8 +37,8 @@ android {
         applicationId = "com.corsairlabs.delivery_dash"
         minSdk = 21
         targetSdk = 35
-        versionCode = 31
-        versionName = "2.2.0"
+        versionCode = 32
+        versionName = "3.0.0"
     }
 
     buildTypes {

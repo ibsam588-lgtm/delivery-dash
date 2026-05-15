@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import '../delivery_dash_game.dart';
+import 'house.dart';
 import 'house_window.dart';
 import 'mailbox.dart';
 import 'obstacle.dart';
@@ -178,10 +179,19 @@ class PaperComponent extends PositionComponent
     super.onCollisionStart(intersectionPoints, other);
     if (_hasHit) return;
     if (other is MailboxComponent) {
+      if (other.delivered) return;
       _hasHit = true;
       final worldHit = other.absolutePosition.clone();
       gameRef.onPaperHitMailbox(other.isBlue, worldHit);
-      other.startPopAnimation();
+      other.markDelivered();
+      removeFromParent();
+      return;
+    }
+    if (other is DoorMatComponent) {
+      if (other.delivered) return;
+      _hasHit = true;
+      final worldHit = other.absolutePosition.clone();
+      gameRef.onPaperHitDoorMat(other, worldHit);
       removeFromParent();
       return;
     }
