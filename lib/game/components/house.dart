@@ -101,12 +101,10 @@ const List<Color> _flowerColors = [
 /// left or right edge of the screen — never moves horizontally.
 class HouseComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  // Narrow enough to fit inside the sidewalk strip on either edge of the
-  // screen. The road takes the centre ~70% of the screen at player depth,
-  // so each sidewalk is ~15%. 110px is a sensible mid-range that doesn't
-  // overlap the road on common phone widths.
+  // Road is now 50% of screen at player depth — each sidewalk is ~25%.
+  // On a 390px screen that gives ~97px. 95px fits cleanly inside.
   static const double rowSpacing = 165.0;
-  static const double fixedWidth = 110.0;
+  static const double fixedWidth = 95.0;
   static const double fixedHeight = 154.0;
 
   static const double _parallaxFactor = 1.0;
