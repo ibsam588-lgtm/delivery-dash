@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:ui' as ui;
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flutter/painting.dart' hide Gradient;
 import '../delivery_dash_game.dart';
 import 'player.dart';
 
