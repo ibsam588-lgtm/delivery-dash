@@ -116,6 +116,10 @@ class HouseComponent extends PositionComponent
   final Random _rng = Random();
   final bool onRight;
 
+  // X is pinned in onLoad and re-asserted every frame. Houses NEVER move
+  // horizontally — only Y scrolls.
+  double _pinnedX = 0.0;
+
   MailboxComponent? _mailbox;
   final List<HouseWindow> _windows = [];
   DoorMatComponent? _doorMat;
@@ -139,11 +143,8 @@ class HouseComponent extends PositionComponent
   @override
   Future<void> onLoad() async {
     // X is pinned to the screen edge — never changes after this point.
-    if (onRight) {
-      position = Vector2(gameRef.size.x - size.x, _initialY);
-    } else {
-      position = Vector2(0.0, _initialY);
-    }
+    _pinnedX = onRight ? gameRef.size.x - size.x : 0.0;
+    position = Vector2(_pinnedX, _initialY);
     _spawnWindows();
     _regenerateMailbox();
     _maybeSpawnDoorMat();
@@ -550,11 +551,18 @@ class HouseComponent extends PositionComponent
   @override
   void update(double dt) {
     super.update(dt);
+    // Hard pin: X never changes for a house, no matter what.
+    if (position.x != _pinnedX) position.x = _pinnedX;
+
     if (gameRef.state != GameState.playing) return;
     position.y += gameRef.scrollSpeed * _parallaxFactor * dt;
 
-    if (position.y > gameRef.size.y + size.y) {
-      final rows = ((position.y - gameRef.size.y) / rowSpacing).ceil();
+    // Recycle once the house has fully scrolled past the bottom. With
+    // anchor=bottomLeft the visible band ends at position.y, so once
+    // position.y > screenH the house is fully off-screen.
+    if (position.y > gameRef.size.y) {
+      final rows =
+          ((position.y - gameRef.size.y) / rowSpacing).ceil().clamp(1, 100);
       position.y -= rows * rowSpacing;
       _index = (_index + 2) % _palettes.length;
       _layoutWindows();
@@ -564,7 +572,6 @@ class HouseComponent extends PositionComponent
       _regenerateMailbox();
       _maybeSpawnDoorMat();
     }
-    // X is never modified — pinned at onLoad to a screen edge.
   }
 }
 

@@ -27,7 +27,7 @@ class ParkedCarComponent extends PositionComponent
       : super(
           size: Vector2(68, 105),
           anchor: Anchor.center,
-          priority: 2,
+          priority: 15,
         );
 
   static int get colorCount => _bodyColors.length;

@@ -74,7 +74,12 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   DeliveryDashGame({this.config = const GameConfig()});
 
-  double get scrollSpeed => currentSpeed * _slowFactor * _zoneSlow;
+  /// Hard cap on per-frame world scroll speed. Beyond this the game becomes
+  /// unreadable and component pile-up causes frame hitches / hangs.
+  static const double maxScrollSpeed = 600.0;
+
+  double get scrollSpeed =>
+      (currentSpeed * _slowFactor * _zoneSlow).clamp(0.0, maxScrollSpeed);
 
   void applyConstructionSlow() {
     _zoneSlow = 0.7;
@@ -133,8 +138,9 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     distanceMeters = 0;
     deliveredCount = 0;
     final cfg = LevelConfig.of(level);
-    currentSpeed = (cfg.startSpeed + (config.speedBoostStart ? 60 : 0)) *
-        config.speedMultiplier;
+    currentSpeed = ((cfg.startSpeed + (config.speedBoostStart ? 60 : 0)) *
+            config.speedMultiplier)
+        .clamp(0.0, maxScrollSpeed);
     isInvincible = false;
     _slowFactor = 1.0;
     _slowTimer = 0;
@@ -237,7 +243,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
 
     final cfg = LevelConfig.of(level);
-    final maxSpeed = cfg.startSpeed * 1.5 * config.speedMultiplier;
+    final maxSpeed = (cfg.startSpeed * 1.5 * config.speedMultiplier)
+        .clamp(0.0, maxScrollSpeed);
     currentSpeed = (currentSpeed + 8 * dt).clamp(0, maxSpeed);
 
     distanceMeters += scrollSpeed * dt / LevelConfig.pxPerMeter;
@@ -277,7 +284,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       if (level > highestLevelThisRun) highestLevelThisRun = level;
     }
     final cfg = LevelConfig.of(level);
-    currentSpeed = cfg.startSpeed * config.speedMultiplier;
+    currentSpeed =
+        (cfg.startSpeed * config.speedMultiplier).clamp(0.0, maxScrollSpeed);
 
     // Smart-paper allotment: visible mailboxes + 3, scaled by difficulty.
     final visible = countVisibleMailboxes();

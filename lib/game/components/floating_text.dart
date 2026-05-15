@@ -25,7 +25,7 @@ class FloatingText extends TextComponent {
           ),
           position: position,
           anchor: Anchor.center,
-          priority: 20,
+          priority: 150,
         );
 
   @override

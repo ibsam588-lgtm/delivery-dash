@@ -136,7 +136,7 @@ class ObstacleComponent extends PositionComponent
         super(
           size: _sizeFor(type),
           anchor: Anchor.center,
-          priority: 3,
+          priority: 10,
         );
 
   /// Truly hazardous obstacles that hurt the player on collision. Soft

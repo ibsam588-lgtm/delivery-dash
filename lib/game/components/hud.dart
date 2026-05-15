@@ -31,7 +31,7 @@ class Hud extends PositionComponent with HasGameRef<DeliveryDashGame> {
 
   double _comboBorderFlash = 0;
 
-  Hud() : super(priority: 1000);
+  Hud() : super(priority: 200);
 
   @override
   Future<void> onLoad() async {

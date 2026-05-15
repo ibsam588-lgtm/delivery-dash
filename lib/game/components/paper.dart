@@ -31,7 +31,7 @@ class PaperComponent extends PositionComponent
           size: Vector2(34, 18),
           anchor: Anchor.center,
           position: startPosition,
-          priority: 6,
+          priority: 50,
         );
 
   static Vector2 _initialVelocity(double angleDeg) {

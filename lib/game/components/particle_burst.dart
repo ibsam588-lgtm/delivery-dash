@@ -22,7 +22,7 @@ class ParticleBurst extends PositionComponent {
     double pixelSize = 4,
   })  : _life = maxLife,
         _maxLife = maxLife,
-        super(position: position, priority: 25) {
+        super(position: position, priority: 150) {
     for (var i = 0; i < count; i++) {
       final ang = _rng.nextDouble() * 2 * pi;
       final speed = spread * (0.4 + _rng.nextDouble() * 0.8);
@@ -84,7 +84,7 @@ class GlassShardBurst extends PositionComponent {
   static const double _maxLife = 0.6;
 
   GlassShardBurst({required Vector2 position})
-      : super(position: position, priority: 25) {
+      : super(position: position, priority: 150) {
     final count = 6 + _rng.nextInt(3);
     for (var i = 0; i < count; i++) {
       final ang = _rng.nextDouble() * 2 * pi;
@@ -162,7 +162,7 @@ class FlyingHatComponent extends PositionComponent {
   double _vx = 0;
 
   FlyingHatComponent({required Vector2 position})
-      : super(position: position, size: Vector2(12, 8), priority: 25) {
+      : super(position: position, size: Vector2(12, 8), priority: 150) {
     _vy = -130.0 - _rng.nextDouble() * 50;
     _vx = (_rng.nextBool() ? 1 : -1) * (15.0 + _rng.nextDouble() * 25);
   }
