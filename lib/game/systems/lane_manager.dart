@@ -5,19 +5,19 @@ import 'package:flame/components.dart';
 /// The road runs diagonally from lower-left (bottom of screen) toward
 /// upper-right (horizon), matching the classic Paperboy arcade look.
 ///
-///   y = gameSize.y (foreground) → road spans [0.16W .. 0.64W], width 0.48W
-///   y = 0           (horizon)   → road spans [0.48W .. 0.80W], width 0.32W
+///   y = gameSize.y (foreground) → road spans [0.04W .. 0.72W], width 0.68W
+///   y = 0           (horizon)   → road spans [0.32W .. 0.88W], width 0.56W
 ///
 /// t = 1 − y/H   (0 at bottom, 1 at top)
-/// leftFrac(t)  = 0.16 + 0.32·t
-/// rightFrac(t) = 0.64 + 0.16·t
+/// leftFrac(t)  = 0.04 + 0.28·t
+/// rightFrac(t) = 0.72 + 0.16·t
 class LaneManager {
   final Vector2 gameSize;
 
   // Diagonal road edge fractions.
-  static const double _leftBase = 0.16;
-  static const double _leftSlope = 0.32;
-  static const double _rightBase = 0.64;
+  static const double _leftBase = 0.04;
+  static const double _leftSlope = 0.28;
+  static const double _rightBase = 0.72;
   static const double _rightSlope = 0.16;
 
   // Reference depth for backward-compat flat getters (≈ player Y fraction).

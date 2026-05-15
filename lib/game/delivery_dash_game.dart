@@ -428,7 +428,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       spread: 100,
       pixelSize: 2,
     ));
-    AudioService.instance.playHit();
+    AudioService.instance.playWindowSmash();
     _triggerHitFlash();
   }
 

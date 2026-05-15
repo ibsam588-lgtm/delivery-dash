@@ -78,6 +78,7 @@ class AudioService {
 
   void playDelivery() => _play(_delivery);
   void playHit() => _play(_hit);
+  void playWindowSmash() => _play(_hit);
   void playSplash() => _play(_splash);
   void playPickup() => _play(_pickup);
   void playLevelUp() => _play(_levelup);

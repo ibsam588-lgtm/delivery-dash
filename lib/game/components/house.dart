@@ -18,11 +18,10 @@ const List<Color> _curtainColors = [
 /// Isometric 3-D house — front face + side face + gable roof, Paperboy style.
 class HouseComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  static const double rowSpacing = 180.0;
-  static const double fixedWidth = 100.0;
-  static const double fixedHeight = 112.0;
+  static const double rowSpacing = 160.0;
+  static const double fixedWidth = 160.0;
+  static const double fixedHeight = 150.0;
 
-  // Houses scroll at exactly road speed — no parallax drift.
   static const double _parallaxFactor = 1.0;
 
   final double _initialY;
