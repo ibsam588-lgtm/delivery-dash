@@ -398,20 +398,3 @@ class PlayerComponent extends PositionComponent
     // ── Throwing arm overlay (in the chosen throw direction) ──────────────
     if (_throwArmTimer > 0) {
       final t = _throwArmTimer / _throwArmDuration;
-      final base = _throwArmLeft
-          ? Offset(w * 0.30, h * 0.30)
-          : Offset(w * 0.70, h * 0.30);
-      final dir = _throwArmLeft ? -1.0 : 1.0;
-      final tip = Offset(base.dx + dir * (20 * t + 8), base.dy - 10 * t);
-      canvas.drawLine(
-        base,
-        tip,
-        Paint()
-          ..color = const Color(0xFF1565C0)
-          ..strokeWidth = 5
-          ..strokeCap = StrokeCap.round,
-      );
-      canvas.drawCircle(tip, 4.0, Paint()..color = const Color(0xFFFFCC80));
-    }
-  }
-}

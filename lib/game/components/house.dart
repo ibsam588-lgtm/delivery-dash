@@ -130,7 +130,7 @@ class HouseComponent extends PositionComponent
         super(
           size: Vector2(fixedWidth, fixedHeight),
           anchor: Anchor.bottomLeft,
-          priority: -20,
+          priority: 5,
         );
 
   _Palette _palette() => _palettes[_index % _palettes.length];
@@ -553,99 +553,12 @@ class HouseComponent extends PositionComponent
     if (gameRef.state != GameState.playing) return;
     position.y += gameRef.scrollSpeed * _parallaxFactor * dt;
 
-    if (position.y > gameRef.size.y + size.y) {
-      final rows = ((position.y - gameRef.size.y) / rowSpacing).ceil();
-      position.y -= rows * rowSpacing;
-      _index = (_index + 2) % _palettes.length;
-      _layoutWindows();
-      for (final win in _windows) {
-        win.restore();
-      }
+    if (position.y > gameRef.size.y  + fixedHeight) {
+      position.y = -fixedHeight * 2;
+      _index = (_index + _rng.nextInt(5) + 1) % _palettes.length;
+      _spawnWindows();
       _regenerateMailbox();
       _maybeSpawnDoorMat();
-    }
-    // X is never modified — pinned at onLoad to a screen edge.
-  }
-}
-
-/// Door mat in front of a house — high-value paper delivery target (+25 pts).
-class DoorMatComponent extends PositionComponent
-    with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
-  static const int bonusPoints = 25;
-
-  bool _delivered = false;
-  double _flashTimer = 0;
-  static const double _flashDuration = 0.5;
-
-  DoorMatComponent()
-      : super(
-          size: Vector2(34, 12),
-          anchor: Anchor.topLeft,
-          priority: 2,
-        );
-
-  bool get delivered => _delivered;
-
-  @override
-  Future<void> onLoad() async {
-    add(RectangleHitbox(
-      size: size * 0.95,
-      position: size * 0.025,
-      collisionType: CollisionType.passive,
-    ));
-  }
-
-  void onPaperHit() {
-    if (_delivered) return;
-    _delivered = true;
-    _flashTimer = _flashDuration;
-  }
-
-  @override
-  void update(double dt) {
-    super.update(dt);
-    if (_flashTimer > 0) {
-      _flashTimer = (_flashTimer - dt).clamp(0.0, _flashDuration);
-    }
-  }
-
-  @override
-  void render(Canvas canvas) {
-    final w = size.x;
-    final h = size.y;
-
-    // Mat body — brown/tan rectangle.
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, w, h),
-      Paint()..color = const Color(0xFF8D6E63),
-    );
-    // Darker border.
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, w, h),
-      Paint()
-        ..color = const Color(0xFF4E342E)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0,
-    );
-    // Stripe pattern.
-    final stripe = Paint()..color = const Color(0xFF6D4C41);
-    for (double sx = 2; sx < w - 2; sx += 5) {
-      canvas.drawRect(Rect.fromLTWH(sx, 2, 1.5, h - 4), stripe);
-    }
-    // "WELCOME" hint — light dot pattern in the middle.
-    final dot = Paint()..color = const Color(0xFFD7CCC8);
-    for (double dx = 6; dx < w - 6; dx += 4) {
-      canvas.drawCircle(Offset(dx, h * 0.5), 0.6, dot);
-    }
-
-    if (_delivered) {
-      // Bright golden glow over the mat after delivery.
-      final phase = _flashTimer / _flashDuration;
-      final alpha = (phase * 0.65).clamp(0.0, 0.65);
-      canvas.drawRect(
-        Rect.fromLTWH(-2, -2, w + 4, h + 4),
-        Paint()..color = const Color(0xFFFFD600).withValues(alpha: alpha),
-      );
     }
   }
 }
