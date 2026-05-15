@@ -27,8 +27,8 @@ class _GameScreenState extends State<GameScreen> {
     super.didChangeDependencies();
     if (_game != null) return;
 
-    final arg = ModalRoute.of(context)?.settings.arguments;
-    final difficulty = arg is Difficulty ? arg : Difficulty.medium;
+    // Always start at Day 1 — difficulty selector has been removed.
+    const difficulty = Difficulty.easy;
 
     final store = StoreService.instance;
     final config = GameConfig(

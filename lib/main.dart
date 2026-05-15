@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'screens/game_over_screen.dart';
 import 'screens/game_screen.dart';
 import 'screens/main_menu_screen.dart';
@@ -47,6 +48,7 @@ class DeliveryDashApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final baseTextTheme = ThemeData(brightness: Brightness.dark).textTheme;
     return MaterialApp(
       title: 'Delivery Dash',
       debugShowCheckedModeBanner: false,
@@ -59,6 +61,17 @@ class DeliveryDashApp extends StatelessWidget {
           secondary: Color(0xFFFFD600),
           surface: Color(0xFF1A1A2E),
           error: Color(0xFFFF1744),
+        ),
+        // Body/HUD text — Orbitron for a retro arcade feel.
+        textTheme: GoogleFonts.orbitronTextTheme(baseTextTheme).copyWith(
+          bodyMedium: GoogleFonts.orbitron(
+            textStyle: baseTextTheme.bodyMedium,
+            fontWeight: FontWeight.w700,
+          ),
+          bodyLarge: GoogleFonts.orbitron(
+            textStyle: baseTextTheme.bodyLarge,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       initialRoute: '/',

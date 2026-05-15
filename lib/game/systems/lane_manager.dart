@@ -56,6 +56,10 @@ class LaneManager {
   double get rightSidewalkWidth => gameSize.x - roadRight;
   double get sidewalkWidth => leftSidewalkWidth;
 
+  // Player can move from left footpath to right footpath.
+  double get playerMinX => 0;
+  double get playerMaxX => gameSize.x;
+
   // ── Compat shims for callers that still pass a Y ─────────────────────────
 
   double leftSidewalkRightAt(double y) => roadLeftAt(y);

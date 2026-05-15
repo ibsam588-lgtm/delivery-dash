@@ -88,10 +88,11 @@ class HouseWindow extends PositionComponent
 
   @override
   void render(Canvas canvas) {
+    // Thick white frame (drawn after fill).
     final frame = Paint()
-      ..color = const Color(0xFF3E2A1E)
+      ..color = const Color(0xFFFAFAFA)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 3;
 
     if (!broken) {
       // Glassy pane.
@@ -100,25 +101,52 @@ class HouseWindow extends PositionComponent
         Paint()..color = const Color(0xFFB3E5FC),
       );
 
-      // Curtains at the edges.
+      // Curtain triangles at each side (random soft colour).
       final cc = curtainColor;
       if (cc != null) {
-        final cw = size.x * 0.22;
-        final curtainPaint = Paint()..color = cc.withValues(alpha: 0.55);
-        canvas.drawRect(Rect.fromLTWH(0, 0, cw, size.y), curtainPaint);
-        canvas.drawRect(Rect.fromLTWH(size.x - cw, 0, cw, size.y), curtainPaint);
+        final curtainPaint = Paint()..color = cc.withValues(alpha: 0.75);
+        // Left curtain: triangle along left edge, hangs from top.
+        final leftCurtain = Path()
+          ..moveTo(0, 0)
+          ..lineTo(size.x * 0.32, 0)
+          ..lineTo(0, size.y * 0.85)
+          ..close();
+        canvas.drawPath(leftCurtain, curtainPaint);
+        // Right curtain: mirror.
+        final rightCurtain = Path()
+          ..moveTo(size.x, 0)
+          ..lineTo(size.x * 0.68, 0)
+          ..lineTo(size.x, size.y * 0.85)
+          ..close();
+        canvas.drawPath(rightCurtain, curtainPaint);
+        // Subtle fold highlight on each curtain.
+        final foldPaint = Paint()
+          ..color = const Color(0x55FFFFFF)
+          ..strokeWidth = 1.0;
+        canvas.drawLine(
+          Offset(size.x * 0.10, 0),
+          Offset(0, size.y * 0.55),
+          foldPaint,
+        );
+        canvas.drawLine(
+          Offset(size.x * 0.90, 0),
+          Offset(size.x, size.y * 0.55),
+          foldPaint,
+        );
       }
 
-      // Cross mullion.
+      // White cross mullion (vertical + horizontal).
       final mullion = Paint()
-        ..color = const Color(0xFF3E2A1E)
-        ..strokeWidth = 1.5;
-      canvas.drawLine(Offset(size.x / 2, 0), Offset(size.x / 2, size.y), mullion);
-      canvas.drawLine(Offset(0, size.y / 2), Offset(size.x, size.y / 2), mullion);
-      // Highlight.
+        ..color = const Color(0xFFFAFAFA)
+        ..strokeWidth = 2.5;
+      canvas.drawLine(
+          Offset(size.x / 2, 0), Offset(size.x / 2, size.y), mullion);
+      canvas.drawLine(
+          Offset(0, size.y / 2), Offset(size.x, size.y / 2), mullion);
+      // Highlight (glare in top-left pane).
       canvas.drawRect(
-        Rect.fromLTWH(2, 2, size.x * 0.28, size.y * 0.28),
-        Paint()..color = const Color(0xCCFFFFFF),
+        Rect.fromLTWH(2, 2, size.x * 0.20, size.y * 0.20),
+        Paint()..color = const Color(0x99FFFFFF),
       );
       canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y), frame);
     } else {

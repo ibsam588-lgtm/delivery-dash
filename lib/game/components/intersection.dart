@@ -21,7 +21,7 @@ class IntersectionComponent extends PositionComponent
       : super(
           size: Vector2(0, bandHeight),
           anchor: Anchor.topLeft,
-          priority: -8,
+          priority: -9,
         );
 
   @override
@@ -62,12 +62,28 @@ class IntersectionComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    final w = size.x;
     final h = size.y;
+    final lm = gameRef.laneManager;
 
-    // Asphalt band covers entire width (the cross-street).
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, w, h),
+    // Asphalt cross-street: a band that spans only the road width at the
+    // band's Y (so houses & grass outside the road remain visible). The
+    // road tapers with perspective, so use the road bounds at top & bottom
+    // of this band (in world coords) to build a parallelogram.
+    final topY = position.y;
+    final botY = position.y + h;
+    final leftTop = lm.roadLeftAt(topY);
+    final rightTop = lm.roadRightAt(topY);
+    final leftBot = lm.roadLeftAt(botY);
+    final rightBot = lm.roadRightAt(botY);
+
+    final asphaltPath = Path()
+      ..moveTo(leftTop, 0)
+      ..lineTo(rightTop, 0)
+      ..lineTo(rightBot, h)
+      ..lineTo(leftBot, h)
+      ..close();
+    canvas.drawPath(
+      asphaltPath,
       Paint()..color = const Color(0xFF2A2A2A),
     );
 
@@ -76,27 +92,24 @@ class IntersectionComponent extends PositionComponent
     const stripeW = 18.0;
     const stripeGap = 12.0;
     const stripeH = 14.0;
-    final lm = gameRef.laneManager;
-    var cx = lm.roadLeft + 4;
-    while (cx + stripeW < lm.roadRight - 4) {
+    // Stripes at top edge — use roadLeftAt(topY).
+    var cx = leftTop + 4;
+    while (cx + stripeW < rightTop - 4) {
       canvas.drawRect(
         Rect.fromLTWH(cx, 4, stripeW, stripeH),
         stripePaint,
       );
+      cx += stripeW + stripeGap;
+    }
+    // Stripes at bottom edge — use roadLeftAt(botY).
+    cx = leftBot + 4;
+    while (cx + stripeW < rightBot - 4) {
       canvas.drawRect(
         Rect.fromLTWH(cx, h - stripeH - 4, stripeW, stripeH),
         stripePaint,
       );
       cx += stripeW + stripeGap;
     }
-
-    // Sidewalk corners (extend the concrete out into the cross-street).
-    final sw = Paint()..color = const Color(0xFFC8B89A);
-    canvas.drawRect(Rect.fromLTWH(0, 0, lm.roadLeft, h), sw);
-    canvas.drawRect(
-      Rect.fromLTWH(lm.roadRight, 0, w - lm.roadRight, h),
-      sw,
-    );
   }
 }
 

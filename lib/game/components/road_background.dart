@@ -13,8 +13,8 @@ class RoadBackground extends PositionComponent
   // Grass / sidewalk
   static const Color _grassBase = Color(0xFF4CAF50);
   static const Color _grassDark = Color(0xFF388E3C);
-  static const Color _cementColor = Color(0xFFCCCCCC);
-  static const Color _cementShadow = Color(0xFFB0B0B0);
+  static const Color _cementColor = Color(0xFFB0BEB8);
+  static const Color _cementShadow = Color(0xFF8FA095);
 
   // Road
   static const Color _roadColor = Color(0xFF5A5A5A);
@@ -25,7 +25,7 @@ class RoadBackground extends PositionComponent
   static const double _dashLen = 40.0;
   static const double _gapLen = 30.0;
   static const double _cycle = _dashLen + _gapLen;
-  static const double _cementStripWidth = 12.0;
+  static const double _cementStripWidth = 20.0;
 
   final Paint _roadPaint = Paint()..color = _roadColor;
   final Paint _grassPaint = Paint()..color = _grassBase;

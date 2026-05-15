@@ -8,8 +8,8 @@ import 'mailbox.dart';
 import 'obstacle.dart';
 import 'parked_car.dart';
 
-/// Flying folded newspaper. Always arcs toward the upper-left toward
-/// houses on the left sidewalk. Spins visibly.
+/// Flying rolled-up newspaper. Arcs toward the upper-left or upper-right
+/// depending on the throw direction. Spins visibly.
 class PaperComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame>, CollisionCallbacks {
   static const double _baseSpeed = 540.0;
@@ -27,7 +27,7 @@ class PaperComponent extends PositionComponent
     double angleDeg = _throwAngleDeg,
   })  : _velocity = _initialVelocity(angleDeg),
         super(
-          size: Vector2(32, 40),
+          size: Vector2(34, 18),
           anchor: Anchor.center,
           position: startPosition,
           priority: 6,
@@ -68,120 +68,98 @@ class PaperComponent extends PositionComponent
     final w = size.x;
     final h = size.y;
 
-    // Drop shadow.
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(2, 3, w, h),
-        const Radius.circular(2),
+    // Drop shadow — flat oval beneath the cylinder.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.5, h * 1.05),
+        width: w * 0.85,
+        height: h * 0.35,
       ),
       Paint()..color = const Color(0x55000000),
     );
 
-    // Cream paper body with gradient.
-    final bodyRect = Rect.fromLTWH(0, 0, w, h);
-    final bodyRRect =
-        RRect.fromRectAndRadius(bodyRect, const Radius.circular(2));
-    canvas.drawRRect(
-      bodyRRect,
+    // ── Rolled newspaper as a horizontal cylinder ──────────────────────────
+    // Cylinder body (rectangle between the two end caps).
+    final bodyRect = Rect.fromLTRB(w * 0.15, h * 0.10, w * 0.85, h * 0.90);
+    canvas.drawRect(
+      bodyRect,
       Paint()
         ..shader = Gradient.linear(
           bodyRect.topLeft,
-          bodyRect.bottomRight,
-          [const Color(0xFFF5F0D8), const Color(0xFFEDE5C0)],
+          bodyRect.topRight,
+          [const Color(0xFFF0EBD0), const Color(0xFFE8E2C0)],
         ),
     );
-    canvas.drawRRect(
-      bodyRRect,
+
+    // Back end cap (right side, slightly darker).
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.85, h * 0.50),
+        width: w * 0.20,
+        height: h * 0.80,
+      ),
+      Paint()..color = const Color(0xFFE0DAB8),
+    );
+
+    // Front face — main circular cross-section (cream).
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.15, h * 0.50),
+        width: w * 0.22,
+        height: h * 0.80,
+      ),
+      Paint()..color = const Color(0xFFF5F0D8),
+    );
+    // Inner roll spiral (suggests the rolled-paper end).
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.15, h * 0.50),
+        width: w * 0.14,
+        height: h * 0.52,
+      ),
       Paint()
-        ..color = const Color(0xFF8A8470)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
-
-    // NEWS masthead — black strip with three chunky white rectangles.
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.06, h * 0.06, w * 0.88, h * 0.16),
-      Paint()..color = const Color(0xFF1A1A1A),
-    );
-    // 3 white "N E W S" blocks (no real text, just chunky rectangles).
-    final letterPaint = Paint()..color = const Color(0xFFFFFFFF);
-    final letterY = h * 0.10;
-    final letterH = h * 0.08;
-    for (int i = 0; i < 4; i++) {
-      final x = w * (0.12 + i * 0.18);
-      canvas.drawRect(
-        Rect.fromLTWH(x, letterY, w * 0.13, letterH),
-        letterPaint,
-      );
-    }
-
-    // Diagonal fold crease (top-left to bottom-right).
-    canvas.drawLine(
-      const Offset(0, 0),
-      Offset(w, h),
-      Paint()
-        ..color = const Color(0xFFD8D0B8)
-        ..strokeWidth = 1.5,
-    );
-
-    // Headline text simulation (4-5 thin grey lines).
-    final textPaint = Paint()
-      ..color = const Color(0xFF7A7460)
-      ..strokeWidth = 1.4;
-    const lines = [
-      (0.30, 0.74),
-      (0.36, 0.66),
-      (0.42, 0.72),
-      (0.48, 0.62),
-      (0.54, 0.70),
-    ];
-    for (final (ty, widthFrac) in lines) {
-      canvas.drawLine(
-        Offset(w * 0.10, h * ty),
-        Offset(w * 0.10 + w * widthFrac, h * ty),
-        textPaint,
-      );
-    }
-
-    // Small photo box in lower-left quadrant.
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.10, h * 0.72, w * 0.34, h * 0.20),
-      Paint()..color = const Color(0xFFB8B498),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.10, h * 0.72, w * 0.34, h * 0.20),
-      Paint()
-        ..color = const Color(0xFF7A7460)
+        ..color = const Color(0xFFC8C2A0)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.8,
     );
-    // Hint of an image: small triangle (mountain) + circle (sun).
-    canvas.drawCircle(
-      Offset(w * 0.20, h * 0.79),
-      w * 0.04,
-      Paint()..color = const Color(0xFFE0DAB0),
-    );
-    canvas.drawPath(
-      Path()
-        ..moveTo(w * 0.24, h * 0.92)
-        ..lineTo(w * 0.32, h * 0.78)
-        ..lineTo(w * 0.42, h * 0.92)
-        ..close(),
-      Paint()..color = const Color(0xFF8A8470),
-    );
-
-    // Rubber band — thin red-brown ring around the middle.
-    canvas.drawRect(
-      Rect.fromLTWH(0, h * 0.46, w, h * 0.04),
-      Paint()..color = const Color(0xCCB55A2A),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(0, h * 0.46, w, h * 0.04),
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.15, h * 0.50),
+        width: w * 0.08,
+        height: h * 0.30,
+      ),
       Paint()
-        ..color = const Color(0xFF7A3A18)
+        ..color = const Color(0xFFB0A878)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.7,
     );
+
+    // Rubber band: two parallel red lines around the cylinder middle.
+    final bandPaint = Paint()
+      ..color = const Color(0xFFCC2020)
+      ..strokeWidth = 2.0;
+    canvas.drawLine(
+      Offset(w * 0.18, h * 0.46),
+      Offset(w * 0.82, h * 0.46),
+      bandPaint,
+    );
+    canvas.drawLine(
+      Offset(w * 0.18, h * 0.56),
+      Offset(w * 0.82, h * 0.56),
+      bandPaint,
+    );
+
+    // Headline text suggestion: 3 thin dark lines on the surface.
+    final textPaint = Paint()
+      ..color = const Color(0xFF7A7060)
+      ..strokeWidth = 1.0;
+    for (final ty in const [0.22, 0.32, 0.72]) {
+      canvas.drawLine(
+        Offset(w * 0.25, h * ty),
+        Offset(w * 0.75, h * ty),
+        textPaint,
+      );
+    }
   }
 
   @override

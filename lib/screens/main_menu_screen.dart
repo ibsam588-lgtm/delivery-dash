@@ -2,7 +2,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../game/difficulty.dart';
 import '../services/ad_service.dart';
 import '../services/audio_service.dart';
 import '../services/score_service.dart';
@@ -20,7 +19,6 @@ class _MainMenuScreenState extends State<MainMenuScreen>
   late AnimationController _bobCtrl;
   int _highScore = 0;
   int _coins = 0;
-  Difficulty _difficulty = Difficulty.medium;
 
   @override
   void initState() {
@@ -55,9 +53,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
 
   void _onPlay() {
     AudioService.instance.playPickup();
-    Navigator.of(context)
-        .pushNamed('/game', arguments: _difficulty)
-        .then((_) => _refresh());
+    Navigator.of(context).pushNamed('/game').then((_) => _refresh());
   }
 
   void _onStore() {
@@ -179,11 +175,6 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                 const SizedBox(height: 12),
                 _PaperRunTag(),
                 const Spacer(flex: 3),
-                _DifficultyRow(
-                  selected: _difficulty,
-                  onChange: (d) => setState(() => _difficulty = d),
-                ),
-                const SizedBox(height: 20),
                 _PrimaryButton(onTap: _onPlay),
                 const SizedBox(height: 12),
                 _OutlinedDarkButton(onTap: _onStore),
@@ -385,105 +376,6 @@ class _PaperRunTag extends StatelessWidget {
         const SizedBox(width: 10),
         Container(width: 30, height: 1, color: const Color(0xFFFFD600)),
       ],
-    );
-  }
-}
-
-class _DifficultyRow extends StatelessWidget {
-  final Difficulty selected;
-  final ValueChanged<Difficulty> onChange;
-  const _DifficultyRow({required this.selected, required this.onChange});
-
-  static const Map<Difficulty, Color> _colors = {
-    Difficulty.easy: Color(0xFF00E676),
-    Difficulty.medium: Color(0xFFFFD600),
-    Difficulty.hard: Color(0xFFFF1744),
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (final d in Difficulty.values) ...[
-          Expanded(
-            child: _Chip(
-              label: DifficultyConfig.label(d),
-              startLevel: DifficultyConfig.startLevelFor(d),
-              color: _colors[d]!,
-              selected: d == selected,
-              onTap: () => onChange(d),
-            ),
-          ),
-          if (d != Difficulty.hard) const SizedBox(width: 10),
-        ],
-      ],
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  final String label;
-  final int startLevel;
-  final Color color;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _Chip({
-    required this.label,
-    required this.startLevel,
-    required this.color,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? color : Colors.transparent,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: selected ? color : color.withValues(alpha: 0.55),
-            width: selected ? 2 : 1.5,
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.55),
-                    blurRadius: 16,
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.pressStart2p(
-                fontSize: 11,
-                color: selected ? const Color(0xFF0D0D0D) : color,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'L$startLevel',
-              style: GoogleFonts.pressStart2p(
-                fontSize: 8,
-                color: selected
-                    ? const Color(0xFF0D0D0D).withValues(alpha: 0.8)
-                    : color.withValues(alpha: 0.7),
-                letterSpacing: 1.4,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

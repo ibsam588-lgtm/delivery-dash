@@ -99,9 +99,9 @@ const List<Color> _flowerColors = [
 /// Big, isometric 3-face Paperboy-style house.
 class HouseComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  static const double rowSpacing = 210.0;
-  static const double fixedWidth = 180.0;
-  static const double fixedHeight = 200.0;
+  static const double rowSpacing = 230.0;
+  static const double fixedWidth = 200.0;
+  static const double fixedHeight = 220.0;
 
   static const double _parallaxFactor = 1.0;
 
@@ -181,31 +181,29 @@ class HouseComponent extends PositionComponent
     }
     _windows.clear();
     final cc = _curtainColor();
-    final w1 = HouseWindow(position: Vector2.zero(), curtainColor: cc);
-    final w2 = HouseWindow(position: Vector2.zero(), curtainColor: cc);
-    _windows
-      ..add(w1)
-      ..add(w2);
-    add(w1);
-    add(w2);
+    for (int i = 0; i < 3; i++) {
+      final win = HouseWindow(position: Vector2.zero(), curtainColor: cc);
+      _windows.add(win);
+      add(win);
+    }
     _layoutWindows();
   }
 
   void _layoutWindows() {
     if (_windows.isEmpty) return;
-    // Bigger windows — ~14% × 12% of house size (was 17%/13% on a smaller house).
-    final winW = (size.x * 0.14).clamp(22.0, 32.0);
-    final winH = (size.y * 0.12).clamp(20.0, 28.0);
+    // Dramatically larger windows — ~18% × 16% of house size,
+    // 3 spread across the front face (left / centre / right).
+    final winW = size.x * 0.18;
+    final winH = size.y * 0.16;
     final winSize = Vector2(winW, winH);
-    const yFrac = 0.22;
-    const fRightFrac = 0.65;
-    // Centre two windows on the front face at ~20% from top.
-    _windows[0]
-      ..size = winSize
-      ..position = Vector2(size.x * (fRightFrac * 0.18), size.y * yFrac);
-    _windows[1]
-      ..size = winSize
-      ..position = Vector2(size.x * (fRightFrac * 0.58), size.y * yFrac);
+    final yy = size.y * 0.40;
+    // Front face spans 0..0.65w. Spread 3 window centres evenly across it.
+    const xs = [0.13, 0.32, 0.51];
+    for (int i = 0; i < 3 && i < _windows.length; i++) {
+      _windows[i]
+        ..size = winSize
+        ..position = Vector2(size.x * xs[i], yy);
+    }
   }
 
   @override

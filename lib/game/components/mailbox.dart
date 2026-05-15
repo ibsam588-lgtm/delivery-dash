@@ -9,7 +9,7 @@ class MailboxComponent extends PositionComponent
 
   MailboxComponent({required this.isBlue})
       : super(
-          size: Vector2(40, 60),
+          size: Vector2(48, 72),
           anchor: Anchor.center,
           priority: 4,
         );
@@ -28,71 +28,119 @@ class MailboxComponent extends PositionComponent
     final w = size.x;
     final h = size.y;
 
+    // Subtle aura/glow behind mailbox so it's easy to spot.
+    final glowColor = isBlue
+        ? const Color(0x66BBDEFB)
+        : const Color(0x66FFCDD2);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w / 2, h * 0.42),
+        width: w * 1.35,
+        height: h * 0.75,
+      ),
+      Paint()..color = glowColor,
+    );
+
     // Ground shadow.
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(w / 2, h - 2),
-        width: w * 0.8,
-        height: 7,
+        width: w * 0.85,
+        height: 8,
       ),
-      Paint()..color = const Color(0x66000000),
+      Paint()..color = const Color(0x77000000),
     );
 
     // Post.
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.44, h * 0.52, w * 0.12, h * 0.45),
+      Rect.fromLTWH(w * 0.44, h * 0.55, w * 0.12, h * 0.42),
       Paint()..color = const Color(0xFF4A4A4A),
     );
 
-    // Box body — a rounded rectangle with a domed top half.
-    final boxColor = isBlue ? const Color(0xFF1565C0) : const Color(0xFFD32F2F);
-    final boxHighlight = isBlue ? const Color(0xFF1E88E5) : const Color(0xFFEF5350);
+    // Body colour (vivid).
+    final boxColor =
+        isBlue ? const Color(0xFF1E88E5) : const Color(0xFFE53935);
+    final boxHighlight =
+        isBlue ? const Color(0xFF42A5F5) : const Color(0xFFEF5350);
 
-    final boxRect = Rect.fromLTWH(w * 0.08, h * 0.18, w * 0.84, h * 0.38);
-    // Draw dome (upper half) as an ellipse.
+    final boxRect = Rect.fromLTWH(w * 0.06, h * 0.16, w * 0.88, h * 0.42);
+    // Dome (upper half).
     canvas.drawOval(
-      Rect.fromLTWH(w * 0.08, h * 0.18, w * 0.84, h * 0.26),
+      Rect.fromLTWH(w * 0.06, h * 0.16, w * 0.88, h * 0.28),
       Paint()..color = boxHighlight,
     );
-    // Draw rectangular lower half of body.
+    // Rectangular lower half.
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.08, h * 0.31, w * 0.84, h * 0.25),
+      Rect.fromLTWH(w * 0.06, h * 0.30, w * 0.88, h * 0.28),
       Paint()..color = boxColor,
     );
 
-    // Box outline.
+    // Outline.
     canvas.drawRRect(
       RRect.fromRectAndCorners(
         boxRect,
-        topLeft: const Radius.circular(8),
-        topRight: const Radius.circular(8),
+        topLeft: const Radius.circular(10),
+        topRight: const Radius.circular(10),
       ),
       Paint()
-        ..color = const Color(0xFF222222)
+        ..color = const Color(0xFF1A1A1A)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
+        ..strokeWidth = 1.5,
     );
 
     // Mail slot.
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.22, h * 0.40, w * 0.56, h * 0.045),
+      Rect.fromLTWH(w * 0.20, h * 0.40, w * 0.60, h * 0.05),
       Paint()..color = const Color(0xFF111111),
     );
 
-    // Flag (red, raised).
+    // Bold letter on body — "USPS"-style mark to make it obvious.
+    final markPaint = Paint()..color = const Color(0xFFFAFAFA);
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.82, h * 0.24, w * 0.06, h * 0.15),
-      Paint()..color = const Color(0xFF555555),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.82, h * 0.22, w * 0.14, h * 0.07),
-      Paint()..color = const Color(0xFFE53935),
+      Rect.fromLTWH(w * 0.30, h * 0.48, w * 0.40, h * 0.04),
+      markPaint,
     );
 
     // Shine highlight on dome.
     canvas.drawOval(
-      Rect.fromLTWH(w * 0.18, h * 0.20, w * 0.22, h * 0.08),
-      Paint()..color = const Color(0x44FFFFFF),
+      Rect.fromLTWH(w * 0.18, h * 0.18, w * 0.24, h * 0.08),
+      Paint()..color = const Color(0x66FFFFFF),
     );
+
+    // Flag — only on BLUE (good) mailbox: white flag raised.
+    if (isBlue) {
+      // Flag pole.
+      canvas.drawRect(
+        Rect.fromLTWH(w * 0.84, h * 0.22, w * 0.05, h * 0.18),
+        Paint()..color = const Color(0xFF555555),
+      );
+      // White flag.
+      canvas.drawRect(
+        Rect.fromLTWH(w * 0.84, h * 0.20, w * 0.14, h * 0.08),
+        Paint()..color = const Color(0xFFFAFAFA),
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(w * 0.84, h * 0.20, w * 0.14, h * 0.08),
+        Paint()
+          ..color = const Color(0xFF222222)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.8,
+      );
+    } else {
+      // Red mailbox: warning X marking instead of a flag.
+      final xPaint = Paint()
+        ..color = const Color(0xFFFAFAFA)
+        ..strokeWidth = 2.5;
+      canvas.drawLine(
+        Offset(w * 0.32, h * 0.22),
+        Offset(w * 0.48, h * 0.36),
+        xPaint,
+      );
+      canvas.drawLine(
+        Offset(w * 0.48, h * 0.22),
+        Offset(w * 0.32, h * 0.36),
+        xPaint,
+      );
+    }
   }
 }

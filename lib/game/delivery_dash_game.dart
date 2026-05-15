@@ -325,8 +325,17 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     hud.updatePapers(papers);
     player.triggerThrowArm();
 
+    // If player is in the LEFT half of the road, throw toward left-side houses.
+    // If in the RIGHT half, throw toward right-side houses.
+    final lm = laneManager;
+    final throwLeft = player.position.x < lm.roadCenter;
+    final angleDeg = throwLeft ? -38.0 : 38.0;
+
     if (config.paperBlitz) {
-      for (final a in const [-56.0, -38.0, -20.0]) {
+      final angles = throwLeft
+          ? const [-56.0, -38.0, -20.0]
+          : const [20.0, 38.0, 56.0];
+      for (final a in angles) {
         add(PaperComponent(
           startPosition: player.position.clone(),
           angleDeg: a,
@@ -335,7 +344,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     } else {
       add(PaperComponent(
         startPosition: player.position.clone(),
-        angleDeg: -38.0,
+        angleDeg: angleDeg,
       ));
     }
   }
@@ -356,41 +365,64 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   // ── Events ────────────────────────────────────────────────────────────
 
   void onPaperHitMailbox(bool isBlue, Vector2 position) {
-    if (!isBlue) return;
-    comboCount++;
-    deliveredCount++;
-    hud.updateDelivery(deliveredCount);
-    if (comboCount > bestComboThisRun) bestComboThisRun = comboCount;
-    final mult = comboMultiplier(comboCount);
-    const base = 10;
-    final pts = base * mult;
-    final bonus = pts - base;
+    if (isBlue) {
+      // Good delivery — combo + score + coins.
+      comboCount++;
+      deliveredCount++;
+      hud.updateDelivery(deliveredCount);
+      if (comboCount > bestComboThisRun) bestComboThisRun = comboCount;
+      final mult = comboMultiplier(comboCount);
+      const base = 15;
+      final pts = base * mult;
+      final bonus = pts - base;
 
-    const coinsBase = 1;
-    final coinMult =
-        config.coinMultiplier * (config.doubleCoins ? 2 : 1);
-    final coins = (coinsBase * coinMult).round();
+      const coinsBase = 1;
+      final coinMult =
+          config.coinMultiplier * (config.doubleCoins ? 2 : 1);
+      final coins = (coinsBase * coinMult).round();
 
-    _addScore(pts, position, color: const Color(0xFF66BB6A));
-    coinsThisRun += coins;
-    hud.updateCoins(coinsThisRun);
-    hud.updateCombo(comboCount, mult);
-    add(ParticleBurst(
-      position: position,
-      color: const Color(0xFFFFEB3B),
-      color2: const Color(0xFF66BB6A),
-      count: 14,
-      spread: 140,
-    ));
-    if (bonus > 0) {
-      add(FloatingText(
-        text: '+$bonus BONUS',
-        position: position - Vector2(0, 18),
+      _addScore(pts, position, color: const Color(0xFF66BB6A));
+      coinsThisRun += coins;
+      hud.updateCoins(coinsThisRun);
+      hud.updateCombo(comboCount, mult);
+      add(ParticleBurst(
+        position: position,
         color: const Color(0xFFFFEB3B),
+        color2: const Color(0xFF66BB6A),
+        count: 14,
+        spread: 140,
       ));
+      if (bonus > 0) {
+        add(FloatingText(
+          text: '+$bonus BONUS',
+          position: position - Vector2(0, 18),
+          color: const Color(0xFFFFEB3B),
+        ));
+      }
+      AudioService.instance.playDelivery();
+      hud.updateBonus(bonus);
+    } else {
+      // Red (forbidden) mailbox — penalty, no combo, no coins.
+      const penalty = 10;
+      score = (score - penalty).clamp(0, 999999);
+      hud.updateScore(score);
+      add(FloatingText(
+        text: '-$penalty',
+        position: position,
+        color: const Color(0xFFFF5252),
+      ));
+      add(ParticleBurst(
+        position: position,
+        color: const Color(0xFFEF5350),
+        color2: const Color(0xFFFFCDD2),
+        count: 10,
+        spread: 110,
+      ));
+      // Reset combo on bad hit.
+      comboCount = 0;
+      hud.updateCombo(0, 1);
+      AudioService.instance.playHit();
     }
-    AudioService.instance.playDelivery();
-    hud.updateBonus(bonus);
     _triggerHitFlash();
   }
 
@@ -402,14 +434,27 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     if (pts > 0) {
       _addScore(pts, position, color: const Color(0xFFFFB74D));
     }
-    add(ParticleBurst(
-      position: position,
-      color: const Color(0xFFFFFFFF),
-      color2: const Color(0xFFFFD600),
-      count: 8,
-      spread: 90,
-    ));
-    AudioService.instance.playHit();
+    // Cars: glass shatter; everything else: dust + hit thud.
+    if (obstacle.type == ObstacleType.car) {
+      add(GlassShardBurst(position: position));
+      add(ParticleBurst(
+        position: position,
+        color: const Color(0xFFB3E5FC),
+        color2: const Color(0xFFFFFFFF),
+        count: 10,
+        spread: 110,
+      ));
+      AudioService.instance.playWindowSmash();
+    } else {
+      add(ParticleBurst(
+        position: position,
+        color: const Color(0xFFFFFFFF),
+        color2: const Color(0xFFFFD600),
+        count: 8,
+        spread: 90,
+      ));
+      AudioService.instance.playHit();
+    }
     _triggerHitFlash();
   }
 
@@ -434,17 +479,24 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   /// Paper hit a parked car. Bonus points, particle, no penalty.
   void onPaperHitParkedCar(ParkedCarComponent car, Vector2 position) {
+    final wasAlreadyHit = car.windowBroken;
     car.onPaperHit();
     _addScore(ParkedCarComponent.bonusPoints, position,
         color: const Color(0xFFFFD600));
     add(ParticleBurst(
       position: position,
-      color: const Color(0xFFFFD600),
+      color: const Color(0xFFB3E5FC),
       color2: const Color(0xFFFFFFFF),
       count: 12,
       spread: 110,
     ));
-    AudioService.instance.playPickup();
+    // First hit: glass smash sound + glass shards.
+    if (!wasAlreadyHit) {
+      add(GlassShardBurst(position: position));
+      AudioService.instance.playWindowSmash();
+    } else {
+      AudioService.instance.playPickup();
+    }
     _triggerHitFlash();
   }
 

@@ -7,7 +7,15 @@ class AdService {
   AdService._();
   static final AdService instance = AdService._();
 
-  static const String _testBannerUnitId = 'ca-app-pub-3940256099942544/6300978111';
+  // TODO: Replace with real AdMob ad unit IDs from https://apps.admob.com
+  // Banner:        'ca-app-pub-XXXXXXXXXXXXXXXXXX/XXXXXXXXXX'
+  // Interstitial:  'ca-app-pub-XXXXXXXXXXXXXXXXXX/XXXXXXXXXX'
+  // Rewarded:      'ca-app-pub-XXXXXXXXXXXXXXXXXX/XXXXXXXXXX'
+  // Using Google's official AdMob test unit IDs until production IDs land —
+  // these are SAFE to ship in development builds but MUST NOT ship to prod.
+  static const String _testBannerUnitId =
+      'ca-app-pub-3940256099942544/6300978111';
+  static const String _bannerUnitId = _testBannerUnitId;
 
   bool _initialized = false;
 
@@ -49,7 +57,7 @@ class _BannerAdViewState extends State<_BannerAdView> {
     try {
       if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
       final ad = BannerAd(
-        adUnitId: AdService._testBannerUnitId,
+        adUnitId: AdService._bannerUnitId,
         size: AdSize.banner,
         request: const AdRequest(),
         listener: BannerAdListener(

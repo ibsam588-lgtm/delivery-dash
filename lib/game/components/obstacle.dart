@@ -89,15 +89,39 @@ class ObstacleComponent extends PositionComponent
   double _stumbleTimer = 0;
   static const double _stumbleDuration = 0.20;
 
-  // ── Car body colours (6 variants) ────────────────────────────────────────
+  // Cone fall: rotates over 0..pi/2 then lies flat.
+  bool _coneKnocked = false;
+  double _coneAngle = 0;
+  double _coneFallenTimer = 0;
+  static const double _coneFallenDuration = 1.5;
+
+  // Hydrant burst: timer for spray + ground puddle.
+  double _hydrantBurstTimer = 0;
+  static const double _hydrantBurstDuration = 2.0;
+
+  // Worker fall: after stumble they topple over, then get back up.
+  double _workerFallAngle = 0;
+  double _workerFallDownTimer = 0;
+  double _workerGetUpTimer = 0;
+  bool _workerFalling = false;
+  bool _workerFallen = false;
+  bool _workerGettingUp = false;
+
+  // Worker variant — index 0 = shoveler, 1 = jackhammer (chosen randomly).
+  late final int _workerVariant = Random().nextInt(2);
+
+  // ── Car body colours (6 variants — match parked_car palette) ─────────────
   static const List<Color> _carBodyColors = [
     Color(0xFFE53935), // bright red
-    Color(0xFF1976D2), // bright blue
-    Color(0xFF9E9E9E), // silver
-    Color(0xFF212121), // black
-    Color(0xFFFAFAFA), // white
-    Color(0xFF388E3C), // green
+    Color(0xFF1E88E5), // bright blue
+    Color(0xFFFDD835), // bright yellow
+    Color(0xFFF5F5F5), // white
+    Color(0xFF43A047), // green
+    Color(0xFFFF7043), // orange
   ];
+
+  // Car windshield broken state (set when paper hits a car).
+  bool _carWindowBroken = false;
 
   ObstacleComponent({
     required this.type,
@@ -197,19 +221,38 @@ class ObstacleComponent extends PositionComponent
         _splatTimer = _splatDuration;
         _swerveTimer = _swerveDuration;
         _swervePhase = 0;
+        _carWindowBroken = true;
 
-      case ObstacleType.worker || ObstacleType.kidBike:
+      case ObstacleType.worker:
         _stumbleTimer = _stumbleDuration;
+        _workerFalling = true;
+        _workerFallAngle = 0;
         // Hat flies off.
         gameRef.add(FlyingHatComponent(
           position: position.clone() - Vector2(0, size.y * 0.55),
         ));
-        // Exclamation popup.
         gameRef.add(FloatingText(
           text: '!',
           position: position.clone() - Vector2(0, size.y * 0.60),
           color: const Color(0xFFFFEB3B),
         ));
+
+      case ObstacleType.kidBike:
+        _stumbleTimer = _stumbleDuration;
+        gameRef.add(FlyingHatComponent(
+          position: position.clone() - Vector2(0, size.y * 0.55),
+        ));
+        gameRef.add(FloatingText(
+          text: '!',
+          position: position.clone() - Vector2(0, size.y * 0.60),
+          color: const Color(0xFFFFEB3B),
+        ));
+
+      case ObstacleType.cone:
+        _coneKnocked = true;
+
+      case ObstacleType.hydrant:
+        _hydrantBurstTimer = _hydrantBurstDuration;
 
       default:
         if (hasLateralSweep) _lateralPhase += pi;
@@ -266,6 +309,52 @@ class ObstacleComponent extends PositionComponent
     // Worker/kid stumble.
     if (_stumbleTimer > 0) {
       _stumbleTimer = (_stumbleTimer - dt).clamp(0.0, _stumbleDuration);
+    }
+
+    // Worker fall sequence: topple → lie on ground → get up.
+    if (type == ObstacleType.worker) {
+      if (_workerFalling) {
+        _workerFallAngle += 3.0 * dt;
+        if (_workerFallAngle >= pi / 2) {
+          _workerFallAngle = pi / 2;
+          _workerFalling = false;
+          _workerFallen = true;
+          _workerFallDownTimer = 2.0;
+        }
+      } else if (_workerFallen) {
+        _workerFallDownTimer -= dt;
+        if (_workerFallDownTimer <= 0) {
+          _workerFallen = false;
+          _workerGettingUp = true;
+          _workerGetUpTimer = 0.5;
+        }
+      } else if (_workerGettingUp) {
+        _workerGetUpTimer -= dt;
+        _workerFallAngle = (pi / 2) * (_workerGetUpTimer / 0.5).clamp(0.0, 1.0);
+        if (_workerGetUpTimer <= 0) {
+          _workerGettingUp = false;
+          _workerFallAngle = 0;
+        }
+      }
+    }
+
+    // Cone fall: rotate to pi/2, hold for fallen-duration, then remove.
+    if (type == ObstacleType.cone && _coneKnocked) {
+      if (_coneAngle < pi / 2) {
+        _coneAngle = (_coneAngle + 3.0 * dt).clamp(0.0, pi / 2);
+      } else {
+        _coneFallenTimer += dt;
+        if (_coneFallenTimer >= _coneFallenDuration) {
+          removeFromParent();
+          return;
+        }
+      }
+    }
+
+    // Hydrant burst countdown.
+    if (_hydrantBurstTimer > 0) {
+      _hydrantBurstTimer =
+          (_hydrantBurstTimer - dt).clamp(0.0, _hydrantBurstDuration);
     }
 
     if (_reactionTimer > 0) {
@@ -330,6 +419,20 @@ class ObstacleComponent extends PositionComponent
       canvas.rotate(tumbleFrac * 2 * pi);
     }
 
+    // Cone fall: rotate around the base (bottom-center) instead of mid.
+    if (type == ObstacleType.cone && _coneKnocked) {
+      canvas.translate(0, size.y / 2);
+      canvas.rotate(_coneAngle);
+      canvas.translate(0, -size.y / 2);
+    }
+
+    // Worker topple: rotate around feet.
+    if (type == ObstacleType.worker && _workerFallAngle > 0) {
+      canvas.translate(0, size.y / 2);
+      canvas.rotate(_workerFallAngle);
+      canvas.translate(0, -size.y / 2);
+    }
+
     canvas.translate(-size.x / 2, -size.y / 2);
 
     switch (type) {
@@ -364,6 +467,7 @@ class ObstacleComponent extends PositionComponent
       size.x,
       size.y,
       _carBodyColors[carVariant % _carBodyColors.length],
+      windshieldBroken: _carWindowBroken,
     );
     // Newspaper windshield splat.
     if (_splatTimer > 0) {
@@ -578,6 +682,17 @@ class ObstacleComponent extends PositionComponent
     final w = size.x;
     final h = size.y;
 
+    // Variant A — shovel; Variant B — jackhammer.
+    final isShoveler = _workerVariant == 0;
+
+    // Bend rhythm for shoveler (0.5 Hz) — value oscillates -1..1.
+    final bend = isShoveler ? sin(_animTimer * 2 * pi * 0.5) : 0.0;
+    // Jackhammer vibration (12 Hz) — small Y offset.
+    final jitterY = isShoveler ? 0.0 : sin(_animTimer * 2 * pi * 12) * 1.0;
+
+    canvas.save();
+    canvas.translate(0, jitterY);
+
     // Pants (dark).
     final legPaint = Paint()..color = const Color(0xFF263238);
     canvas.drawRect(
@@ -599,10 +714,11 @@ class ObstacleComponent extends PositionComponent
       bootPaint,
     );
 
-    // High-vis vest — trapezoid (bright orange).
+    // High-vis vest.
+    final torsoOffset = bend * h * 0.04; // shoveler leans forward
     final vestPath = Path()
-      ..moveTo(w * 0.20, h * 0.34)
-      ..lineTo(w * 0.80, h * 0.34)
+      ..moveTo(w * 0.20, h * 0.34 + torsoOffset)
+      ..lineTo(w * 0.80, h * 0.34 + torsoOffset)
       ..lineTo(w * 0.84, h * 0.62)
       ..lineTo(w * 0.16, h * 0.62)
       ..close();
@@ -610,12 +726,10 @@ class ObstacleComponent extends PositionComponent
       vestPath,
       Paint()..color = const Color(0xFFFF6F00),
     );
-    // Reflective white stripe across vest.
     canvas.drawRect(
       Rect.fromLTWH(w * 0.18, h * 0.46, w * 0.64, h * 0.04),
       Paint()..color = const Color(0xFFFFFFFF),
     );
-    // Vest outline.
     canvas.drawPath(
       vestPath,
       Paint()
@@ -624,84 +738,145 @@ class ObstacleComponent extends PositionComponent
         ..strokeWidth = 1.0,
     );
 
-    // Arms (skin colour) — one extended holding a stop sign on a pole.
+    // Arms.
     final armPaint = Paint()
       ..color = const Color(0xFFFFCC99)
       ..strokeWidth = w * 0.11
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      Offset(w * 0.22, h * 0.38),
-      Offset(w * 0.10, h * 0.30),
-      armPaint,
-    );
-    canvas.drawLine(
-      Offset(w * 0.78, h * 0.38),
-      Offset(w * 0.88, h * 0.58),
-      armPaint,
-    );
 
-    // Stop sign on a pole (held by left arm).
-    canvas.drawLine(
-      Offset(w * 0.10, h * 0.30),
-      Offset(w * 0.10, h * 0.04),
-      Paint()
-        ..color = const Color(0xFF999999)
-        ..strokeWidth = 2.0,
-    );
-    // Octagon (stop sign).
-    final stopCenter = Offset(w * 0.10, h * 0.04);
-    final stopR = w * 0.16;
-    final stopPath = Path();
-    for (int i = 0; i < 8; i++) {
-      final ang = -pi / 2 + i * (2 * pi / 8) + pi / 8;
-      final px = stopCenter.dx + cos(ang) * stopR;
-      final py = stopCenter.dy + sin(ang) * stopR;
-      if (i == 0) {
-        stopPath.moveTo(px, py);
-      } else {
-        stopPath.lineTo(px, py);
+    if (isShoveler) {
+      // Shovel rises and falls with bend.
+      final shovelTopY = h * (0.12 + bend * 0.10);
+      final shovelBotY = h * (0.78 + bend * 0.06);
+      final shovelTopX = w * (0.30 + bend * 0.05);
+      final shovelBotX = w * (0.88 - bend * 0.05);
+      // Arms holding shovel handle.
+      canvas.drawLine(
+        Offset(w * 0.32, h * 0.40 + torsoOffset),
+        Offset(shovelTopX + w * 0.05, shovelTopY + h * 0.05),
+        armPaint,
+      );
+      canvas.drawLine(
+        Offset(w * 0.68, h * 0.40 + torsoOffset),
+        Offset(shovelBotX - w * 0.08, shovelBotY - h * 0.12),
+        armPaint,
+      );
+      // Shovel handle (long wooden pole).
+      final shaftPaint = Paint()
+        ..color = const Color(0xFF8D6E63)
+        ..strokeWidth = 3.0;
+      canvas.drawLine(
+        Offset(shovelTopX, shovelTopY),
+        Offset(shovelBotX, shovelBotY),
+        shaftPaint,
+      );
+      // Shovel scoop (flat metal blade at bottom end).
+      canvas.save();
+      canvas.translate(shovelBotX, shovelBotY);
+      final shovelAngle = atan2(shovelBotY - shovelTopY, shovelBotX - shovelTopX);
+      canvas.rotate(shovelAngle);
+      canvas.drawRect(
+        Rect.fromLTWH(0, -w * 0.07, w * 0.16, w * 0.14),
+        Paint()..color = const Color(0xFFC0C0C0),
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(0, -w * 0.07, w * 0.16, w * 0.14),
+        Paint()
+          ..color = const Color(0xFF666666)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.8,
+      );
+      canvas.restore();
+      // Gravel pile beside worker.
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(w * 0.90, h * 0.94),
+          width: w * 0.30,
+          height: h * 0.08,
+        ),
+        Paint()..color = const Color(0xFF9E9E9E),
+      );
+      canvas.drawCircle(
+          Offset(w * 0.85, h * 0.91), w * 0.04, Paint()..color = const Color(0xFF757575));
+      canvas.drawCircle(
+          Offset(w * 0.95, h * 0.92), w * 0.05, Paint()..color = const Color(0xFF616161));
+    } else {
+      // Jackhammer: arms grip vertical cylinder pointing down.
+      final jackTopX = w * 0.50;
+      final jackTopY = h * 0.34;
+      final jackBotY = h * 0.92;
+      canvas.drawLine(
+        Offset(w * 0.32, h * 0.40),
+        Offset(jackTopX - w * 0.05, jackTopY + h * 0.04),
+        armPaint,
+      );
+      canvas.drawLine(
+        Offset(w * 0.68, h * 0.40),
+        Offset(jackTopX + w * 0.05, jackTopY + h * 0.04),
+        armPaint,
+      );
+      // Jackhammer body — cylinder.
+      canvas.drawRect(
+        Rect.fromLTWH(jackTopX - w * 0.08, jackTopY, w * 0.16, h * 0.42),
+        Paint()..color = const Color(0xFFFFC107),
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(jackTopX - w * 0.08, jackTopY, w * 0.16, h * 0.42),
+        Paint()
+          ..color = const Color(0xFF8B6B00)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0,
+      );
+      // Handles on top.
+      canvas.drawRect(
+        Rect.fromLTWH(jackTopX - w * 0.14, jackTopY - h * 0.02, w * 0.28, h * 0.03),
+        Paint()..color = const Color(0xFF333333),
+      );
+      // Chisel tip below cylinder.
+      canvas.drawRect(
+        Rect.fromLTWH(jackTopX - w * 0.03, jackBotY - h * 0.06, w * 0.06, h * 0.08),
+        Paint()..color = const Color(0xFF777777),
+      );
+      // Dust puffs at the ground.
+      final puffPaint = Paint()..color = const Color(0xAAB0BEC5);
+      for (int i = 0; i < 3; i++) {
+        final ph = (sin(_animTimer * 20 + i) + 1) * 0.5;
+        canvas.drawCircle(
+          Offset(jackTopX + (i - 1) * w * 0.12, h * 0.96 - ph * h * 0.04),
+          w * 0.06,
+          puffPaint,
+        );
+      }
+      // Spark/dust particles at the base.
+      final sparkPaint = Paint()
+        ..color = const Color(0xCCFFEB3B)
+        ..strokeWidth = 1.0;
+      for (int i = 0; i < 4; i++) {
+        final ang = -pi / 2 + (i - 1.5) * pi / 8;
+        final r = w * 0.10 * (1 + sin(_animTimer * 30 + i));
+        canvas.drawLine(
+          Offset(jackTopX, jackBotY - h * 0.02),
+          Offset(jackTopX + cos(ang) * r, jackBotY - h * 0.02 + sin(ang) * r),
+          sparkPaint,
+        );
       }
     }
-    stopPath.close();
-    canvas.drawPath(stopPath, Paint()..color = const Color(0xFFE53935));
-    canvas.drawPath(
-      stopPath,
-      Paint()
-        ..color = const Color(0xFFFFFFFF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4,
-    );
-    // STOP text simulated as 4 white squares.
-    for (int i = 0; i < 4; i++) {
-      canvas.drawRect(
-        Rect.fromLTWH(
-          stopCenter.dx - stopR * 0.55 + i * stopR * 0.28,
-          stopCenter.dy - 1.5,
-          stopR * 0.18,
-          3,
-        ),
-        Paint()..color = const Color(0xFFFFFFFF),
-      );
-    }
 
-    // Head (skin tone).
+    // Head.
     canvas.drawCircle(
-      Offset(w * 0.50, h * 0.24),
+      Offset(w * 0.50, h * 0.24 + torsoOffset),
       w * 0.13,
       Paint()..color = const Color(0xFFFFCC99),
     );
-
-    // Yellow hard hat (hemispherical).
+    // Yellow hard hat.
     final hatPath = Path()
-      ..moveTo(w * 0.36, h * 0.22)
+      ..moveTo(w * 0.36, h * 0.22 + torsoOffset)
       ..quadraticBezierTo(
-        w * 0.50,
-        h * 0.10,
-        w * 0.64,
-        h * 0.22,
+        w * 0.50, h * 0.10 + torsoOffset,
+        w * 0.64, h * 0.22 + torsoOffset,
       )
-      ..lineTo(w * 0.66, h * 0.24)
-      ..lineTo(w * 0.34, h * 0.24)
+      ..lineTo(w * 0.66, h * 0.24 + torsoOffset)
+      ..lineTo(w * 0.34, h * 0.24 + torsoOffset)
       ..close();
     canvas.drawPath(hatPath, Paint()..color = const Color(0xFFFFD600));
     canvas.drawPath(
@@ -711,67 +886,84 @@ class ObstacleComponent extends PositionComponent
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0,
     );
-    // Hat brim shadow.
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.34, h * 0.235, w * 0.32, h * 0.018),
+      Rect.fromLTWH(w * 0.34, h * 0.235 + torsoOffset, w * 0.32, h * 0.018),
       Paint()..color = const Color(0xFFB37700),
     );
 
     // Eyes.
     canvas.drawCircle(
-      Offset(w * 0.45, h * 0.25),
+      Offset(w * 0.45, h * 0.25 + torsoOffset),
       1.4,
       Paint()..color = const Color(0xFF1A1A1A),
     );
     canvas.drawCircle(
-      Offset(w * 0.55, h * 0.25),
+      Offset(w * 0.55, h * 0.25 + torsoOffset),
       1.4,
       Paint()..color = const Color(0xFF1A1A1A),
     );
-    // Moustache.
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.44, h * 0.28, w * 0.12, h * 0.012),
+      Rect.fromLTWH(w * 0.44, h * 0.28 + torsoOffset, w * 0.12, h * 0.012),
       Paint()..color = const Color(0xFF3A2618),
     );
+
+    canvas.restore();
   }
 
   void _renderCone(Canvas canvas) {
     final w = size.x;
     final h = size.y;
 
-    canvas.drawOval(
-      Rect.fromLTWH(w * 0.10, h * 0.75, w * 0.80, h * 0.18),
-      Paint()..color = const Color(0xFFCC3300),
+    // Black rubber square base (sits flat on ground).
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.10, h * 0.85, w * 0.80, h * 0.12),
+      Paint()..color = const Color(0xFF1A1A1A),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.10, h * 0.85, w * 0.80, h * 0.04),
+      Paint()..color = const Color(0xFF333333),
     );
 
+    // Cone body — bright orange.
     final conePath = Path()
-      ..moveTo(w * 0.18, h * 0.82)
-      ..lineTo(w * 0.82, h * 0.82)
-      ..lineTo(w * 0.62, h * 0.20)
-      ..lineTo(w * 0.38, h * 0.20)
+      ..moveTo(w * 0.18, h * 0.85)
+      ..lineTo(w * 0.82, h * 0.85)
+      ..lineTo(w * 0.58, h * 0.18)
+      ..lineTo(w * 0.42, h * 0.18)
       ..close();
     canvas.drawPath(
       conePath,
       Paint()
         ..shader = Gradient.linear(
-          Offset(w * 0.18, h * 0.82),
-          Offset(w * 0.50, h * 0.20),
-          [const Color(0xFFFF5722), const Color(0xFFBF360C)],
+          Offset(w * 0.18, h * 0.85),
+          Offset(w * 0.50, h * 0.18),
+          [const Color(0xFFFF6D00), const Color(0xFFE65100)],
         ),
     );
 
+    // White reflective stripe.
     final stripePath = Path()
-      ..moveTo(w * 0.28, h * 0.54)
-      ..lineTo(w * 0.72, h * 0.54)
+      ..moveTo(w * 0.27, h * 0.56)
+      ..lineTo(w * 0.73, h * 0.56)
       ..lineTo(w * 0.66, h * 0.40)
       ..lineTo(w * 0.34, h * 0.40)
       ..close();
-    canvas.drawPath(stripePath, Paint()..color = const Color(0xCCFFFFFF));
+    canvas.drawPath(stripePath, Paint()..color = const Color(0xFFFAFAFA));
 
+    // Cone tip cap.
     canvas.drawCircle(
-      Offset(w * 0.50, h * 0.17),
-      w * 0.08,
+      Offset(w * 0.50, h * 0.16),
+      w * 0.07,
       Paint()..color = const Color(0xFFFF8A65),
+    );
+
+    // Outline along the cone for definition.
+    canvas.drawPath(
+      conePath,
+      Paint()
+        ..color = const Color(0x55000000)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
     );
   }
 
@@ -911,11 +1103,73 @@ class ObstacleComponent extends PositionComponent
       Paint()..color = const Color(0x44FFFFFF),
     );
 
-    final pulse = 0.7 + 0.3 * sin(_life * 2 * pi * 3);
+    // Wet/blue tint after burst.
+    if (_hydrantBurstTimer > 0) {
+      canvas.drawRRect(
+        body,
+        Paint()..color = const Color(0x445A93FF),
+      );
+      _renderHydrantBurst(canvas, _hydrantBurstTimer);
+    } else {
+      final pulse = 0.7 + 0.3 * sin(_life * 2 * pi * 3);
+      canvas.drawCircle(
+        Offset(w / 2, h * 0.08),
+        4.0 * pulse,
+        Paint()..color = const Color(0xAA42A5F5),
+      );
+    }
+  }
+
+  void _renderHydrantBurst(Canvas canvas, double timer) {
+    final w = size.x;
+    final h = size.y;
+    // Fraction completed (0 at start, 1 at end).
+    final progress = 1.0 - (timer / _hydrantBurstDuration);
+
+    final waterPaint = Paint()
+      ..color = const Color(0xCC64B5F6)
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    // Central vertical fountain — pulses outward.
+    final fountainH = h * (1.2 + 0.6 * sin(_life * 8));
+    canvas.drawLine(
+      Offset(w * 0.50, h * 0.15),
+      Offset(w * 0.50, h * 0.15 - fountainH),
+      waterPaint,
+    );
+
+    // 8 spray jets in arcs.
+    for (int i = 0; i < 8; i++) {
+      final ang = -pi / 2 + (i - 3.5) * pi / 9;
+      final reach = h * (0.6 + 0.8 * progress);
+      final ex = w * 0.50 + cos(ang) * reach;
+      final ey = h * 0.15 + sin(ang) * reach * 0.7 + reach * 0.25;
+      canvas.drawLine(
+        Offset(w * 0.50, h * 0.15),
+        Offset(ex, ey),
+        waterPaint,
+      );
+    }
+
+    // Expanding blue pulse circle.
+    final pulse = (progress * w * 1.5).clamp(0.0, w * 1.4);
     canvas.drawCircle(
-      Offset(w / 2, h * 0.08),
-      4.0 * pulse,
-      Paint()..color = const Color(0xAA42A5F5),
+      Offset(w * 0.50, h * 0.15),
+      pulse,
+      Paint()..color = const Color(0x3364B5F6),
+    );
+
+    // Ground puddle growing.
+    final puddleW = w * (0.6 + progress * 1.2);
+    final puddleH = h * (0.06 + progress * 0.10);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.95),
+        width: puddleW,
+        height: puddleH,
+      ),
+      Paint()..color = const Color(0xAA1976D2),
     );
   }
 
