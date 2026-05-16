@@ -25,9 +25,9 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
 
   static const double paperPackDistanceInterval = 400;
   static const double lampDistanceInterval = 90;
-  static const double parkedCarDistanceInterval = 260;
-  static const double intersectionDistanceInterval = 360.0;
-  static const double constructionZoneDistanceInterval = 600;
+  static const double parkedCarDistanceInterval = 300;
+  static const double intersectionDistanceInterval = 520.0;
+  static const double constructionZoneDistanceInterval = 650;
   static const double catDistanceInterval = 620;
   static const double decorSpawnInterval = 1.4;
 
@@ -46,7 +46,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     final speedFactor = scroll > 1 ? cfg.startSpeed / scroll : 1.0;
     final diffMult = gameRef.config.spawnIntervalMultiplier;
     final upper = base * diffMult;
-    return (base * speedFactor * diffMult).clamp(0.45, upper < 0.45 ? 0.45 : upper);
+    return (base * speedFactor * diffMult).clamp(0.55, upper < 0.55 ? 0.55 : upper);
   }
 
   @override
@@ -77,7 +77,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     }
     if (d - _parkedCarDistanceMark >= parkedCarDistanceInterval) {
       _parkedCarDistanceMark = d;
-      if (_rng.nextDouble() < 0.65) _spawnParkedCar();
+      if (_rng.nextDouble() < 0.55) _spawnParkedCar();
     }
     if (d - _intersectionDistanceMark >= intersectionDistanceInterval) {
       _intersectionDistanceMark = d;
@@ -85,7 +85,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     }
     if (d - _zoneDistanceMark >= constructionZoneDistanceInterval) {
       _zoneDistanceMark = d;
-      if (_rng.nextDouble() < 0.65) _spawnConstructionZone();
+      if (_rng.nextDouble() < 0.55) _spawnConstructionZone();
     }
     if (d - _catDistanceMark >= catDistanceInterval) {
       _catDistanceMark = d;
@@ -97,23 +97,23 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   void _spawnObstacle() {
     final roll = _rng.nextDouble();
     final ObstacleType type;
-    if (roll < 0.24) {
+    if (roll < 0.22) {
       type = ObstacleType.car;
-    } else if (roll < 0.35) {
+    } else if (roll < 0.34) {
       type = ObstacleType.dog;
-    } else if (roll < 0.42) {
+    } else if (roll < 0.41) {
       type = ObstacleType.kidBike;
-    } else if (roll < 0.50) {
+    } else if (roll < 0.49) {
       type = ObstacleType.worker;
-    } else if (roll < 0.62) {
+    } else if (roll < 0.61) {
       type = ObstacleType.cone;
-    } else if (roll < 0.72) {
+    } else if (roll < 0.71) {
       type = ObstacleType.barrier;
-    } else if (roll < 0.78) {
+    } else if (roll < 0.77) {
       type = ObstacleType.pothole;
-    } else if (roll < 0.84) {
+    } else if (roll < 0.83) {
       type = ObstacleType.manhole;
-    } else if (roll < 0.92) {
+    } else if (roll < 0.91) {
       type = ObstacleType.trashBin;
     } else {
       type = ObstacleType.hydrant;
@@ -124,7 +124,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
         gameRef.add(ObstacleComponent(
           type: type,
           laneFraction: _frontCarLaneFraction(),
-          speedFactor: 0.82 + _rng.nextDouble() * 0.24,
+          speedFactor: 0.96 + _rng.nextDouble() * 0.10,
           isOvertaker: false,
           isOncoming: false,
         ));
@@ -159,10 +159,11 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
         ));
         break;
       case ObstacleType.hydrant:
-        final f = _rng.nextBool()
-            ? 0.24 + _rng.nextDouble() * 0.10
-            : 0.66 + _rng.nextDouble() * 0.10;
-        gameRef.add(ObstacleComponent(type: type, laneFraction: f));
+        gameRef.add(ObstacleComponent(
+          type: type,
+          laneFraction: 0.08 + _rng.nextDouble() * 0.84,
+          onRightSidewalk: _rng.nextBool(),
+        ));
         break;
       case ObstacleType.cone:
       case ObstacleType.barrier:
@@ -180,11 +181,11 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     final pick = _rng.nextInt(3);
     switch (pick) {
       case 0:
-        return 0.28 + _rng.nextDouble() * 0.05;
+        return 0.28 + _rng.nextDouble() * 0.04;
       case 1:
         return 0.48 + _rng.nextDouble() * 0.04;
       default:
-        return 0.67 + _rng.nextDouble() * 0.05;
+        return 0.68 + _rng.nextDouble() * 0.04;
     }
   }
 

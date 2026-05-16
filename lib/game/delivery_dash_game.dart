@@ -3,6 +3,7 @@ import 'package:flame/flame.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import '../services/audio_service.dart';
+import '../services/glass_sound_service.dart';
 import '../services/score_service.dart';
 import '../services/store_service.dart';
 import 'components/floating_text.dart';
@@ -33,15 +34,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   int coinsThisRun = 0;
   int level = 1;
   int highestLevelThisRun = 1;
-
-  /// Distance travelled within the current day/level. This resets whenever
-  /// the route advances to the next level.
   double distanceMeters = 0;
-
-  /// Lifetime route distance for the current run. Spawners use this monotonic
-  /// value so their distance markers continue working after level resets.
   double totalDistanceMeters = 0;
-
   int papers = 5;
   int deliveredCount = 0;
 
@@ -52,7 +46,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   bool isInvincible = false;
   double invincibilityTimer = 0;
 
-  // Paper-hit screen flash (100ms white overlay at 10% opacity).
   double _hitFlashTimer = 0;
   static const double _hitFlashDuration = 0.1;
 
@@ -66,7 +59,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   static const double _shakeDuration = 0.2;
   final Random _rng = Random();
 
-  // Drench overlay (blue tint over the whole game).
   double _drenchTimer = 0;
   static const double _drenchDuration = 0.4;
 
@@ -83,14 +75,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   DeliveryDashGame({this.config = const GameConfig()});
 
-  /// Hard cap on per-frame world scroll speed. Beyond this the game becomes
-  /// unreadable and component pile-up causes frame hitches / hangs.
   static const double maxScrollSpeed = 600.0;
 
-  /// Effective world scroll speed. Returns 0 when the game isn't actively
-  /// playing so every component that scrolls with `gameRef.scrollSpeed`
-  /// freezes during pause / game over — no need for each component to
-  /// duplicate the state check.
   double get scrollSpeed {
     if (state != GameState.playing) return 0;
     return (currentSpeed * _slowFactor * _zoneSlow).clamp(0.0, maxScrollSpeed);
@@ -116,10 +102,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    // IMPORTANT: don't read `size` here. In Flame's lifecycle `size`
-    // can still be Vector2.zero() until the first onGameResize fires.
-    // We initialize the LaneManager and spawn the world in onMount,
-    // which runs after the first layout pass.
     await _preloadAssets();
   }
 
@@ -177,9 +159,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
     final rows = (size.y / HouseComponent.rowSpacing).ceil() + 2;
     for (int i = 0; i < rows; i++) {
-      // Left-side houses (even index) and right-side houses (odd offset).
-      // Each house spreads its own Y in onLoad — positioned above the screen
-      // so they scroll into view from the top.
       add(HouseComponent(index: i));
       add(HouseComponent(index: i + 1, onRight: true));
     }
@@ -197,7 +176,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
     add(Spawner());
 
-    // Starting paper count is driven by difficulty (easy=30, med=20, hard=15).
     papers = config.papers;
     hud.updatePapers(papers);
 
@@ -212,18 +190,13 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
   }
 
-  /// Count visible undelivered mailboxes currently within the viewport.
-  /// Used by "smart paper count" logic.
   int countVisibleMailboxes() {
     final h = size.y;
-    return descendants()
-        .whereType<MailboxComponent>()
-        .where((m) {
-          if (m.delivered) return false;
-          final ap = m.absolutePosition;
-          return ap.y >= 0 && ap.y <= h;
-        })
-        .length;
+    return descendants().whereType<MailboxComponent>().where((m) {
+      if (m.delivered) return false;
+      final ap = m.absolutePosition;
+      return ap.y >= 0 && ap.y <= h;
+    }).length;
   }
 
   @override
@@ -283,16 +256,14 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    // Drench screen overlay (drawn over everything, including HUD).
     if (_drenchTimer > 0) {
-      final phase = _drenchTimer / _drenchDuration; // 1 -> 0
+      final phase = _drenchTimer / _drenchDuration;
       final alpha = (1 - (phase - 0.5).abs() * 2) * 0.4;
       canvas.drawRect(
         Rect.fromLTWH(0, 0, size.x, size.y),
         Paint()..color = const Color(0xFF42A5F5).withValues(alpha: alpha),
       );
     }
-    // Brief white screen flash on paper hits (100ms, 10% opacity).
     if (_hitFlashTimer > 0) {
       final alpha = (_hitFlashTimer / _hitFlashDuration) * 0.10;
       canvas.drawRect(
@@ -314,7 +285,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     currentSpeed =
         (cfg.startSpeed * config.speedMultiplier).clamp(0.0, maxScrollSpeed);
 
-    // Smart-paper allotment: visible mailboxes + 3, scaled by difficulty.
     final visible = countVisibleMailboxes();
     final diffPapers = config.papers;
     papers = (visible + 3).clamp(diffPapers, diffPapers + 5);
@@ -328,8 +298,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     hud.updateLevel(level);
   }
 
-  // ── Input ─────────────────────────────────────────────────────────────
-
   void onDragMoveTo(double worldX) {
     if (state != GameState.playing) return;
     player.moveTo(worldX);
@@ -340,7 +308,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     _throwPaper(throwLeft: tapX < size.x / 2);
   }
 
-  /// Pause / resume. Used by the back-button dialog.
   void pauseGame() {
     if (state == GameState.playing) {
       state = GameState.paused;
@@ -357,16 +324,19 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   void _throwPaper({required bool throwLeft}) {
     if (papers <= 0) {
+      add(FloatingText(
+        text: 'OUT OF PAPERS!',
+        position: player.position.clone() - Vector2(0, 60),
+        color: const Color(0xFFFF5252),
+      ));
       return;
     }
     papers--;
     hud.updatePapers(papers);
     player.triggerThrowArm(throwLeft: throwLeft);
 
-    // Negative angle = throw toward the left sidewalk; positive = right.
     final baseAngle = throwLeft ? -38.0 : 38.0;
     if (config.paperBlitz) {
-      // Spread 3 papers in a fan on the chosen side.
       for (final offset in const [-18.0, 0.0, 18.0]) {
         add(PaperComponent(
           startPosition: player.position.clone(),
@@ -381,8 +351,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     }
   }
 
-  // ── Pickups ───────────────────────────────────────────────────────────
-
   void onPickupPaperPack(int amount, Vector2 position) {
     papers += amount;
     hud.updatePapers(papers);
@@ -394,11 +362,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     ));
   }
 
-  // ── Events ────────────────────────────────────────────────────────────
-
   void onPaperHitDoorMat(DoorMatComponent mat, Vector2 position) {
     mat.onPaperHit();
-    // Door mat counts as a delivery — combo + score, similar to a blue mailbox.
     comboCount++;
     deliveredCount++;
     hud.updateDelivery(deliveredCount);
@@ -407,8 +372,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     final pts = DoorMatComponent.bonusPoints * mult;
     final bonus = pts - DoorMatComponent.bonusPoints;
     const coinsBase = 1;
-    final coinMult =
-        config.coinMultiplier * (config.doubleCoins ? 2 : 1);
+    final coinMult = config.coinMultiplier * (config.doubleCoins ? 2 : 1);
     final coins = (coinsBase * coinMult).round();
     _addScore(pts, position, color: const Color(0xFFFFD600));
     coinsThisRun += coins;
@@ -435,7 +399,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   void onPaperHitMailbox(bool isBlue, Vector2 position) {
     if (isBlue) {
-      // Good delivery — combo + score + coins.
       comboCount++;
       deliveredCount++;
       hud.updateDelivery(deliveredCount);
@@ -444,12 +407,9 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       const base = 15;
       final pts = base * mult;
       final bonus = pts - base;
-
       const coinsBase = 1;
-      final coinMult =
-          config.coinMultiplier * (config.doubleCoins ? 2 : 1);
+      final coinMult = config.coinMultiplier * (config.doubleCoins ? 2 : 1);
       final coins = (coinsBase * coinMult).round();
-
       _addScore(pts, position, color: const Color(0xFF66BB6A));
       coinsThisRun += coins;
       hud.updateCoins(coinsThisRun);
@@ -471,7 +431,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       AudioService.instance.playDelivery();
       hud.updateBonus(bonus);
     } else {
-      // Red (forbidden) mailbox — penalty, no combo, no coins.
       const penalty = 10;
       score = (score - penalty).clamp(0, 999999);
       hud.updateScore(score);
@@ -487,7 +446,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
         count: 10,
         spread: 110,
       ));
-      // Reset combo on bad hit.
       comboCount = 0;
       hud.updateCombo(0, 1);
       AudioService.instance.playHit();
@@ -495,15 +453,17 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     _triggerHitFlash();
   }
 
-  /// Paper hit a non-mailbox obstacle. Trigger particle, score popup,
-  /// stagger animation on the obstacle, and SFX.
+  void _playGlassCue() {
+    AudioService.instance.playWindowSmash();
+    GlassSoundService.playCue();
+  }
+
   void onPaperHitObstacle(ObstacleComponent obstacle, Vector2 position) {
     obstacle.onHitByPaper();
     final pts = obstacle.paperHitPoints;
     if (pts > 0) {
       _addScore(pts, position, color: const Color(0xFFFFB74D));
     }
-    // Cars: glass shatter; everything else: dust + hit thud.
     if (obstacle.type == ObstacleType.car) {
       add(GlassShardBurst(position: position));
       add(ParticleBurst(
@@ -513,7 +473,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
         count: 10,
         spread: 110,
       ));
-      AudioService.instance.playWindowSmash();
+      _playGlassCue();
     } else {
       add(ParticleBurst(
         position: position,
@@ -527,8 +487,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     _triggerHitFlash();
   }
 
-  /// Paper hit (and broke) a house window. Glass shard burst + light
-  /// particle burst, small score bonus, no combo impact.
   void onPaperHitWindow(HouseWindow window, Vector2 position) {
     window.breakWindow(position);
     _addScore(HouseWindow.bonusPoints, position,
@@ -542,11 +500,10 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       spread: 100,
       pixelSize: 2,
     ));
-    AudioService.instance.playWindowSmash();
+    _playGlassCue();
     _triggerHitFlash();
   }
 
-  /// Paper hit a parked car. Bonus points, particle, no penalty.
   void onPaperHitParkedCar(ParkedCarComponent car, Vector2 position) {
     final wasAlreadyHit = car.windowBroken;
     car.onPaperHit();
@@ -559,10 +516,9 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       count: 12,
       spread: 110,
     ));
-    // First hit: glass smash sound + glass shards.
     if (!wasAlreadyHit) {
       add(GlassShardBurst(position: position));
-      AudioService.instance.playWindowSmash();
+      _playGlassCue();
     } else {
       AudioService.instance.playPickup();
     }
@@ -581,24 +537,20 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   void onPlayerHitObstacle() {
     if (isInvincible || state != GameState.playing) return;
-
     lives--;
     isInvincible = true;
     invincibilityTimer = 1.5;
     comboCount = 0;
     hud.updateLives(lives);
     hud.updateCombo(0, 1);
-
     _triggerShake(intensity: 8.0);
     AudioService.instance.playHit();
-
     if (lives <= 0) _endGame();
   }
 
   void onPlayerHitSlowObstacle() {
     if (state != GameState.playing) return;
     if (isInvincible) return;
-
     final cfg = LevelConfig.of(level);
     final maxSpeed = cfg.startSpeed * 1.5;
     if (currentSpeed >= maxSpeed - 5) {
@@ -631,12 +583,10 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     state = GameState.gameOver;
     AudioService.instance.playGameOver();
     AudioService.instance.stopBgm();
-
     final isNewRecord = await ScoreService.instance.submitScore(score);
     final highScore = await ScoreService.instance.getHighScore();
     final earned = coinsThisRun;
     await StoreService.instance.addCoins(earned);
-
     Future.microtask(() => onGameOver?.call(
           score,
           highScore,
