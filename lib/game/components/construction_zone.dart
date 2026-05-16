@@ -96,10 +96,11 @@ class ConstructionZoneComponent extends PositionComponent
     final patchPaint = Paint()..color = const Color(0x553A2A12);
     for (int i = 0; i < 5; i++) {
       final y = 18.0 + i * 38.0;
+      final direction = i.isEven ? 1.0 : -1.0;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromCenter(
-            center: Offset(left + w * (0.38 + 0.08 * i.isEven.sign), y),
+            center: Offset(left + w * (0.38 + 0.08 * direction), y),
             width: w * 0.24,
             height: 18,
           ),
