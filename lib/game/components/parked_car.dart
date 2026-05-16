@@ -29,9 +29,6 @@ class ParkedCarComponent extends PositionComponent
   Future<void> onLoad() async {
     final lm = gameRef.laneManager;
     final spawnY = gameRef.size.y * 0.30;
-    // Parked cars now sit just inside the road curb instead of outside the
-    // road on the sidewalk/yard. This was the main reason cars looked like
-    // they were driving on the sidewalk.
     final x = lm.roadXFromFraction(onRightCurb ? 0.84 : 0.16, spawnY);
     position = Vector2(x, spawnY);
     add(RectangleHitbox(
@@ -123,7 +120,6 @@ const List<Color> _carPaints = [
   Color(0xFFF5F5F5),
 ];
 
-/// Render a more realistic top-down car into a [w]×[h] box.
 void renderTopDownCar(
   Canvas canvas,
   double w,
@@ -148,7 +144,6 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
   final light = _lighten(base, 0.32);
   final trim = Paint()..color = const Color(0xFF101010);
 
-  // Tire blocks tucked under the fenders.
   for (final x in [w * 0.10, w * 0.90]) {
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -174,7 +169,6 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
     );
   }
 
-  // Door mirrors.
   canvas.drawRRect(
     RRect.fromRectAndRadius(
       Rect.fromLTWH(w * 0.08, h * 0.39, w * 0.09, h * 0.07),
@@ -190,7 +184,6 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
     Paint()..color = const Color(0xFF212121),
   );
 
-  // Body silhouette — narrower waist, rounded hood/trunk.
   final bodyPath = Path()
     ..moveTo(w * 0.30, h * 0.03)
     ..lineTo(w * 0.70, h * 0.03)
@@ -220,33 +213,15 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
       ..strokeWidth = 2.0,
   );
 
-  // Hood crease and trunk seams.
   final seamPaint = Paint()
     ..color = const Color(0x77000000)
     ..strokeWidth = 1.2
     ..strokeCap = StrokeCap.round;
-  canvas.drawLine(
-    Offset(w * 0.27, h * 0.23),
-    Offset(w * 0.73, h * 0.23),
-    seamPaint,
-  );
-  canvas.drawLine(
-    Offset(w * 0.24, h * 0.78),
-    Offset(w * 0.76, h * 0.78),
-    seamPaint,
-  );
-  canvas.drawLine(
-    Offset(w * 0.22, h * 0.24),
-    Offset(w * 0.20, h * 0.74),
-    seamPaint,
-  );
-  canvas.drawLine(
-    Offset(w * 0.78, h * 0.24),
-    Offset(w * 0.80, h * 0.74),
-    seamPaint,
-  );
+  canvas.drawLine(Offset(w * 0.27, h * 0.23), Offset(w * 0.73, h * 0.23), seamPaint);
+  canvas.drawLine(Offset(w * 0.24, h * 0.78), Offset(w * 0.76, h * 0.78), seamPaint);
+  canvas.drawLine(Offset(w * 0.22, h * 0.24), Offset(w * 0.20, h * 0.74), seamPaint);
+  canvas.drawLine(Offset(w * 0.78, h * 0.24), Offset(w * 0.80, h * 0.74), seamPaint);
 
-  // Glass: windshield, cabin, rear window with strong highlights.
   final glass = Paint()
     ..shader = Gradient.linear(
       Offset(w * 0.28, h * 0.18),
@@ -297,48 +272,30 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
       ..strokeWidth = 1.1,
   );
 
-  // Lights, bumpers, license plate.
   canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.24, h * 0.06, w * 0.17, h * 0.06),
-      const Radius.circular(3),
-    ),
+    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.24, h * 0.06, w * 0.17, h * 0.06), const Radius.circular(3)),
     Paint()..color = const Color(0xFFFFFDE7),
   );
   canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.59, h * 0.06, w * 0.17, h * 0.06),
-      const Radius.circular(3),
-    ),
+    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.59, h * 0.06, w * 0.17, h * 0.06), const Radius.circular(3)),
     Paint()..color = const Color(0xFFFFFDE7),
   );
   canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.25, h * 0.90, w * 0.14, h * 0.05),
-      const Radius.circular(3),
-    ),
+    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.25, h * 0.90, w * 0.14, h * 0.05), const Radius.circular(3)),
+    Paint()..color = const Color(0xFFFF1744),
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.61, h * 0.90, w * 0.14, h * 0.05), const Radius.circular(3)),
     Paint()..color = const Color(0xFFFF1744),
   );
   canvas.drawRRect(
     RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.61, h * 0.90, w * 0.14, h * 0.05),
-      const Radius.circular(3),
-    ),
-    Paint()..color = const Color(0xFFFF1744),
-  );
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(w * 0.50, h * 0.92),
-        width: w * 0.18,
-        height: h * 0.035,
-      ),
+      Rect.fromCenter(center: Offset(w * 0.50, h * 0.92), width: w * 0.18, height: h * 0.035),
       const Radius.circular(2),
     ),
     Paint()..color = const Color(0xFFECEFF1),
   );
 
-  // Painted highlight and roof reflection.
   canvas.drawLine(
     Offset(w * 0.38, h * 0.11),
     Offset(w * 0.31, h * 0.72),
@@ -374,28 +331,10 @@ void _renderGlassCracks(Canvas canvas, double w, double h) {
   }
 }
 
-int _alpha(Color c) => (c.toARGB32() >> 24) & 0xFF;
-int _red(Color c) => (c.toARGB32() >> 16) & 0xFF;
-int _green(Color c) => (c.toARGB32() >> 8) & 0xFF;
-int _blue(Color c) => c.toARGB32() & 0xFF;
-
 Color _lighten(Color c, double amount) {
-  final r = _red(c);
-  final g = _green(c);
-  final b = _blue(c);
-  return Color.fromARGB(
-    _alpha(c),
-    r + ((255 - r) * amount).round(),
-    g + ((255 - g) * amount).round(),
-    b + ((255 - b) * amount).round(),
-  );
+  return Color.lerp(c, const Color(0xFFFFFFFF), amount) ?? c;
 }
 
 Color _darken(Color c, double amount) {
-  return Color.fromARGB(
-    _alpha(c),
-    (_red(c) * (1 - amount)).round(),
-    (_green(c) * (1 - amount)).round(),
-    (_blue(c) * (1 - amount)).round(),
-  );
+  return Color.lerp(c, const Color(0xFF000000), amount) ?? c;
 }
