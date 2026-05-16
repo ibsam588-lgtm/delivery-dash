@@ -26,7 +26,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   static const double paperPackDistanceInterval = 400;
   static const double lampDistanceInterval = 90;
   static const double parkedCarDistanceInterval = 300;
-  static const double intersectionDistanceInterval = 520.0;
+  static const double intersectionDistanceInterval = 560.0;
   static const double constructionZoneDistanceInterval = 650;
   static const double catDistanceInterval = 620;
   static const double decorSpawnInterval = 1.4;
@@ -46,7 +46,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     final speedFactor = scroll > 1 ? cfg.startSpeed / scroll : 1.0;
     final diffMult = gameRef.config.spawnIntervalMultiplier;
     final upper = base * diffMult;
-    return (base * speedFactor * diffMult).clamp(0.55, upper < 0.55 ? 0.55 : upper);
+    return (base * speedFactor * diffMult).clamp(0.60, upper < 0.60 ? 0.60 : upper);
   }
 
   @override
@@ -77,7 +77,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     }
     if (d - _parkedCarDistanceMark >= parkedCarDistanceInterval) {
       _parkedCarDistanceMark = d;
-      if (_rng.nextDouble() < 0.55) _spawnParkedCar();
+      if (_rng.nextDouble() < 0.50) _spawnParkedCar();
     }
     if (d - _intersectionDistanceMark >= intersectionDistanceInterval) {
       _intersectionDistanceMark = d;
@@ -97,21 +97,21 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   void _spawnObstacle() {
     final roll = _rng.nextDouble();
     final ObstacleType type;
-    if (roll < 0.22) {
+    if (roll < 0.24) {
       type = ObstacleType.car;
-    } else if (roll < 0.34) {
+    } else if (roll < 0.36) {
       type = ObstacleType.dog;
-    } else if (roll < 0.41) {
+    } else if (roll < 0.43) {
       type = ObstacleType.kidBike;
-    } else if (roll < 0.49) {
+    } else if (roll < 0.51) {
       type = ObstacleType.worker;
-    } else if (roll < 0.61) {
+    } else if (roll < 0.62) {
       type = ObstacleType.cone;
-    } else if (roll < 0.71) {
+    } else if (roll < 0.72) {
       type = ObstacleType.barrier;
-    } else if (roll < 0.77) {
+    } else if (roll < 0.78) {
       type = ObstacleType.pothole;
-    } else if (roll < 0.83) {
+    } else if (roll < 0.84) {
       type = ObstacleType.manhole;
     } else if (roll < 0.91) {
       type = ObstacleType.trashBin;
@@ -124,7 +124,8 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
         gameRef.add(ObstacleComponent(
           type: type,
           laneFraction: _frontCarLaneFraction(),
-          speedFactor: 0.96 + _rng.nextDouble() * 0.10,
+          // Faster than road scroll so cars visibly drive toward the player.
+          speedFactor: 1.22 + _rng.nextDouble() * 0.18,
           isOvertaker: false,
           isOncoming: false,
         ));
