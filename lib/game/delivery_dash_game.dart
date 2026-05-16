@@ -300,11 +300,13 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   void onDragMoveTo(double worldX) {
     if (state != GameState.playing) return;
+    AudioService.instance.playBgm();
     player.moveTo(worldX);
   }
 
   void onTap(double tapX) {
     if (state != GameState.playing) return;
+    AudioService.instance.playBgm();
     _throwPaper(throwLeft: tapX < size.x / 2);
   }
 
@@ -319,6 +321,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     if (state == GameState.paused) {
       state = GameState.playing;
       AudioService.instance.resumeBgm();
+      AudioService.instance.playBgm();
     }
   }
 
@@ -537,6 +540,8 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   void onPlayerHitObstacle() {
     if (isInvincible || state != GameState.playing) return;
+    final direction = player.position.x < size.x * 0.5 ? -1.0 : 1.0;
+    player.triggerCrash(direction: direction);
     lives--;
     isInvincible = true;
     invincibilityTimer = 1.5;
