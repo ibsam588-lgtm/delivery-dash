@@ -16,6 +16,7 @@ class PlayerComponent extends PositionComponent
   static const double _swayHz = 1.35;
   static const double _throwArmDuration = 0.20;
   static const double _wetDuration = 0.4;
+  static const double _crashDuration = 0.95;
 
   final bool isVip;
   double _targetX = 0;
@@ -28,6 +29,8 @@ class PlayerComponent extends PositionComponent
   bool _throwLeft = true;
   double _swayTimer = 0;
   double _throwArmTimer = 0;
+  double _crashTimer = 0;
+  double _crashDir = 1;
 
   PlayerComponent({this.isVip = false})
       : super(size: Vector2(74, 110), anchor: Anchor.center, priority: 100);
@@ -38,6 +41,11 @@ class PlayerComponent extends PositionComponent
   void triggerThrowArm({bool throwLeft = true}) {
     _throwLeft = throwLeft;
     _throwArmTimer = _throwArmDuration;
+  }
+
+  void triggerCrash({double direction = 1}) {
+    _crashTimer = _crashDuration;
+    _crashDir = direction >= 0 ? 1 : -1;
   }
 
   @override
@@ -72,6 +80,9 @@ class PlayerComponent extends PositionComponent
     if (_throwArmTimer > 0) {
       _throwArmTimer = (_throwArmTimer - dt).clamp(0.0, _throwArmDuration);
     }
+    if (_crashTimer > 0) {
+      _crashTimer = (_crashTimer - dt).clamp(0.0, _crashDuration);
+    }
 
     final dx = _targetX - position.x;
     final t = (_followSpeed * dt).clamp(0.0, 1.0);
@@ -93,7 +104,7 @@ class PlayerComponent extends PositionComponent
       _opacity = 1.0;
     }
 
-    if (gameRef.state == GameState.playing) {
+    if (gameRef.state == GameState.playing && _crashTimer <= 0) {
       _trailTimer += dt;
       if (_trailTimer >= _trailInterval) {
         _trailTimer = 0;
@@ -117,9 +128,20 @@ class PlayerComponent extends PositionComponent
 
     canvas.save();
     canvas.translate(size.x / 2, size.y / 2);
-    canvas.rotate(sin(_swayTimer * _swayHz * 2 * pi) * _swayAmplitudeDeg * pi / 180);
+    final crashProgress = _crashTimer > 0
+        ? (1.0 - (_crashTimer / _crashDuration)).clamp(0.0, 1.0)
+        : 0.0;
+    final crashLean = crashProgress == 0
+        ? 0.0
+        : sin(crashProgress * pi) * _crashDir * 0.95;
+    final crashDrop = crashProgress == 0 ? 0.0 : sin(crashProgress * pi) * 9.0;
+    canvas.translate(_crashDir * crashProgress * 16.0, crashDrop);
+    canvas.rotate(
+      sin(_swayTimer * _swayHz * 2 * pi) * _swayAmplitudeDeg * pi / 180 +
+          crashLean,
+    );
     canvas.translate(-size.x / 2, -size.y / 2);
-    _renderCourier(canvas);
+    _renderCourier(canvas, crashProgress: crashProgress);
 
     if (_wetTimer > 0) {
       final a = (_wetTimer / _wetDuration) * 0.42;
@@ -136,12 +158,13 @@ class PlayerComponent extends PositionComponent
     if (needsLayer) canvas.restore();
   }
 
-  void _renderCourier(Canvas canvas) {
+  void _renderCourier(Canvas canvas, {double crashProgress = 0}) {
     final w = size.x;
     final h = size.y;
     final wheelAngle = _swayTimer * 13.0;
     final throwT = _throwArmTimer / _throwArmDuration;
     final pedalLift = _pedalPhase ? 1.0 : -1.0;
+    final bikeTilt = -0.10 + crashProgress * _crashDir * 0.55;
 
     if (isVip) {
       canvas.drawOval(
@@ -155,9 +178,13 @@ class PlayerComponent extends PositionComponent
       Paint()..color = const Color(0x77000000),
     );
 
-    // Two bicycle wheels now align front/back on the bike path, not left/right.
-    final rearWheel = Offset(w * 0.50, h * 0.78);
-    final frontWheel = Offset(w * 0.50, h * 0.55);
+    canvas.save();
+    canvas.translate(w * 0.5, h * 0.64);
+    canvas.rotate(bikeTilt);
+    canvas.translate(-w * 0.5, -h * 0.64);
+
+    final rearWheel = Offset(w * 0.43, h * 0.80);
+    final frontWheel = Offset(w * 0.58, h * 0.54);
     _drawVerticalWheel(canvas, rearWheel, w * 0.18, wheelAngle);
     _drawVerticalWheel(canvas, frontWheel, w * 0.15, wheelAngle + pi / 8);
 
@@ -174,7 +201,7 @@ class PlayerComponent extends PositionComponent
 
     final seat = Offset(w * 0.50, h * 0.49);
     final crank = Offset(w * 0.50, h * 0.65);
-    final handle = Offset(w * 0.50, h * 0.39);
+    final handle = Offset(w * 0.58, h * 0.39);
 
     void frame(Paint p) {
       canvas.drawLine(seat, crank, p);
@@ -190,8 +217,8 @@ class PlayerComponent extends PositionComponent
     frame(framePaint);
 
     canvas.drawLine(
-      Offset(w * 0.30, h * 0.39),
-      Offset(w * 0.70, h * 0.39),
+      Offset(w * 0.34, h * 0.39),
+      Offset(w * 0.74, h * 0.39),
       Paint()
         ..color = const Color(0xFF263238)
         ..strokeWidth = 3.4
@@ -205,12 +232,14 @@ class PlayerComponent extends PositionComponent
       ..strokeCap = StrokeCap.round;
     canvas.drawLine(crank, Offset(crank.dx + 10, crank.dy + pedalLift * 7), pedalPaint);
     canvas.drawLine(crank, Offset(crank.dx - 10, crank.dy - pedalLift * 7), pedalPaint);
+    canvas.restore();
 
     _drawNewsBag(canvas, w, h);
-    _drawRearRider(canvas, w, h, pedalLift, throwT);
+    _drawRearRider(canvas, w, h, pedalLift, throwT, crashProgress);
   }
 
-  void _drawRearRider(Canvas canvas, double w, double h, double pedalLift, double throwT) {
+  void _drawRearRider(Canvas canvas, double w, double h, double pedalLift,
+      double throwT, double crashProgress) {
     final legPaint = Paint()
       ..color = const Color(0xFF1B3855)
       ..strokeWidth = 4.5
@@ -248,8 +277,9 @@ class PlayerComponent extends PositionComponent
     final skinPaint = Paint()..color = const Color(0xFFFFC590)..strokeWidth = 3.8..strokeCap = StrokeCap.round;
     final leftShoulder = Offset(w * 0.36, h * 0.32);
     final rightShoulder = Offset(w * 0.64, h * 0.32);
-    final leftHand = Offset(w * (0.31 - (_throwLeft ? throwT * 0.20 : 0)), h * (0.40 - (_throwLeft ? throwT * 0.12 : 0)));
-    final rightHand = Offset(w * (0.69 + (!_throwLeft ? throwT * 0.20 : 0)), h * (0.40 - (!_throwLeft ? throwT * 0.12 : 0)));
+    final fallReach = crashProgress * 0.18;
+    final leftHand = Offset(w * (0.31 - (_throwLeft ? throwT * 0.20 : 0) - fallReach), h * (0.40 - (_throwLeft ? throwT * 0.12 : 0) + crashProgress * 0.16));
+    final rightHand = Offset(w * (0.69 + (!_throwLeft ? throwT * 0.20 : 0) + fallReach), h * (0.40 - (!_throwLeft ? throwT * 0.12 : 0) + crashProgress * 0.16));
     canvas.drawLine(leftShoulder, leftHand, sleevePaint);
     canvas.drawLine(rightShoulder, rightHand, sleevePaint);
     canvas.drawLine(leftHand, Offset(leftHand.dx, leftHand.dy + 1), skinPaint);
