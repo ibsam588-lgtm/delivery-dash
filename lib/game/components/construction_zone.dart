@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'dart:ui';
 import 'package:flame/components.dart';
 import '../delivery_dash_game.dart';
@@ -15,7 +14,6 @@ class ConstructionZoneComponent extends PositionComponent
 
   bool _playerInside = false;
   bool _seeded = false;
-  final Random _rng = Random(12);
 
   ConstructionZoneComponent()
       : super(
@@ -95,14 +93,13 @@ class ConstructionZoneComponent extends PositionComponent
         ),
     );
 
-    // Rough asphalt patch areas.
     final patchPaint = Paint()..color = const Color(0x553A2A12);
     for (int i = 0; i < 5; i++) {
       final y = 18.0 + i * 38.0;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromCenter(
-            center: Offset(left + w * (0.38 + 0.08 * sin(i)), y),
+            center: Offset(left + w * (0.38 + 0.08 * i.isEven.sign), y),
             width: w * 0.24,
             height: 18,
           ),
@@ -115,7 +112,6 @@ class ConstructionZoneComponent extends PositionComponent
     _drawCautionTape(canvas, left + 8, right - 8, 10);
     _drawCautionTape(canvas, left + 8, right - 8, zoneHeight - 18);
 
-    // Barricades near both road edges, not in the center lane.
     for (final x in [left + 18, right - 70]) {
       for (final y in [46.0, 122.0]) {
         _drawBarricade(canvas, x, y);
@@ -125,7 +121,6 @@ class ConstructionZoneComponent extends PositionComponent
     _drawWarningSign(canvas, left + w * 0.08, 82);
     _drawWarningSign(canvas, right - w * 0.18, 156);
 
-    // Orange edge posts.
     for (double y = 28; y < zoneHeight - 20; y += 44) {
       _drawTinyCone(canvas, left + 9, y);
       _drawTinyCone(canvas, right - 17, y + 12);
@@ -165,7 +160,13 @@ class ConstructionZoneComponent extends PositionComponent
       const Radius.circular(3),
     );
     canvas.drawRRect(board, Paint()..color = const Color(0xFFFF9800));
-    canvas.drawRRect(board, Paint()..color = const Color(0xFF4E342E)..style = PaintingStyle.stroke..strokeWidth = 1.5);
+    canvas.drawRRect(
+      board,
+      Paint()
+        ..color = const Color(0xFF4E342E)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
     final white = Paint()
       ..color = const Color(0xFFFFF3E0)
       ..strokeWidth = 5
@@ -178,7 +179,9 @@ class ConstructionZoneComponent extends PositionComponent
     canvas.drawLine(
       Offset(x + 17, y + 24),
       Offset(x + 17, y + 50),
-      Paint()..color = const Color(0xFF5D4037)..strokeWidth = 3,
+      Paint()
+        ..color = const Color(0xFF5D4037)
+        ..strokeWidth = 3,
     );
     final sign = Path()
       ..moveTo(x + 17, y)
@@ -187,9 +190,25 @@ class ConstructionZoneComponent extends PositionComponent
       ..lineTo(x, y + 17)
       ..close();
     canvas.drawPath(sign, Paint()..color = const Color(0xFFFFB300));
-    canvas.drawPath(sign, Paint()..color = const Color(0xFF4E342E)..style = PaintingStyle.stroke..strokeWidth = 1.6);
-    canvas.drawLine(Offset(x + 10, y + 17), Offset(x + 24, y + 17), Paint()..color = const Color(0xFF4E342E)..strokeWidth = 2);
-    canvas.drawCircle(Offset(x + 17, y + 24), 2, Paint()..color = const Color(0xFF4E342E));
+    canvas.drawPath(
+      sign,
+      Paint()
+        ..color = const Color(0xFF4E342E)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6,
+    );
+    canvas.drawLine(
+      Offset(x + 10, y + 17),
+      Offset(x + 24, y + 17),
+      Paint()
+        ..color = const Color(0xFF4E342E)
+        ..strokeWidth = 2,
+    );
+    canvas.drawCircle(
+      Offset(x + 17, y + 24),
+      2,
+      Paint()..color = const Color(0xFF4E342E),
+    );
   }
 
   void _drawTinyCone(Canvas canvas, double x, double y) {
@@ -199,7 +218,13 @@ class ConstructionZoneComponent extends PositionComponent
       ..lineTo(x, y + 22)
       ..close();
     canvas.drawPath(cone, Paint()..color = const Color(0xFFFF6D00));
-    canvas.drawRect(Rect.fromLTWH(x + 3, y + 13, 10, 3), Paint()..color = const Color(0xFFFFF3E0));
-    canvas.drawRect(Rect.fromLTWH(x - 2, y + 21, 20, 5), Paint()..color = const Color(0xFF4E342E));
+    canvas.drawRect(
+      Rect.fromLTWH(x + 3, y + 13, 10, 3),
+      Paint()..color = const Color(0xFFFFF3E0),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(x - 2, y + 21, 20, 5),
+      Paint()..color = const Color(0xFF4E342E),
+    );
   }
 }
