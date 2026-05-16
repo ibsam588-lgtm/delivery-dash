@@ -152,14 +152,22 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
   for (final x in [w * 0.10, w * 0.90]) {
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(x, h * 0.27), width: w * 0.16, height: h * 0.18),
+        Rect.fromCenter(
+          center: Offset(x, h * 0.27),
+          width: w * 0.16,
+          height: h * 0.18,
+        ),
         const Radius.circular(5),
       ),
       trim,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(x, h * 0.73), width: w * 0.16, height: h * 0.18),
+        Rect.fromCenter(
+          center: Offset(x, h * 0.73),
+          width: w * 0.16,
+          height: h * 0.18,
+        ),
         const Radius.circular(5),
       ),
       trim,
@@ -168,11 +176,17 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
 
   // Door mirrors.
   canvas.drawRRect(
-    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.08, h * 0.39, w * 0.09, h * 0.07), const Radius.circular(3)),
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.08, h * 0.39, w * 0.09, h * 0.07),
+      const Radius.circular(3),
+    ),
     Paint()..color = const Color(0xFF212121),
   );
   canvas.drawRRect(
-    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.83, h * 0.39, w * 0.09, h * 0.07), const Radius.circular(3)),
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.83, h * 0.39, w * 0.09, h * 0.07),
+      const Radius.circular(3),
+    ),
     Paint()..color = const Color(0xFF212121),
   );
 
@@ -211,10 +225,26 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
     ..color = const Color(0x77000000)
     ..strokeWidth = 1.2
     ..strokeCap = StrokeCap.round;
-  canvas.drawLine(Offset(w * 0.27, h * 0.23), Offset(w * 0.73, h * 0.23), seamPaint);
-  canvas.drawLine(Offset(w * 0.24, h * 0.78), Offset(w * 0.76, h * 0.78), seamPaint);
-  canvas.drawLine(Offset(w * 0.22, h * 0.24), Offset(w * 0.20, h * 0.74), seamPaint);
-  canvas.drawLine(Offset(w * 0.78, h * 0.24), Offset(w * 0.80, h * 0.74), seamPaint);
+  canvas.drawLine(
+    Offset(w * 0.27, h * 0.23),
+    Offset(w * 0.73, h * 0.23),
+    seamPaint,
+  );
+  canvas.drawLine(
+    Offset(w * 0.24, h * 0.78),
+    Offset(w * 0.76, h * 0.78),
+    seamPaint,
+  );
+  canvas.drawLine(
+    Offset(w * 0.22, h * 0.24),
+    Offset(w * 0.20, h * 0.74),
+    seamPaint,
+  );
+  canvas.drawLine(
+    Offset(w * 0.78, h * 0.24),
+    Offset(w * 0.80, h * 0.74),
+    seamPaint,
+  );
 
   // Glass: windshield, cabin, rear window with strong highlights.
   final glass = Paint()
@@ -230,14 +260,26 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
     ..lineTo(w * 0.27, h * 0.39)
     ..close();
   canvas.drawPath(windshield, glass);
-  canvas.drawPath(windshield, Paint()..color = const Color(0x66000000)..style = PaintingStyle.stroke..strokeWidth = 1.1);
+  canvas.drawPath(
+    windshield,
+    Paint()
+      ..color = const Color(0x66000000)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1,
+  );
 
   final cabin = RRect.fromRectAndRadius(
     Rect.fromLTWH(w * 0.27, h * 0.41, w * 0.46, h * 0.20),
     const Radius.circular(7),
   );
   canvas.drawRRect(cabin, Paint()..color = const Color(0xCC90CAF9));
-  canvas.drawRRect(cabin, Paint()..color = const Color(0x66000000)..style = PaintingStyle.stroke..strokeWidth = 1.1);
+  canvas.drawRRect(
+    cabin,
+    Paint()
+      ..color = const Color(0x66000000)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1,
+  );
   canvas.drawLine(Offset(w * 0.50, h * 0.42), Offset(w * 0.50, h * 0.60), seamPaint);
 
   final rear = Path()
@@ -247,27 +289,52 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
     ..lineTo(w * 0.34, h * 0.77)
     ..close();
   canvas.drawPath(rear, Paint()..color = const Color(0xCC64B5F6));
-  canvas.drawPath(rear, Paint()..color = const Color(0x66000000)..style = PaintingStyle.stroke..strokeWidth = 1.1);
+  canvas.drawPath(
+    rear,
+    Paint()
+      ..color = const Color(0x66000000)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1,
+  );
 
   // Lights, bumpers, license plate.
   canvas.drawRRect(
-    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.24, h * 0.06, w * 0.17, h * 0.06), const Radius.circular(3)),
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.24, h * 0.06, w * 0.17, h * 0.06),
+      const Radius.circular(3),
+    ),
     Paint()..color = const Color(0xFFFFFDE7),
   );
   canvas.drawRRect(
-    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.59, h * 0.06, w * 0.17, h * 0.06), const Radius.circular(3)),
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.59, h * 0.06, w * 0.17, h * 0.06),
+      const Radius.circular(3),
+    ),
     Paint()..color = const Color(0xFFFFFDE7),
   );
   canvas.drawRRect(
-    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.25, h * 0.90, w * 0.14, h * 0.05), const Radius.circular(3)),
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.25, h * 0.90, w * 0.14, h * 0.05),
+      const Radius.circular(3),
+    ),
     Paint()..color = const Color(0xFFFF1744),
   );
   canvas.drawRRect(
-    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.61, h * 0.90, w * 0.14, h * 0.05), const Radius.circular(3)),
+    RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.61, h * 0.90, w * 0.14, h * 0.05),
+      const Radius.circular(3),
+    ),
     Paint()..color = const Color(0xFFFF1744),
   );
   canvas.drawRRect(
-    RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(w * 0.50, h * 0.92), width: w * 0.18, height: h * 0.035), const Radius.circular(2)),
+    RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.92),
+        width: w * 0.18,
+        height: h * 0.035,
+      ),
+      const Radius.circular(2),
+    ),
     Paint()..color = const Color(0xFFECEFF1),
   );
 
@@ -307,20 +374,28 @@ void _renderGlassCracks(Canvas canvas, double w, double h) {
   }
 }
 
+int _alpha(Color c) => (c.toARGB32() >> 24) & 0xFF;
+int _red(Color c) => (c.toARGB32() >> 16) & 0xFF;
+int _green(Color c) => (c.toARGB32() >> 8) & 0xFF;
+int _blue(Color c) => c.toARGB32() & 0xFF;
+
 Color _lighten(Color c, double amount) {
+  final r = _red(c);
+  final g = _green(c);
+  final b = _blue(c);
   return Color.fromARGB(
-    c.alpha,
-    c.red + ((255 - c.red) * amount).round(),
-    c.green + ((255 - c.green) * amount).round(),
-    c.blue + ((255 - c.blue) * amount).round(),
+    _alpha(c),
+    r + ((255 - r) * amount).round(),
+    g + ((255 - g) * amount).round(),
+    b + ((255 - b) * amount).round(),
   );
 }
 
 Color _darken(Color c, double amount) {
   return Color.fromARGB(
-    c.alpha,
-    (c.red * (1 - amount)).round(),
-    (c.green * (1 - amount)).round(),
-    (c.blue * (1 - amount)).round(),
+    _alpha(c),
+    (_red(c) * (1 - amount)).round(),
+    (_green(c) * (1 - amount)).round(),
+    (_blue(c) * (1 - amount)).round(),
   );
 }
