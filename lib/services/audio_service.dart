@@ -6,9 +6,12 @@ class AudioService {
   static final AudioService instance = AudioService._();
   AudioService._();
 
-  static const _bgm = 'bgm.wav';
+  // Keep filenames simple so replacement with better production audio is easy.
+  static const _bgm = 'paperboy_bgm.wav';
+  static const _fallbackBgm = 'bgm.wav';
   static const _delivery = 'delivery.wav';
   static const _hit = 'hit.wav';
+  static const _windowSmash = 'window_smash.wav';
   static const _splash = 'splash.wav';
   static const _pickup = 'pickup.wav';
   static const _levelup = 'levelup.wav';
@@ -16,21 +19,20 @@ class AudioService {
 
   bool _bgmPlaying = false;
   bool _initialized = false;
+  bool _hasNewBgm = false;
+  bool _hasWindowSmash = false;
 
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
     try {
-      // Wires Bgm into Flutter's app lifecycle (pause on background,
-      // resume on foreground) and prepares the BGM audio player.
       FlameAudio.bgm.initialize();
     } catch (_) {}
+
+    // Load required legacy files first.
     try {
-      // Preload everything (BGM included). loadAll caches the file
-      // bytes so the first play() doesn't stall on a network/asset
-      // resolve and so we surface any decoder errors up front.
       await FlameAudio.audioCache.loadAll(const [
-        _bgm,
+        _fallbackBgm,
         _delivery,
         _hit,
         _splash,
@@ -38,9 +40,22 @@ class AudioService {
         _levelup,
         _gameOver,
       ]);
+    } catch (_) {}
+
+    // Optional upgraded files. If they do not exist yet, the game falls back
+    // without crashing. Drop replacement assets into assets/audio/ with these
+    // filenames to improve music/SFX without code changes.
+    try {
+      await FlameAudio.audioCache.load(_bgm);
+      _hasNewBgm = true;
     } catch (_) {
-      // Files may be missing on dev builds; play methods will fail
-      // silently if so.
+      _hasNewBgm = false;
+    }
+    try {
+      await FlameAudio.audioCache.load(_windowSmash);
+      _hasWindowSmash = true;
+    } catch (_) {
+      _hasWindowSmash = false;
     }
   }
 
@@ -48,7 +63,7 @@ class AudioService {
     if (_bgmPlaying) return;
     _bgmPlaying = true;
     try {
-      await FlameAudio.bgm.play(_bgm, volume: 0.5);
+      await FlameAudio.bgm.play(_hasNewBgm ? _bgm : _fallbackBgm, volume: 0.58);
     } catch (_) {
       _bgmPlaying = false;
     }
@@ -76,17 +91,17 @@ class AudioService {
     } catch (_) {}
   }
 
-  void playDelivery() => _play(_delivery);
-  void playHit() => _play(_hit);
-  void playWindowSmash() => _play(_hit);
-  void playSplash() => _play(_splash);
-  void playPickup() => _play(_pickup);
-  void playLevelUp() => _play(_levelup);
-  void playGameOver() => _play(_gameOver);
+  void playDelivery() => _play(_delivery, volume: 0.85);
+  void playHit() => _play(_hit, volume: 0.8);
+  void playWindowSmash() => _play(_hasWindowSmash ? _windowSmash : _hit, volume: 0.95);
+  void playSplash() => _play(_splash, volume: 0.8);
+  void playPickup() => _play(_pickup, volume: 0.8);
+  void playLevelUp() => _play(_levelup, volume: 0.85);
+  void playGameOver() => _play(_gameOver, volume: 0.8);
 
-  void _play(String file) {
+  void _play(String file, {double volume = 0.8}) {
     try {
-      FlameAudio.play(file, volume: 0.8);
+      FlameAudio.play(file, volume: volume);
     } catch (_) {}
   }
 }

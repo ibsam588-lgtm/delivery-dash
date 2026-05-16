@@ -1,11 +1,10 @@
 import 'package:flame/components.dart';
 
-/// Paperboy-style road layout.
+/// Paperboy-style road layout with larger yards and sidewalks.
 ///
-/// The original arcade feel is closer to a readable top-down / slight
-/// perspective street than a hard vanishing-point racer. The road is wide at
-/// the player and still clearly visible near the top so intersections,
-/// mailboxes, houses, and hazards do not collapse into the horizon.
+/// The mockup has a readable central road, generous sidewalks, gardens, and
+/// side houses. This layout narrows the driveable road so cars stay in lanes
+/// and the side art has enough room to look intentional.
 class LaneManager {
   final Vector2 gameSize;
 
@@ -16,10 +15,10 @@ class LaneManager {
 
   double _t(double y) => (y / H).clamp(0.0, 1.0);
 
-  // Top:  27%..73% of screen width.
-  // Bottom: 12%..88% of screen width.
-  double roadLeftAt(double y) => W * (0.27 - 0.15 * _t(y));
-  double roadRightAt(double y) => W * (0.73 + 0.15 * _t(y));
+  // Top:  35%..65% of screen width.
+  // Bottom: 21%..79% of screen width.
+  double roadLeftAt(double y) => W * (0.35 - 0.14 * _t(y));
+  double roadRightAt(double y) => W * (0.65 + 0.14 * _t(y));
   double roadCenterAt(double y) => W * 0.50;
   double roadWidthAt(double y) => roadRightAt(y) - roadLeftAt(y);
 
@@ -34,13 +33,13 @@ class LaneManager {
   double get rightSidewalkWidth => W - roadRight;
   double get sidewalkWidth => leftSidewalkWidth;
 
-  // Player can move from far-left footpath to far-right footpath.
+  // Player can still reach both sides for mailbox throws, but cars clamp to road.
   double get playerMinX => 0;
   double get playerMaxX => W;
 
   double leftSidewalkRightAt(double y) => roadLeftAt(y);
   double rightSidewalkLeftAt(double y) => roadRightAt(y);
-  double scaleAt(double y) => (0.55 + 0.45 * _t(y)).clamp(0.55, 1.0);
+  double scaleAt(double y) => (0.58 + 0.42 * _t(y)).clamp(0.58, 1.0);
 
   double roadXFromFraction(double f, [double? y]) {
     final ry = y ?? _refY;
