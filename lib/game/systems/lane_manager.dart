@@ -1,10 +1,10 @@
 import 'package:flame/components.dart';
 
-/// Paperboy-style road layout with larger yards and sidewalks.
+/// Paperboy-style road layout with a wider road and readable sidewalks.
 ///
-/// The mockup has a readable central road, generous sidewalks, gardens, and
-/// side houses. This layout narrows the driveable road so cars stay in lanes
-/// and the side art has enough room to look intentional.
+/// The playfield now keeps the road broad enough for clear traffic lanes while
+/// preserving enough footpath/yard space for houses, mailboxes, dogs, workers,
+/// hydrants, and trash cans.
 class LaneManager {
   final Vector2 gameSize;
 
@@ -15,14 +15,13 @@ class LaneManager {
 
   double _t(double y) => (y / H).clamp(0.0, 1.0);
 
-  // Top:  35%..65% of screen width.
-  // Bottom: 21%..79% of screen width.
-  double roadLeftAt(double y) => W * (0.35 - 0.14 * _t(y));
-  double roadRightAt(double y) => W * (0.65 + 0.14 * _t(y));
+  // Top:    30%..70% of screen width.
+  // Bottom: 15%..85% of screen width.
+  double roadLeftAt(double y) => W * (0.30 - 0.15 * _t(y));
+  double roadRightAt(double y) => W * (0.70 + 0.15 * _t(y));
   double roadCenterAt(double y) => W * 0.50;
   double roadWidthAt(double y) => roadRightAt(y) - roadLeftAt(y);
 
-  // Player reference depth ~85% down.
   double get _refY => H * 0.85;
   double get roadLeft => roadLeftAt(_refY);
   double get roadRight => roadRightAt(_refY);
@@ -33,7 +32,6 @@ class LaneManager {
   double get rightSidewalkWidth => W - roadRight;
   double get sidewalkWidth => leftSidewalkWidth;
 
-  // Player can still reach both sides for mailbox throws, but cars clamp to road.
   double get playerMinX => 0;
   double get playerMaxX => W;
 

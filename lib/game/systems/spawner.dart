@@ -77,7 +77,7 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     }
     if (d - _parkedCarDistanceMark >= parkedCarDistanceInterval) {
       _parkedCarDistanceMark = d;
-      if (_rng.nextDouble() < 0.75) _spawnParkedCar();
+      if (_rng.nextDouble() < 0.65) _spawnParkedCar();
     }
     if (d - _intersectionDistanceMark >= intersectionDistanceInterval) {
       _intersectionDistanceMark = d;
@@ -97,9 +97,9 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   void _spawnObstacle() {
     final roll = _rng.nextDouble();
     final ObstacleType type;
-    if (roll < 0.26) {
+    if (roll < 0.24) {
       type = ObstacleType.car;
-    } else if (roll < 0.36) {
+    } else if (roll < 0.35) {
       type = ObstacleType.dog;
     } else if (roll < 0.42) {
       type = ObstacleType.kidBike;
@@ -121,15 +121,12 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
 
     switch (type) {
       case ObstacleType.car:
-        final oncoming = _rng.nextDouble() < 0.28;
-        final factor = 0.86 + _rng.nextDouble() * 0.28;
-        final overtaker = !oncoming && _rng.nextDouble() < 0.10;
         gameRef.add(ObstacleComponent(
           type: type,
-          laneFraction: oncoming ? _oncomingCarLaneFraction() : _carLaneFraction(),
-          speedFactor: factor,
-          isOvertaker: overtaker,
-          isOncoming: oncoming,
+          laneFraction: _frontCarLaneFraction(),
+          speedFactor: 0.82 + _rng.nextDouble() * 0.24,
+          isOvertaker: false,
+          isOncoming: false,
         ));
         break;
       case ObstacleType.worker:
@@ -139,11 +136,11 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
           onRightSidewalk: true,
         ));
         if (_rng.nextBool()) {
-          final coneLane = 0.32 + _rng.nextDouble() * 0.36;
+          final coneLane = 0.30 + _rng.nextDouble() * 0.40;
           for (final offset in const [-0.06, 0.0, 0.06]) {
             gameRef.add(ObstacleComponent(
               type: ObstacleType.cone,
-              laneFraction: (coneLane + offset).clamp(0.25, 0.75),
+              laneFraction: (coneLane + offset).clamp(0.24, 0.76),
             ));
           }
         }
@@ -163,8 +160,8 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
         break;
       case ObstacleType.hydrant:
         final f = _rng.nextBool()
-            ? 0.28 + _rng.nextDouble() * 0.08
-            : 0.64 + _rng.nextDouble() * 0.08;
+            ? 0.24 + _rng.nextDouble() * 0.10
+            : 0.66 + _rng.nextDouble() * 0.10;
         gameRef.add(ObstacleComponent(type: type, laneFraction: f));
         break;
       case ObstacleType.cone:
@@ -173,25 +170,23 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
       case ObstacleType.manhole:
         gameRef.add(ObstacleComponent(
           type: type,
-          laneFraction: 0.28 + _rng.nextDouble() * 0.44,
+          laneFraction: 0.24 + _rng.nextDouble() * 0.52,
         ));
         break;
     }
   }
 
-  double _carLaneFraction() {
+  double _frontCarLaneFraction() {
     final pick = _rng.nextInt(3);
     switch (pick) {
       case 0:
-        return 0.30 + _rng.nextDouble() * 0.04;
+        return 0.28 + _rng.nextDouble() * 0.05;
       case 1:
         return 0.48 + _rng.nextDouble() * 0.04;
       default:
-        return 0.66 + _rng.nextDouble() * 0.04;
+        return 0.67 + _rng.nextDouble() * 0.05;
     }
   }
-
-  double _oncomingCarLaneFraction() => 0.30 + _rng.nextDouble() * 0.08;
 
   void _spawnPaperPack() {
     final lm = gameRef.laneManager;
@@ -211,7 +206,9 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
 
   void _spawnParkedCar() {
     gameRef.add(ParkedCarComponent(
-        variant: _rng.nextInt(ParkedCarComponent.variantCount)));
+      variant: _rng.nextInt(ParkedCarComponent.variantCount),
+      onRightCurb: _rng.nextBool(),
+    ));
   }
 
   void _spawnIntersection() => gameRef.add(IntersectionComponent());
