@@ -335,17 +335,15 @@ class _GuideChip extends StatelessWidget {
 class _GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets padding;
-  final BorderRadius? borderRadius;
 
   const _GlassCard({
     required this.child,
     required this.padding,
-    this.borderRadius,
   });
 
   @override
   Widget build(BuildContext context) {
-    final radius = borderRadius ?? BorderRadius.circular(20);
+    const radius = BorderRadius.all(Radius.circular(20));
     return ClipRRect(
       borderRadius: radius,
       child: BackdropFilter(
@@ -429,10 +427,10 @@ class _AuroraBackgroundPainter extends CustomPainter {
     canvas.drawRect(
       Rect.fromLTWH(0, horizon, w, h - horizon),
       Paint()
-        ..shader = LinearGradient(
+        ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: const [Color(0x00000000), Color(0xAA000000)],
+          colors: [Color(0x00000000), Color(0xAA000000)],
         ).createShader(Rect.fromLTWH(0, horizon, w, h - horizon)),
     );
 
