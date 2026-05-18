@@ -106,7 +106,8 @@ class PaperPackComponent extends PositionComponent
       final ox = i * 2.0;
       final oy = i * 2.5;
       final sheetRect = Rect.fromLTWH(ox, oy, w - ox * 1.5, h * 0.80 - oy);
-      final sheetRR = RRect.fromRectAndRadius(sheetRect, const Radius.circular(3));
+      final sheetRR =
+          RRect.fromRectAndRadius(sheetRect, const Radius.circular(3));
 
       // Sheet body (cream/off-white).
       canvas.drawRRect(
@@ -143,7 +144,12 @@ class PaperPackComponent extends PositionComponent
         ..shader = Gradient.linear(
           Offset(0, bandY),
           Offset(w, bandY),
-          [const Color(0xFFD4A017), const Color(0xFFB8860B), const Color(0xFFD4A017)],
+          [
+            const Color(0xFFD4A017),
+            const Color(0xFFB8860B),
+            const Color(0xFFD4A017),
+          ],
+          [0.0, 0.5, 1.0],
         ),
     );
     // Band knot (small circle at center).

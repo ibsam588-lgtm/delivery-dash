@@ -21,10 +21,17 @@ class AudioService {
   bool _initialized = false;
   bool _hasNewBgm = false;
   bool _hasWindowSmash = false;
+  Future<void>? _initFuture;
 
-  Future<void> init() async {
-    if (_initialized) return;
-    _initialized = true;
+  Future<void> init() {
+    if (_initialized) return Future<void>.value();
+    final pending = _initFuture;
+    if (pending != null) return pending;
+    _initFuture = _doInit();
+    return _initFuture!;
+  }
+
+  Future<void> _doInit() async {
     try {
       FlameAudio.bgm.initialize();
     } catch (_) {}
@@ -57,10 +64,17 @@ class AudioService {
     } catch (_) {
       _hasWindowSmash = false;
     }
+    _initialized = true;
   }
 
-  Future<void> playBgm() async {
-    if (_bgmPlaying) return;
+  Future<void> playBgm({bool fromUserGesture = false}) async {
+    await init();
+    if (_bgmPlaying) {
+      try {
+        await FlameAudio.bgm.resume();
+      } catch (_) {}
+      return;
+    }
     _bgmPlaying = true;
     try {
       await FlameAudio.bgm.play(_hasNewBgm ? _bgm : _fallbackBgm, volume: 0.58);
@@ -93,15 +107,18 @@ class AudioService {
 
   void playDelivery() => _play(_delivery, volume: 0.85);
   void playHit() => _play(_hit, volume: 0.8);
-  void playWindowSmash() => _play(_hasWindowSmash ? _windowSmash : _hit, volume: 0.95);
+  void playWindowSmash() =>
+      _play(_hasWindowSmash ? _windowSmash : _hit, volume: 1.0);
   void playSplash() => _play(_splash, volume: 0.8);
   void playPickup() => _play(_pickup, volume: 0.8);
   void playLevelUp() => _play(_levelup, volume: 0.85);
   void playGameOver() => _play(_gameOver, volume: 0.8);
 
   void _play(String file, {double volume = 0.8}) {
-    try {
-      FlameAudio.play(file, volume: volume);
-    } catch (_) {}
+    init().then<void>((_) {
+      try {
+        FlameAudio.play(file, volume: volume);
+      } catch (_) {}
+    }).catchError((_) {});
   }
 }

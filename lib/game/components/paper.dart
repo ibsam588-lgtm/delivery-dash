@@ -28,7 +28,7 @@ class PaperComponent extends PositionComponent
     double angleDeg = _throwAngleDeg,
   })  : _velocity = _initialVelocity(angleDeg),
         super(
-          size: Vector2(34, 18),
+          size: Vector2(38, 24),
           anchor: Anchor.center,
           position: startPosition,
           priority: 50,
@@ -79,96 +79,69 @@ class PaperComponent extends PositionComponent
       Paint()..color = const Color(0x66000000),
     );
 
-    // Cylinder body.
-    final bodyRect = Rect.fromLTRB(w * 0.12, h * 0.28, w * 0.88, h * 0.82);
-    canvas.drawRect(
-      bodyRect,
+    final page = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.08, h * 0.18, w * 0.84, h * 0.64),
+      const Radius.circular(2),
+    );
+    canvas.drawRRect(
+      page,
       Paint()
         ..shader = Gradient.linear(
-          Offset(w * 0.12, 0),
-          Offset(w * 0.88, 0),
-          [
-            const Color(0xFFF5F0D8),
-            const Color(0xFFE8E2C0),
-            const Color(0xFFF5F0D8),
-          ],
-          [0.0, 0.5, 1.0],
+          Offset(w * 0.08, h * 0.18),
+          Offset(w * 0.92, h * 0.82),
+          [const Color(0xFFF7F4E6), const Color(0xFFD8D3C4)],
         ),
     );
 
-    // Front circular face of cylinder.
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * 0.5, h * 0.28),
-        width: w * 0.76,
-        height: h * 0.22,
-      ),
-      Paint()..color = const Color(0xFFF0EBD0),
+    final foldPath = Path()
+      ..moveTo(w * 0.52, h * 0.18)
+      ..lineTo(w * 0.92, h * 0.25)
+      ..lineTo(w * 0.86, h * 0.82)
+      ..lineTo(w * 0.52, h * 0.72)
+      ..close();
+    canvas.drawPath(
+      foldPath,
+      Paint()..color = const Color(0xFFE7E1CF).withValues(alpha: 0.85),
     );
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * 0.5, h * 0.28),
-        width: w * 0.76,
-        height: h * 0.22,
-      ),
+
+    canvas.drawRRect(
+      page,
       Paint()
-        ..color = const Color(0xFF8A7E60)
+        ..color = const Color(0xFF77705E)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
+        ..strokeWidth = 1.0,
+    );
+    canvas.drawLine(
+      Offset(w * 0.52, h * 0.20),
+      Offset(w * 0.52, h * 0.76),
+      Paint()
+        ..color = const Color(0x9977705E)
+        ..strokeWidth = 1.0,
     );
 
-    // Back circular face.
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * 0.5, h * 0.82),
-        width: w * 0.76,
-        height: h * 0.22,
-      ),
-      Paint()..color = const Color(0xFFDDD6B0),
-    );
-
-    // Body outline.
     canvas.drawRect(
-      bodyRect,
-      Paint()
-        ..color = const Color(0xFF8A7E60)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
+      Rect.fromLTWH(w * 0.16, h * 0.27, w * 0.28, h * 0.10),
+      Paint()..color = const Color(0xFF263238),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.58, h * 0.29, w * 0.22, h * 0.08),
+      Paint()..color = const Color(0xFF1976D2),
     );
 
-    // Red rubber bands (2).
-    final bandPaint = Paint()
-      ..color = const Color(0xFFCC1010)
-      ..strokeWidth = 2.5
+    final linePaint = Paint()
+      ..color = const Color(0xFF8D8778)
+      ..strokeWidth = 1.1
       ..strokeCap = StrokeCap.round;
-    for (final yFrac in [0.45, 0.65]) {
+    for (final yFrac in [0.46, 0.55, 0.64, 0.73]) {
       canvas.drawLine(
-        Offset(w * 0.12, h * yFrac),
-        Offset(w * 0.88, h * yFrac),
-        bandPaint,
+        Offset(w * 0.16, h * yFrac),
+        Offset(w * 0.46, h * yFrac),
+        linePaint,
       );
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(w * 0.5, h * yFrac),
-          width: w * 0.76,
-          height: h * 0.10,
-        ),
-        Paint()
-          ..color = const Color(0xFFCC1010)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.0,
-      );
-    }
-
-    // Text lines on body.
-    final textPaint = Paint()
-      ..color = const Color(0xFF9A9070)
-      ..strokeWidth = 1.2;
-    for (final yFrac in [0.50, 0.56, 0.70, 0.76]) {
       canvas.drawLine(
-        Offset(w * 0.20, h * yFrac),
-        Offset(w * 0.80, h * yFrac),
-        textPaint,
+        Offset(w * 0.58, h * (yFrac + 0.01)),
+        Offset(w * 0.82, h * (yFrac + 0.01)),
+        linePaint,
       );
     }
   }

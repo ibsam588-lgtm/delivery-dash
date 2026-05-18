@@ -1,5 +1,9 @@
 enum Difficulty { easy, medium, hard }
 
+enum CourierAvatar { boy, girl }
+
+enum RouteZone { suburb, city }
+
 class LevelConfig {
   final int level;
   final double startSpeed;
@@ -117,6 +121,40 @@ class DifficultyConfig {
   }
 }
 
+class AvatarConfig {
+  static String label(CourierAvatar avatar) {
+    switch (avatar) {
+      case CourierAvatar.boy:
+        return 'BOY';
+      case CourierAvatar.girl:
+        return 'DOLL';
+    }
+  }
+}
+
+class ZoneConfig {
+  static String label(RouteZone zone) {
+    switch (zone) {
+      case RouteZone.suburb:
+        return 'SUBURB';
+      case RouteZone.city:
+        return 'CITY';
+    }
+  }
+}
+
+class RunSelection {
+  final Difficulty difficulty;
+  final CourierAvatar avatar;
+  final RouteZone zone;
+
+  const RunSelection({
+    required this.difficulty,
+    this.avatar = CourierAvatar.girl,
+    this.zone = RouteZone.suburb,
+  });
+}
+
 int comboMultiplier(int combo) {
   if (combo >= 10) return 5;
   if (combo >= 6) return 3;
@@ -126,27 +164,34 @@ int comboMultiplier(int combo) {
 
 class GameConfig {
   final Difficulty difficulty;
+  final CourierAvatar avatar;
+  final RouteZone zone;
   final bool hasShield;
   final bool speedBoostStart;
   final bool doubleCoins;
   final bool paperBlitz;
   final bool vipSkin;
+  final String outfitId;
+  final String bikeId;
 
   const GameConfig({
     this.difficulty = Difficulty.medium,
+    this.avatar = CourierAvatar.girl,
+    this.zone = RouteZone.suburb,
     this.hasShield = false,
     this.speedBoostStart = false,
     this.doubleCoins = false,
     this.paperBlitz = false,
     this.vipSkin = false,
+    this.outfitId = 'outfit_classic',
+    this.bikeId = 'bike_classic',
   });
 
   int get startLevel => DifficultyConfig.startLevelFor(difficulty);
   int get lives => DifficultyConfig.livesFor(difficulty);
   int get papers => DifficultyConfig.papersFor(difficulty);
   double get coinMultiplier => DifficultyConfig.coinMultiplierFor(difficulty);
-  double get speedMultiplier =>
-      DifficultyConfig.speedMultiplierFor(difficulty);
+  double get speedMultiplier => DifficultyConfig.speedMultiplierFor(difficulty);
   double get spawnIntervalMultiplier =>
       DifficultyConfig.spawnIntervalMultiplierFor(difficulty);
 }

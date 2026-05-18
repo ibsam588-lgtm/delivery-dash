@@ -20,6 +20,8 @@ enum ObstacleType {
   trashBin,
   kidBike,
   manhole,
+  skateboarder,
+  eBike,
 }
 
 Vector2 _sizeFor(ObstacleType t) {
@@ -27,9 +29,9 @@ Vector2 _sizeFor(ObstacleType t) {
     case ObstacleType.car:
       return Vector2(68, 105);
     case ObstacleType.dog:
-      return Vector2(60, 50);
+      return Vector2(70, 54);
     case ObstacleType.worker:
-      return Vector2(52, 80);
+      return Vector2(58, 88);
     case ObstacleType.cone:
       return Vector2(40, 50);
     case ObstacleType.barrier:
@@ -44,6 +46,10 @@ Vector2 _sizeFor(ObstacleType t) {
       return Vector2(48, 70);
     case ObstacleType.manhole:
       return Vector2(48, 30);
+    case ObstacleType.skateboarder:
+      return Vector2(50, 76);
+    case ObstacleType.eBike:
+      return Vector2(58, 86);
   }
 }
 
@@ -59,6 +65,7 @@ class ObstacleComponent extends PositionComponent
 
   bool _hasHitPlayer = false;
   bool _paperedOnce = false;
+  bool _playerReacted = false;
   double _life = 0;
 
   double _lateralPhase = 0;
@@ -89,6 +96,8 @@ class ObstacleComponent extends PositionComponent
   // Worker / kidBike: stumble backward.
   double _stumbleTimer = 0;
   static const double _stumbleDuration = 0.20;
+  double _skateWipeoutTimer = 0;
+  static const double _skateWipeoutDuration = 1.35;
 
   // Cone fall: rotates over 0..pi/2 then lies flat.
   bool _coneKnocked = false;
@@ -113,6 +122,7 @@ class ObstacleComponent extends PositionComponent
 
   // Car windshield broken state (set when paper hits a car).
   bool _carWindowBroken = false;
+  bool _carStopped = false;
 
   /// When set, [onLoad] keeps this position instead of computing a default
   /// spawn position from the lane fraction. Used by ConstructionZone to
@@ -145,6 +155,8 @@ class ObstacleComponent extends PositionComponent
       case ObstacleType.pothole:
       case ObstacleType.kidBike:
       case ObstacleType.manhole:
+      case ObstacleType.skateboarder:
+      case ObstacleType.eBike:
         return true;
       case ObstacleType.dog:
       case ObstacleType.worker:
@@ -158,7 +170,10 @@ class ObstacleComponent extends PositionComponent
   bool get isDrenching => type == ObstacleType.hydrant;
 
   bool get hasLateralSweep =>
-      type == ObstacleType.dog || type == ObstacleType.kidBike;
+      type == ObstacleType.dog ||
+      type == ObstacleType.kidBike ||
+      type == ObstacleType.skateboarder ||
+      type == ObstacleType.eBike;
 
   int get paperHitPoints {
     switch (type) {
@@ -169,6 +184,8 @@ class ObstacleComponent extends PositionComponent
       case ObstacleType.worker:
         return 5;
       case ObstacleType.kidBike:
+      case ObstacleType.skateboarder:
+      case ObstacleType.eBike:
         return 3;
       case ObstacleType.cone:
       case ObstacleType.barrier:
@@ -197,11 +214,9 @@ class ObstacleComponent extends PositionComponent
     if (initialPositionOverride != null) {
       position = initialPositionOverride!.clone();
     } else {
-      // Spawn just past the horizon so obstacles appear *inside* the road
-      // rather than in the sky above it. Oncoming cars travel UP and start
-      // from below the screen.
-      final spawnY =
-          isOncoming ? gameRef.size.y + size.y : gameRef.size.y * 0.30;
+      // Cars enter from the far road and scale toward the player, which makes
+      // traffic feel like it is driving in from the route instead of popping in.
+      final spawnY = isOncoming ? gameRef.size.y + size.y : -size.y * 0.85;
       position = Vector2(x, spawnY);
     }
     add(RectangleHitbox(
@@ -214,6 +229,16 @@ class ObstacleComponent extends PositionComponent
   void onHitByPaper() {
     if (_paperedOnce) return;
     _paperedOnce = true;
+    _triggerImpactReaction();
+  }
+
+  void onHitByPlayer() {
+    if (_paperedOnce || _playerReacted) return;
+    _playerReacted = true;
+    _triggerImpactReaction();
+  }
+
+  void _triggerImpactReaction() {
     _reactionTimer = _reactionDuration;
 
     switch (type) {
@@ -235,9 +260,10 @@ class ObstacleComponent extends PositionComponent
 
       case ObstacleType.car:
         _splatTimer = _splatDuration;
-        _swerveTimer = _swerveDuration;
+        _swerveTimer = 0;
         _swervePhase = 0;
         _carWindowBroken = true;
+        _carStopped = true;
 
       case ObstacleType.worker:
         _stumbleTimer = _stumbleDuration;
@@ -254,7 +280,12 @@ class ObstacleComponent extends PositionComponent
         ));
 
       case ObstacleType.kidBike:
+      case ObstacleType.skateboarder:
+      case ObstacleType.eBike:
         _stumbleTimer = _stumbleDuration;
+        if (type == ObstacleType.skateboarder) {
+          _skateWipeoutTimer = _skateWipeoutDuration;
+        }
         gameRef.add(FlyingHatComponent(
           position: position.clone() - Vector2(0, size.y * 0.55),
         ));
@@ -270,6 +301,9 @@ class ObstacleComponent extends PositionComponent
       case ObstacleType.hydrant:
         _hydrantBurstTimer = _hydrantBurstDuration;
 
+      case ObstacleType.barrier:
+        _tipAngle = pi / 14;
+
       default:
         if (hasLateralSweep) _lateralPhase += pi;
     }
@@ -282,14 +316,29 @@ class ObstacleComponent extends PositionComponent
     _animTimer += dt;
 
     final road = gameRef.scrollSpeed;
-    if (isOncoming && type == ObstacleType.car) {
+    if (_carStopped) {
+      position.y += road * dt;
+    } else if (isOncoming && type == ObstacleType.car) {
       // Oncoming cars travel UP the screen at 80% of road speed.
       position.y -= road * 0.8 * dt;
     } else {
       final vy = type == ObstacleType.car
           ? (isOvertaker ? road * 1.3 : road * speedFactor)
-          : road;
+          : type == ObstacleType.eBike
+              ? road * 1.28
+              : type == ObstacleType.skateboarder
+                  ? road * 1.12
+                  : road;
       position.y += vy * dt;
+    }
+
+    if (type == ObstacleType.car && !isOncoming && !_carStopped) {
+      _lateralPhase += dt * (0.7 + carVariant * 0.04);
+      final lm = gameRef.laneManager;
+      final base = _baseX ?? position.x;
+      final laneWiggle =
+          sin(_lateralPhase) * 5.5 + sin(_life * 1.9 + carVariant) * 2.5;
+      position.x = lm.clampToRoad(base + laneWiggle, size.x / 2);
     }
 
     // Dog run-off (after tumble completes).
@@ -301,9 +350,14 @@ class ObstacleComponent extends PositionComponent
     } else if (hasLateralSweep && !_dogRunOff) {
       _lateralPhase += dt * 2.2;
       final amp = type == ObstacleType.kidBike ? 60.0 : 80.0;
+      final tunedAmp = type == ObstacleType.eBike
+          ? 34.0
+          : type == ObstacleType.skateboarder
+              ? 58.0
+              : amp;
       final lm = gameRef.laneManager;
       final base = _baseX ?? lm.roadCenter;
-      final desired = base + sin(_lateralPhase) * amp;
+      final desired = base + sin(_lateralPhase) * tunedAmp;
       position.x = lm.clampToRoad(desired, size.x / 2);
     }
 
@@ -330,6 +384,10 @@ class ObstacleComponent extends PositionComponent
     // Worker/kid stumble.
     if (_stumbleTimer > 0) {
       _stumbleTimer = (_stumbleTimer - dt).clamp(0.0, _stumbleDuration);
+    }
+    if (_skateWipeoutTimer > 0) {
+      _skateWipeoutTimer =
+          (_skateWipeoutTimer - dt).clamp(0.0, _skateWipeoutDuration);
     }
 
     // Worker fall sequence: topple → lie on ground → get up.
@@ -392,7 +450,12 @@ class ObstacleComponent extends PositionComponent
   @override
   void render(Canvas canvas) {
     final h = gameRef.size.y;
-    final scale = depthScale(position.y, h);
+    final rawScale = depthScale(position.y, h);
+    final scale = (type == ObstacleType.car ||
+            type == ObstacleType.eBike ||
+            type == ObstacleType.skateboarder)
+        ? rawScale.clamp(0.42, 1.0)
+        : rawScale;
     final bounce = _reactionTimer > 0
         ? sin(_reactionTimer / _reactionDuration * pi) * 0.12
         : 0.0;
@@ -406,9 +469,10 @@ class ObstacleComponent extends PositionComponent
       leftY: lm.roadLeftAt(position.y),
       widthY: lm.roadWidthAt(position.y),
     );
-    final swerveX = (_swerveTimer > 0 && type == ObstacleType.car)
-        ? sin(_swervePhase) * 18.0
-        : 0.0;
+    final swerveX =
+        (_swerveTimer > 0 && type == ObstacleType.car && !_carStopped)
+            ? sin(_swervePhase) * 18.0
+            : 0.0;
     canvas.translate(dx + swerveX, 0);
 
     if (type != ObstacleType.pothole && type != ObstacleType.manhole) {
@@ -425,13 +489,10 @@ class ObstacleComponent extends PositionComponent
     canvas.save();
 
     // Stumble Y offset for worker / kidBike.
-    final stumbleY =
-        (_stumbleTimer > 0 &&
-                (type == ObstacleType.worker ||
-                    type == ObstacleType.kidBike))
-            ? -20.0 *
-                sin((1.0 - _stumbleTimer / _stumbleDuration) * pi)
-            : 0.0;
+    final stumbleY = (_stumbleTimer > 0 &&
+            (type == ObstacleType.worker || type == ObstacleType.kidBike))
+        ? -20.0 * sin((1.0 - _stumbleTimer / _stumbleDuration) * pi)
+        : 0.0;
     canvas.translate(size.x / 2, size.y / 2 + stumbleY);
     canvas.scale(s, s * 0.85);
     if (_tipAngle != 0) canvas.rotate(_tipAngle);
@@ -479,19 +540,28 @@ class ObstacleComponent extends PositionComponent
         _renderKidBike(canvas);
       case ObstacleType.manhole:
         _renderManhole(canvas);
+      case ObstacleType.skateboarder:
+        _renderSkateboarder(canvas);
+      case ObstacleType.eBike:
+        _renderEBike(canvas);
     }
 
     canvas.restore();
   }
 
   void _renderCar(Canvas canvas) {
+    _renderCarMotionStreaks(canvas);
     renderTopDownCar(
       canvas,
       size.x,
       size.y,
       carVariant,
       isOncoming: isOncoming,
+      headlightsOn: true,
     );
+    if (_carStopped) {
+      _renderStoppedCarCue(canvas);
+    }
     if (_carWindowBroken) {
       // Cracks overlay on the windshield area.
       final w = size.x;
@@ -544,180 +614,278 @@ class ObstacleComponent extends PositionComponent
     }
   }
 
+  void _renderCarMotionStreaks(Canvas canvas) {
+    if (gameRef.scrollSpeed <= 1 || isOncoming || _carStopped) return;
+    final w = size.x;
+    final h = size.y;
+    final speedInk = (speedFactor - 1.0).clamp(0.0, 1.2) / 1.2;
+    if (speedInk <= 0) return;
+
+    final phase = (_animTimer * 14.0) % 1.0;
+    final paint = Paint()
+      ..color = const Color(0x77F8F6E8).withValues(alpha: 0.30 * speedInk)
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+    for (final x in [w * 0.24, w * 0.50, w * 0.76]) {
+      final y0 = h * (0.86 + phase * 0.10);
+      canvas.drawLine(Offset(x, y0), Offset(x, h * 1.10), paint);
+    }
+  }
+
+  void _renderStoppedCarCue(Canvas canvas) {
+    final w = size.x;
+    final h = size.y;
+    final brakePaint = Paint()
+      ..color = const Color(0xFFFF1744)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
+    final brakeY = isOncoming ? h * 0.18 : h * 0.88;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(w * 0.30, brakeY),
+          width: w * 0.17,
+          height: h * 0.045,
+        ),
+        const Radius.circular(3),
+      ),
+      brakePaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(w * 0.70, brakeY),
+          width: w * 0.17,
+          height: h * 0.045,
+        ),
+        const Radius.circular(3),
+      ),
+      brakePaint,
+    );
+    final hazard = Path()
+      ..moveTo(w * 0.50, h * 0.43)
+      ..lineTo(w * 0.62, h * 0.58)
+      ..lineTo(w * 0.38, h * 0.58)
+      ..close();
+    canvas.drawPath(hazard, Paint()..color = const Color(0xFFFFD54F));
+    canvas.drawPath(
+      hazard,
+      Paint()
+        ..color = const Color(0xFF1A1A1A)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+    canvas.drawCircle(
+      Offset(w * 0.50, h * 0.53),
+      2.0,
+      Paint()..color = const Color(0xFF1A1A1A),
+    );
+  }
+
   void _renderDog(Canvas canvas) {
     final w = size.x;
     final h = size.y;
 
-    final tailSwing = sin(_animTimer * pi / 0.4) * 0.30;
-    // Diagonal trot: pair A = front-left + rear-right, pair B = front-right + rear-left.
-    final pairA = (_animTimer / 0.25).floor().isEven;
-    final aOff = pairA ? h * 0.065 : 0.0;
-    final bOff = pairA ? 0.0 : h * 0.065;
+    final stride = sin(_animTimer * 2 * pi * 3.0);
+    final counterStride = cos(_animTimer * 2 * pi * 3.0);
+    final tailSwing = sin(_animTimer * 2 * pi * 2.2) * 0.20;
 
-    // German Shepherd: longer body, two-tone (dark back, tan belly).
-    // Belly band.
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * 0.54, h * 0.62),
-        width: w * 0.74,
-        height: h * 0.36,
-      ),
-      Paint()..color = const Color(0xFFCC8844),
-    );
-    // Dark saddle (top back).
-    final bodyRect = Rect.fromCenter(
-      center: Offset(w * 0.54, h * 0.50),
-      width: w * 0.74,
-      height: h * 0.42,
-    );
-    canvas.drawOval(
-      bodyRect,
-      Paint()
-        ..shader = Gradient.linear(
-          bodyRect.topLeft,
-          bodyRect.bottomRight,
-          [const Color(0xFF5A3818), const Color(0xFF8B5A28)],
-        ),
-    );
+    final tan = Paint()..color = const Color(0xFFC88645);
+    final tanDark = Paint()..color = const Color(0xFF8D5A2A);
+    final saddle = Paint()
+      ..shader = Gradient.linear(
+        Offset(w * 0.32, h * 0.24),
+        Offset(w * 0.82, h * 0.62),
+        [const Color(0xFF3B2414), const Color(0xFF80522A)],
+      );
+    final outline = Paint()
+      ..color = const Color(0x66000000)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
 
-    // Fur detail strokes.
-    final furPaint = Paint()
-      ..color = const Color(0xFFAA7030)
-      ..strokeWidth = 1.0
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-        Offset(w * 0.36, h * 0.42), Offset(w * 0.58, h * 0.38), furPaint);
-    canvas.drawLine(
-        Offset(w * 0.44, h * 0.68), Offset(w * 0.68, h * 0.70), furPaint);
-    canvas.drawLine(
-        Offset(w * 0.54, h * 0.40), Offset(w * 0.74, h * 0.42), furPaint);
-
-    // Collar (red band).
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * 0.22, h * 0.55),
-        width: w * 0.14,
-        height: h * 0.20,
-      ),
-      Paint()..color = const Color(0xFFCC2222),
-    );
-    // Collar tag.
-    canvas.drawCircle(
-      Offset(w * 0.20, h * 0.66),
-      2.0,
-      Paint()..color = const Color(0xFFFFCC00),
-    );
-
-    // Head (lighter tan oval, teardrop-ish).
-    final headCenter = Offset(w * 0.16, h * 0.48);
-    canvas.drawOval(
-      Rect.fromCenter(center: headCenter, width: w * 0.30, height: w * 0.24),
-      Paint()..color = const Color(0xFFECBE78),
-    );
-
-    // Snout (small protrusion).
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * 0.04, h * 0.50),
-        width: w * 0.13,
-        height: w * 0.10,
-      ),
-      Paint()..color = const Color(0xFFD49870),
-    );
-
-    // Nose (dark brown oval).
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(w * -0.01, h * 0.50),
-        width: w * 0.07,
-        height: h * 0.07,
-      ),
-      Paint()..color = const Color(0xFF331100),
-    );
-
-    // Ears (large floppy triangles, darker brown).
-    final earPaint = Paint()..color = const Color(0xFF6A3010);
-    // Upper ear.
-    canvas.drawPath(
-      Path()
-        ..moveTo(w * 0.12, h * 0.28)
-        ..lineTo(w * 0.06, h * 0.08)
-        ..lineTo(w * 0.28, h * 0.24)
-        ..close(),
-      earPaint,
-    );
-    // Lower ear.
-    canvas.drawPath(
-      Path()
-        ..moveTo(w * 0.12, h * 0.68)
-        ..lineTo(w * 0.06, h * 0.88)
-        ..lineTo(w * 0.28, h * 0.72)
-        ..close(),
-      earPaint,
-    );
-
-    // Legs (4 legs with upper segment + paw, diagonal trot).
-    void drawLeg(double bx, double by, double ex, double ey, double off) {
-      final lp = Paint()
-        ..color = const Color(0xFFCC8840)
-        ..strokeWidth = w * 0.09
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(
-          Offset(bx, by + off), Offset(ex, ey + off), lp);
-      // Paw.
+    void drawLeg({
+      required Offset hip,
+      required Offset knee,
+      required Offset paw,
+      required bool backLayer,
+    }) {
+      final legPaint = Paint()
+        ..color = backLayer ? const Color(0xFF8D5A2A) : const Color(0xFFC88645)
+        ..strokeWidth = backLayer ? w * 0.045 : w * 0.055
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawLine(hip, knee, legPaint);
+      canvas.drawLine(knee, paw, legPaint);
       canvas.drawOval(
         Rect.fromCenter(
-          center: Offset(ex, ey + off + h * 0.06),
-          width: w * 0.10,
-          height: h * 0.06,
+          center: Offset(paw.dx, paw.dy + h * 0.025),
+          width: w * 0.13,
+          height: h * 0.065,
         ),
-        Paint()..color = const Color(0xFF8B5014),
+        Paint()..color = const Color(0xFF5E3518),
       );
     }
 
-    // Front-left + rear-right = pair A.
-    drawLeg(w * 0.34, h * 0.36, w * 0.30, h * 0.52, aOff); // front-left
-    drawLeg(w * 0.68, h * 0.68, w * 0.72, h * 0.84, aOff); // rear-right
-    // Front-right + rear-left = pair B.
-    drawLeg(w * 0.34, h * 0.68, w * 0.30, h * 0.84, bOff); // front-right
-    drawLeg(w * 0.68, h * 0.36, w * 0.72, h * 0.52, bOff); // rear-left
+    drawLeg(
+      hip: Offset(w * 0.67, h * 0.59),
+      knee: Offset(w * (0.60 + counterStride * 0.05), h * 0.73),
+      paw: Offset(w * (0.55 - counterStride * 0.08), h * 0.93),
+      backLayer: true,
+    );
+    drawLeg(
+      hip: Offset(w * 0.37, h * 0.58),
+      knee: Offset(w * (0.30 - stride * 0.05), h * 0.72),
+      paw: Offset(w * (0.25 + stride * 0.08), h * 0.92),
+      backLayer: true,
+    );
 
-    // Tail (long curved arc at rear, bushy thick stroke).
-    final tailBase = Offset(w * 0.84, h * 0.50);
-    final tailTip = Offset(
-      w * 0.84 + w * 0.26 * cos(tailSwing),
-      h * 0.36 + h * 0.26 * sin(tailSwing),
+    final bodyRect = Rect.fromCenter(
+      center: Offset(w * 0.56, h * 0.51),
+      width: w * 0.64,
+      height: h * 0.42,
     );
-    final tailCtrl = Offset(
-      w * 0.96,
-      h * 0.32 + h * 0.12 * sin(tailSwing),
+    canvas.drawOval(bodyRect, tan);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.70, h * 0.55),
+        width: w * 0.25,
+        height: h * 0.36,
+      ),
+      tanDark,
     );
+    canvas.drawOval(bodyRect, saddle);
+
+    final chest = Rect.fromCenter(
+      center: Offset(w * 0.34, h * 0.55),
+      width: w * 0.24,
+      height: h * 0.38,
+    );
+    canvas.drawOval(chest, Paint()..color = const Color(0xFFD59B5B));
+    canvas.drawOval(bodyRect, outline);
+
+    drawLeg(
+      hip: Offset(w * 0.70, h * 0.60),
+      knee: Offset(w * (0.76 - stride * 0.05), h * 0.75),
+      paw: Offset(w * (0.81 + stride * 0.07), h * 0.94),
+      backLayer: false,
+    );
+    drawLeg(
+      hip: Offset(w * 0.38, h * 0.61),
+      knee: Offset(w * (0.44 + counterStride * 0.05), h * 0.75),
+      paw: Offset(w * (0.48 - counterStride * 0.08), h * 0.94),
+      backLayer: false,
+    );
+
+    final neckPath = Path()
+      ..moveTo(w * 0.32, h * 0.37)
+      ..quadraticBezierTo(w * 0.25, h * 0.39, w * 0.23, h * 0.50)
+      ..lineTo(w * 0.34, h * 0.62)
+      ..quadraticBezierTo(w * 0.42, h * 0.52, w * 0.39, h * 0.42)
+      ..close();
+    canvas.drawPath(neckPath, Paint()..color = const Color(0xFFD59B5B));
+    canvas.drawPath(neckPath, outline);
+
+    final tailBase = Offset(w * 0.84, h * 0.45);
     final tailPath = Path()
       ..moveTo(tailBase.dx, tailBase.dy)
-      ..quadraticBezierTo(
-          tailCtrl.dx, tailCtrl.dy, tailTip.dx, tailTip.dy);
+      ..cubicTo(
+        w * 0.96,
+        h * (0.28 + tailSwing),
+        w * 1.03,
+        h * (0.32 + tailSwing * 0.4),
+        w * 0.98,
+        h * 0.50,
+      );
     canvas.drawPath(
       tailPath,
       Paint()
-        ..color = const Color(0xFFB07030)
-        ..strokeWidth = 5.5
+        ..color = const Color(0xFF8A5528)
+        ..strokeWidth = 6.0
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke,
     );
-    // Feathered tip.
-    canvas.drawCircle(tailTip, 3.5, Paint()..color = const Color(0xFFD4A050));
+    canvas.drawPath(
+      tailPath,
+      Paint()
+        ..color = const Color(0xFFD29A55)
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke,
+    );
 
-    // Eye (black dot with white highlight).
+    final headCenter = Offset(w * 0.20, h * 0.42);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: headCenter,
+        width: w * 0.28,
+        height: h * 0.28,
+      ),
+      Paint()..color = const Color(0xFFD59B5B),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.10, h * 0.45),
+        width: w * 0.18,
+        height: h * 0.15,
+      ),
+      Paint()..color = const Color(0xFFE4B276),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.035, h * 0.45),
+        width: w * 0.07,
+        height: h * 0.065,
+      ),
+      Paint()..color = const Color(0xFF20130D),
+    );
+
+    final earPaint = Paint()..color = const Color(0xFF4A2A16);
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.20, h * 0.31)
+        ..lineTo(w * 0.15, h * 0.05)
+        ..lineTo(w * 0.31, h * 0.27)
+        ..close(),
+      earPaint,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.26, h * 0.33)
+        ..lineTo(w * 0.36, h * 0.14)
+        ..lineTo(w * 0.35, h * 0.42)
+        ..close(),
+      earPaint,
+    );
+
     canvas.drawCircle(
-      Offset(headCenter.dx - w * 0.04, headCenter.dy - h * 0.08),
-      2.8,
+      Offset(w * 0.17, h * 0.37),
+      2.7,
       Paint()..color = const Color(0xFF111111),
     );
     canvas.drawCircle(
-      Offset(headCenter.dx - w * 0.06, headCenter.dy - h * 0.11),
-      0.9,
+      Offset(w * 0.16, h * 0.36),
+      0.8,
       Paint()..color = const Color(0xFFFFFFFF),
     );
+    canvas.drawLine(
+      Offset(w * 0.10, h * 0.50),
+      Offset(w * 0.17, h * 0.51),
+      Paint()
+        ..color = const Color(0xFF5E3518)
+        ..strokeWidth = 1.0
+        ..strokeCap = StrokeCap.round,
+    );
+
+    final furPaint = Paint()
+      ..color = const Color(0x55FFFFFF)
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+    for (final y in [0.40, 0.48, 0.56]) {
+      canvas.drawLine(
+        Offset(w * 0.45, h * y),
+        Offset(w * 0.73, h * (y + 0.02)),
+        furPaint,
+      );
+    }
   }
 
   void _renderWorker(Canvas canvas) {
@@ -731,59 +899,147 @@ class ObstacleComponent extends PositionComponent
     final bend = isShoveler ? sin(_animTimer * 2 * pi * 0.5) : 0.0;
     // Jackhammer vibration (12 Hz) — small Y offset.
     final jitterY = isShoveler ? 0.0 : sin(_animTimer * 2 * pi * 12) * 1.0;
+    final torsoShiftX = isShoveler ? bend * w * 0.025 : 0.0;
+    final torsoShiftY = isShoveler ? bend.abs() * h * 0.012 : 0.0;
 
     canvas.save();
     canvas.translate(0, jitterY);
 
-    // Pants (dark).
-    final legPaint = Paint()..color = const Color(0xFF263238);
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.22, h * 0.60, w * 0.24, h * 0.32),
-      legPaint,
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.965),
+        width: w * 0.78,
+        height: h * 0.09,
+      ),
+      Paint()..color = const Color(0x44000000),
     );
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.54, h * 0.60, w * 0.24, h * 0.32),
-      legPaint,
+
+    final denimPaint = Paint()
+      ..shader = Gradient.linear(
+        Offset(0, h * 0.58),
+        Offset(0, h * 0.94),
+        [const Color(0xFF1F3F64), const Color(0xFF13283F)],
+      );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.22, h * 0.58, w * 0.21, h * 0.34),
+        Radius.circular(w * 0.045),
+      ),
+      denimPaint,
     );
-    // Boots.
-    final bootPaint = Paint()..color = const Color(0xFF1A1A1A);
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.20, h * 0.92, w * 0.28, h * 0.06),
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.57, h * 0.58, w * 0.21, h * 0.34),
+        Radius.circular(w * 0.045),
+      ),
+      denimPaint,
+    );
+    final seamPaint = Paint()
+      ..color = const Color(0x884E789F)
+      ..strokeWidth = 1.1
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+        Offset(w * 0.33, h * 0.62), Offset(w * 0.32, h * 0.89), seamPaint);
+    canvas.drawLine(
+        Offset(w * 0.68, h * 0.62), Offset(w * 0.69, h * 0.89), seamPaint);
+
+    final bootPaint = Paint()
+      ..shader = Gradient.linear(
+        Offset(0, h * 0.89),
+        Offset(0, h),
+        [const Color(0xFF2A211C), const Color(0xFF0D0D0D)],
+      );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.16, h * 0.89, w * 0.30, h * 0.08),
+        Radius.circular(w * 0.04),
+      ),
+      bootPaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.54, h * 0.89, w * 0.30, h * 0.08),
+        Radius.circular(w * 0.04),
+      ),
       bootPaint,
     );
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.52, h * 0.92, w * 0.28, h * 0.06),
-      bootPaint,
+      Rect.fromLTWH(w * 0.18, h * 0.945, w * 0.26, h * 0.012),
+      Paint()..color = const Color(0xFFB77A3B),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.56, h * 0.945, w * 0.26, h * 0.012),
+      Paint()..color = const Color(0xFFB77A3B),
     );
 
     // High-vis vest.
     final torsoOffset = bend * h * 0.04; // shoveler leans forward
+    final shirtPath = Path()
+      ..moveTo(w * 0.25 + torsoShiftX, h * 0.34 + torsoShiftY)
+      ..lineTo(w * 0.75 + torsoShiftX, h * 0.34 + torsoShiftY)
+      ..lineTo(w * 0.83, h * 0.61)
+      ..quadraticBezierTo(w * 0.50, h * 0.68, w * 0.17, h * 0.61)
+      ..close();
+    canvas.drawPath(
+      shirtPath,
+      Paint()..color = const Color(0xFF37474F),
+    );
     final vestPath = Path()
-      ..moveTo(w * 0.20, h * 0.34 + torsoOffset)
-      ..lineTo(w * 0.80, h * 0.34 + torsoOffset)
+      ..moveTo(w * 0.20 + torsoShiftX, h * 0.34 + torsoOffset)
+      ..lineTo(w * 0.80 + torsoShiftX, h * 0.34 + torsoOffset)
       ..lineTo(w * 0.84, h * 0.62)
       ..lineTo(w * 0.16, h * 0.62)
       ..close();
     canvas.drawPath(
       vestPath,
-      Paint()..color = const Color(0xFFFF6F00),
+      Paint()
+        ..shader = Gradient.linear(
+          Offset(w * 0.20, h * 0.34),
+          Offset(w * 0.80, h * 0.62),
+          [
+            const Color(0xFFFFB52E),
+            const Color(0xFFFF7A1A),
+            const Color(0xFFDB4E00),
+          ],
+          [0, 0.58, 1],
+        ),
     );
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.18, h * 0.46, w * 0.64, h * 0.04),
-      Paint()..color = const Color(0xFFFFFFFF),
+    final reflectivePaint = Paint()
+      ..color = const Color(0xFFE9FFF8)
+      ..strokeWidth = w * 0.035
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(w * 0.31 + torsoShiftX, h * 0.36 + torsoOffset),
+      Offset(w * 0.43, h * 0.61),
+      reflectivePaint,
+    );
+    canvas.drawLine(
+      Offset(w * 0.69 + torsoShiftX, h * 0.36 + torsoOffset),
+      Offset(w * 0.57, h * 0.61),
+      reflectivePaint,
+    );
+    canvas.drawLine(
+      Offset(w * 0.22, h * 0.49),
+      Offset(w * 0.78, h * 0.49),
+      reflectivePaint,
     );
     canvas.drawPath(
       vestPath,
       Paint()
-        ..color = const Color(0xFFB54100)
+        ..color = const Color(0xFF6F2B00)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0,
+        ..strokeWidth = 1.2,
     );
 
     // Arms.
     final armPaint = Paint()
       ..color = const Color(0xFFFFCC99)
-      ..strokeWidth = w * 0.11
+      ..strokeWidth = w * 0.10
+      ..strokeCap = StrokeCap.round;
+    final glovePaint = Paint()..color = const Color(0xFF3A312D);
+    final toolPaint = Paint()
+      ..color = const Color(0xFF72513A)
+      ..strokeWidth = 3.4
       ..strokeCap = StrokeCap.round;
 
     if (isShoveler) {
@@ -803,45 +1059,69 @@ class ObstacleComponent extends PositionComponent
         Offset(shovelBotX - w * 0.08, shovelBotY - h * 0.12),
         armPaint,
       );
+      canvas.drawCircle(
+        Offset(shovelTopX + w * 0.05, shovelTopY + h * 0.05),
+        w * 0.055,
+        glovePaint,
+      );
+      canvas.drawCircle(
+        Offset(shovelBotX - w * 0.08, shovelBotY - h * 0.12),
+        w * 0.055,
+        glovePaint,
+      );
       // Shovel handle (long wooden pole).
-      final shaftPaint = Paint()
-        ..color = const Color(0xFF8D6E63)
-        ..strokeWidth = 3.0;
       canvas.drawLine(
         Offset(shovelTopX, shovelTopY),
         Offset(shovelBotX, shovelBotY),
-        shaftPaint,
+        toolPaint,
       );
       // Shovel scoop (flat metal blade at bottom end).
       canvas.save();
       canvas.translate(shovelBotX, shovelBotY);
-      final shovelAngle = atan2(shovelBotY - shovelTopY, shovelBotX - shovelTopX);
+      final shovelAngle =
+          atan2(shovelBotY - shovelTopY, shovelBotX - shovelTopX);
       canvas.rotate(shovelAngle);
-      canvas.drawRect(
-        Rect.fromLTWH(0, -w * 0.07, w * 0.16, w * 0.14),
-        Paint()..color = const Color(0xFFC0C0C0),
-      );
-      canvas.drawRect(
-        Rect.fromLTWH(0, -w * 0.07, w * 0.16, w * 0.14),
+      final scoop = Path()
+        ..moveTo(0, -w * 0.12)
+        ..quadraticBezierTo(w * 0.17, -w * 0.11, w * 0.20, 0)
+        ..quadraticBezierTo(w * 0.17, w * 0.11, 0, w * 0.12)
+        ..close();
+      canvas.drawPath(
+        scoop,
         Paint()
-          ..color = const Color(0xFF666666)
+          ..shader = Gradient.linear(
+            Offset(0, -w * 0.10),
+            Offset(w * 0.20, w * 0.10),
+            [const Color(0xFFE7EDF1), const Color(0xFF7B8790)],
+          ),
+      );
+      canvas.drawPath(
+        scoop,
+        Paint()
+          ..color = const Color(0xFF3C4850)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.8,
+          ..strokeWidth = 1.0,
       );
       canvas.restore();
       // Gravel pile beside worker.
+      final gravelPaint = Paint()
+        ..shader = Gradient.radial(
+          Offset(w * 0.90, h * 0.94),
+          w * 0.30,
+          [const Color(0xFFB0A698), const Color(0xFF5E5E5E)],
+        );
       canvas.drawOval(
         Rect.fromCenter(
           center: Offset(w * 0.90, h * 0.94),
-          width: w * 0.30,
-          height: h * 0.08,
+          width: w * 0.42,
+          height: h * 0.10,
         ),
-        Paint()..color = const Color(0xFF9E9E9E),
+        gravelPaint,
       );
-      canvas.drawCircle(
-          Offset(w * 0.85, h * 0.91), w * 0.04, Paint()..color = const Color(0xFF757575));
-      canvas.drawCircle(
-          Offset(w * 0.95, h * 0.92), w * 0.05, Paint()..color = const Color(0xFF616161));
+      canvas.drawCircle(Offset(w * 0.85, h * 0.91), w * 0.04,
+          Paint()..color = const Color(0xFF757575));
+      canvas.drawCircle(Offset(w * 0.95, h * 0.92), w * 0.05,
+          Paint()..color = const Color(0xFF616161));
     } else {
       // Jackhammer: arms grip vertical cylinder pointing down.
       final jackTopX = w * 0.50;
@@ -857,26 +1137,55 @@ class ObstacleComponent extends PositionComponent
         Offset(jackTopX + w * 0.05, jackTopY + h * 0.04),
         armPaint,
       );
-      // Jackhammer body — cylinder.
-      canvas.drawRect(
-        Rect.fromLTWH(jackTopX - w * 0.08, jackTopY, w * 0.16, h * 0.42),
-        Paint()..color = const Color(0xFFFFC107),
+      canvas.drawCircle(
+        Offset(jackTopX - w * 0.05, jackTopY + h * 0.04),
+        w * 0.055,
+        glovePaint,
       );
-      canvas.drawRect(
-        Rect.fromLTWH(jackTopX - w * 0.08, jackTopY, w * 0.16, h * 0.42),
+      canvas.drawCircle(
+        Offset(jackTopX + w * 0.05, jackTopY + h * 0.04),
+        w * 0.055,
+        glovePaint,
+      );
+      // Jackhammer body — cylinder.
+      final jackBody = RRect.fromRectAndRadius(
+        Rect.fromLTWH(jackTopX - w * 0.09, jackTopY, w * 0.18, h * 0.42),
+        Radius.circular(w * 0.035),
+      );
+      canvas.drawRRect(
+        jackBody,
         Paint()
-          ..color = const Color(0xFF8B6B00)
+          ..shader = Gradient.linear(
+            Offset(jackTopX - w * 0.09, jackTopY),
+            Offset(jackTopX + w * 0.09, jackTopY + h * 0.42),
+            [
+              const Color(0xFFFFD646),
+              const Color(0xFFD99000),
+              const Color(0xFF6E6E6E),
+            ],
+            [0, 0.55, 1],
+          ),
+      );
+      canvas.drawRRect(
+        jackBody,
+        Paint()
+          ..color = const Color(0xFF4B3B16)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0,
+          ..strokeWidth = 1.1,
       );
       // Handles on top.
-      canvas.drawRect(
-        Rect.fromLTWH(jackTopX - w * 0.14, jackTopY - h * 0.02, w * 0.28, h * 0.03),
-        Paint()..color = const Color(0xFF333333),
+      canvas.drawLine(
+        Offset(jackTopX - w * 0.20, jackTopY + h * 0.03),
+        Offset(jackTopX + w * 0.20, jackTopY + h * 0.03),
+        Paint()
+          ..color = const Color(0xFF2B2B2B)
+          ..strokeWidth = 4.0
+          ..strokeCap = StrokeCap.round,
       );
       // Chisel tip below cylinder.
       canvas.drawRect(
-        Rect.fromLTWH(jackTopX - w * 0.03, jackBotY - h * 0.06, w * 0.06, h * 0.08),
+        Rect.fromLTWH(
+            jackTopX - w * 0.03, jackBotY - h * 0.06, w * 0.06, h * 0.08),
         Paint()..color = const Color(0xFF777777),
       );
       // Dust puffs at the ground.
@@ -904,23 +1213,69 @@ class ObstacleComponent extends PositionComponent
       }
     }
 
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(w * 0.50 + torsoShiftX, h * 0.335 + torsoShiftY),
+          width: w * 0.14,
+          height: h * 0.08,
+        ),
+        Radius.circular(w * 0.04),
+      ),
+      Paint()..color = const Color(0xFFE6A87A),
+    );
+
     // Head.
     canvas.drawCircle(
-      Offset(w * 0.50, h * 0.24 + torsoOffset),
-      w * 0.13,
+      Offset(w * 0.50 + torsoShiftX, h * 0.24 + torsoShiftY),
+      w * 0.145,
       Paint()..color = const Color(0xFFFFCC99),
+    );
+    canvas.drawCircle(
+      Offset(w * 0.43 + torsoShiftX, h * 0.245 + torsoShiftY),
+      w * 0.017,
+      Paint()..color = const Color(0xFF1C1C1C),
+    );
+    canvas.drawCircle(
+      Offset(w * 0.56 + torsoShiftX, h * 0.245 + torsoShiftY),
+      w * 0.017,
+      Paint()..color = const Color(0xFF1C1C1C),
+    );
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(w * 0.50 + torsoShiftX, h * 0.265 + torsoShiftY),
+        width: w * 0.16,
+        height: h * 0.06,
+      ),
+      0.15,
+      pi - 0.3,
+      false,
+      Paint()
+        ..color = const Color(0xFF6B3F24)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1,
     );
     // Yellow hard hat.
     final hatPath = Path()
-      ..moveTo(w * 0.36, h * 0.22 + torsoOffset)
+      ..moveTo(w * 0.34 + torsoShiftX, h * 0.22 + torsoShiftY)
       ..quadraticBezierTo(
-        w * 0.50, h * 0.10 + torsoOffset,
-        w * 0.64, h * 0.22 + torsoOffset,
+        w * 0.50 + torsoShiftX,
+        h * 0.095 + torsoShiftY,
+        w * 0.66 + torsoShiftX,
+        h * 0.22 + torsoShiftY,
       )
-      ..lineTo(w * 0.66, h * 0.24 + torsoOffset)
-      ..lineTo(w * 0.34, h * 0.24 + torsoOffset)
+      ..lineTo(w * 0.68 + torsoShiftX, h * 0.245 + torsoShiftY)
+      ..lineTo(w * 0.32 + torsoShiftX, h * 0.245 + torsoShiftY)
       ..close();
-    canvas.drawPath(hatPath, Paint()..color = const Color(0xFFFFD600));
+    canvas.drawPath(
+      hatPath,
+      Paint()
+        ..shader = Gradient.linear(
+          Offset(w * 0.40, h * 0.10),
+          Offset(w * 0.60, h * 0.25),
+          [const Color(0xFFFFF176), const Color(0xFFFFB300)],
+        ),
+    );
     canvas.drawPath(
       hatPath,
       Paint()
@@ -928,25 +1283,22 @@ class ObstacleComponent extends PositionComponent
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0,
     );
+    canvas.drawLine(
+      Offset(w * 0.50 + torsoShiftX, h * 0.115 + torsoShiftY),
+      Offset(w * 0.50 + torsoShiftX, h * 0.235 + torsoShiftY),
+      Paint()
+        ..color = const Color(0xFFB37700)
+        ..strokeWidth = 1.1
+        ..strokeCap = StrokeCap.round,
+    );
     canvas.drawRect(
-      Rect.fromLTWH(w * 0.34, h * 0.235 + torsoOffset, w * 0.32, h * 0.018),
+      Rect.fromLTWH(
+        w * 0.30 + torsoShiftX,
+        h * 0.235 + torsoShiftY,
+        w * 0.40,
+        h * 0.018,
+      ),
       Paint()..color = const Color(0xFFB37700),
-    );
-
-    // Eyes.
-    canvas.drawCircle(
-      Offset(w * 0.45, h * 0.25 + torsoOffset),
-      1.4,
-      Paint()..color = const Color(0xFF1A1A1A),
-    );
-    canvas.drawCircle(
-      Offset(w * 0.55, h * 0.25 + torsoOffset),
-      1.4,
-      Paint()..color = const Color(0xFF1A1A1A),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(w * 0.44, h * 0.28 + torsoOffset, w * 0.12, h * 0.012),
-      Paint()..color = const Color(0xFF3A2618),
     );
 
     canvas.restore();
@@ -1026,8 +1378,8 @@ class ObstacleComponent extends PositionComponent
     canvas.clipRect(beamRect);
     for (int i = 0; i < stripeCount; i++) {
       canvas.drawRect(
-        Rect.fromLTWH(
-            beamRect.left + i * stripeW, beamRect.top, stripeW, beamRect.height),
+        Rect.fromLTWH(beamRect.left + i * stripeW, beamRect.top, stripeW,
+            beamRect.height),
         Paint()
           ..color =
               i.isEven ? const Color(0xFFFFFFFF) : const Color(0xFFDD2222),
@@ -1306,10 +1658,8 @@ class ObstacleComponent extends PositionComponent
     final wheelRX = w * 0.70;
     canvas.drawCircle(Offset(wheelLX, wheelY), w * wheelR, wheelPaint);
     canvas.drawCircle(Offset(wheelRX, wheelY), w * wheelR, wheelPaint);
-    canvas.drawCircle(
-        Offset(wheelLX, wheelY), w * wheelR * 0.35, hubPaint);
-    canvas.drawCircle(
-        Offset(wheelRX, wheelY), w * wheelR * 0.35, hubPaint);
+    canvas.drawCircle(Offset(wheelLX, wheelY), w * wheelR * 0.35, hubPaint);
+    canvas.drawCircle(Offset(wheelRX, wheelY), w * wheelR * 0.35, hubPaint);
 
     final framePaint = Paint()
       ..color = const Color(0xFFE53935)
@@ -1351,6 +1701,296 @@ class ObstacleComponent extends PositionComponent
       w * 0.11,
       Paint()..color = const Color(0xFF5D4037),
     );
+  }
+
+  void _renderSkateboarder(Canvas canvas) {
+    final w = size.x;
+    final h = size.y;
+    if (_skateWipeoutTimer > 0) {
+      _renderSkateboarderWipeout(canvas);
+      return;
+    }
+    final lean = sin(_animTimer * 2 * pi * 1.8) * 0.12;
+
+    canvas.save();
+    canvas.translate(w * 0.5, h * 0.62);
+    canvas.rotate(lean);
+    canvas.translate(-w * 0.5, -h * 0.62);
+
+    final boardY = h * 0.86;
+    final board = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+          center: Offset(w * 0.50, boardY), width: w * 0.86, height: h * 0.12),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(
+      board,
+      Paint()
+        ..shader = Gradient.linear(
+          Offset(w * 0.10, boardY),
+          Offset(w * 0.90, boardY),
+          [const Color(0xFF7E57C2), const Color(0xFF26C6DA)],
+        ),
+    );
+    for (final x in [w * 0.22, w * 0.78]) {
+      canvas.drawCircle(Offset(x, h * 0.94), w * 0.055,
+          Paint()..color = const Color(0xFF111111));
+      canvas.drawCircle(Offset(x, h * 0.94), w * 0.025,
+          Paint()..color = const Color(0xFFE0E0E0));
+    }
+
+    final pants = Paint()
+      ..color = const Color(0xFF263238)
+      ..strokeWidth = w * 0.08
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+        Offset(w * 0.45, h * 0.53), Offset(w * 0.30, h * 0.78), pants);
+    canvas.drawLine(
+        Offset(w * 0.55, h * 0.53), Offset(w * 0.70, h * 0.78), pants);
+
+    final hoodie = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+          center: Offset(w * 0.50, h * 0.42),
+          width: w * 0.46,
+          height: h * 0.32),
+      const Radius.circular(10),
+    );
+    canvas.drawRRect(
+      hoodie,
+      Paint()
+        ..shader = Gradient.linear(
+          Offset(w * 0.30, h * 0.28),
+          Offset(w * 0.70, h * 0.58),
+          [const Color(0xFFFF4081), const Color(0xFF8E24AA)],
+        ),
+    );
+
+    final arm = Paint()
+      ..color = const Color(0xFFFFCC99)
+      ..strokeWidth = w * 0.06
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+        Offset(w * 0.32, h * 0.38), Offset(w * 0.14, h * 0.48), arm);
+    canvas.drawLine(
+        Offset(w * 0.68, h * 0.38), Offset(w * 0.86, h * 0.30), arm);
+
+    canvas.drawCircle(Offset(w * 0.50, h * 0.19), w * 0.13,
+        Paint()..color = const Color(0xFFFFCC99));
+    canvas.drawArc(
+      Rect.fromCenter(
+          center: Offset(w * 0.50, h * 0.18),
+          width: w * 0.30,
+          height: h * 0.20),
+      pi,
+      pi,
+      false,
+      Paint()
+        ..color = const Color(0xFF3E2723)
+        ..strokeWidth = 6.0
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(Offset(w * 0.45, h * 0.19), 1.5,
+        Paint()..color = const Color(0xFF2D1B12));
+    canvas.drawCircle(Offset(w * 0.55, h * 0.19), 1.5,
+        Paint()..color = const Color(0xFF2D1B12));
+    canvas.restore();
+  }
+
+  void _renderSkateboarderWipeout(Canvas canvas) {
+    final w = size.x;
+    final h = size.y;
+    final progress =
+        (1.0 - _skateWipeoutTimer / _skateWipeoutDuration).clamp(0.0, 1.0);
+    final slide = (1 - pow(1 - progress, 3)).toDouble() * w * 0.18;
+
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.95),
+        width: w * 0.86,
+        height: h * 0.08,
+      ),
+      Paint()..color = const Color(0x66000000),
+    );
+
+    canvas.save();
+    canvas.translate(w * 0.48 - slide, h * 0.86);
+    canvas.rotate(-0.65 - progress * 0.45);
+    final board = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset.zero, width: w * 0.78, height: h * 0.11),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(
+      board,
+      Paint()
+        ..shader = Gradient.linear(
+          Offset(-w * 0.39, 0),
+          Offset(w * 0.39, 0),
+          [const Color(0xFF7E57C2), const Color(0xFF26C6DA)],
+        ),
+    );
+    for (final x in [-w * 0.27, w * 0.27]) {
+      canvas.drawCircle(Offset(x, h * 0.07), w * 0.045,
+          Paint()..color = const Color(0xFF111111));
+    }
+    canvas.restore();
+
+    canvas.save();
+    canvas.translate(w * 0.54 + slide, h * (0.72 + progress * 0.08));
+    canvas.rotate(1.25 + progress * 0.42);
+
+    final pants = Paint()
+      ..color = const Color(0xFF263238)
+      ..strokeWidth = w * 0.08
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+        Offset(-w * 0.05, h * 0.06), Offset(-w * 0.28, h * 0.17), pants);
+    canvas.drawLine(
+        Offset(w * 0.05, h * 0.06), Offset(w * 0.26, h * 0.19), pants);
+
+    final hoodie = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset.zero, width: w * 0.46, height: h * 0.30),
+      const Radius.circular(10),
+    );
+    canvas.drawRRect(
+      hoodie,
+      Paint()
+        ..shader = Gradient.linear(
+          Offset(-w * 0.24, -h * 0.15),
+          Offset(w * 0.24, h * 0.15),
+          [const Color(0xFFFF4081), const Color(0xFF8E24AA)],
+        ),
+    );
+
+    final arm = Paint()
+      ..color = const Color(0xFFFFCC99)
+      ..strokeWidth = w * 0.06
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+        Offset(-w * 0.20, -h * 0.04), Offset(-w * 0.42, -h * 0.13), arm);
+    canvas.drawLine(
+        Offset(w * 0.20, -h * 0.04), Offset(w * 0.42, h * 0.02), arm);
+
+    final head = Offset(w * 0.30, -h * 0.13);
+    canvas.drawCircle(head, w * 0.13, Paint()..color = const Color(0xFFFFCC99));
+    canvas.drawArc(
+      Rect.fromCenter(center: head, width: w * 0.30, height: h * 0.20),
+      pi,
+      pi,
+      false,
+      Paint()
+        ..color = const Color(0xFF3E2723)
+        ..strokeWidth = 6.0
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.restore();
+
+    final spark = Paint()
+      ..color = const Color(0xFFFFEB3B)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 4; i++) {
+      final a = -pi * 0.8 + i * 0.42;
+      final start = Offset(w * 0.38, h * 0.84);
+      canvas.drawLine(
+        start,
+        start + Offset(cos(a) * w * 0.12, sin(a) * h * 0.14),
+        spark,
+      );
+    }
+  }
+
+  void _renderEBike(Canvas canvas) {
+    final w = size.x;
+    final h = size.y;
+    final wheelSpin = _animTimer * 18;
+    final wheelPaint = Paint()..color = const Color(0xFF111111);
+    final rimPaint = Paint()
+      ..color = const Color(0xFFB0BEC5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    final leftWheel = Offset(w * 0.26, h * 0.78);
+    final rightWheel = Offset(w * 0.74, h * 0.78);
+    for (final c in [leftWheel, rightWheel]) {
+      canvas.drawCircle(c, w * 0.17, wheelPaint);
+      canvas.drawCircle(c, w * 0.125, rimPaint);
+      for (int i = 0; i < 6; i++) {
+        final a = wheelSpin + i * pi / 3;
+        canvas.drawLine(
+            c,
+            c + Offset(cos(a) * w * 0.105, sin(a) * w * 0.105),
+            Paint()
+              ..color = const Color(0xFF90A4AE)
+              ..strokeWidth = 0.8);
+      }
+    }
+
+    final framePaint = Paint()
+      ..color = const Color(0xFF00BCD4)
+      ..strokeWidth = 4.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final crank = Offset(w * 0.50, h * 0.64);
+    final seat = Offset(w * 0.44, h * 0.47);
+    final handle = Offset(w * 0.78, h * 0.42);
+    canvas.drawLine(leftWheel, crank, framePaint);
+    canvas.drawLine(crank, rightWheel, framePaint);
+    canvas.drawLine(leftWheel, seat, framePaint);
+    canvas.drawLine(seat, handle, framePaint);
+    canvas.drawLine(handle, rightWheel, framePaint);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+            center: Offset(w * 0.55, h * 0.59),
+            width: w * 0.30,
+            height: h * 0.13),
+        const Radius.circular(5),
+      ),
+      Paint()..color = const Color(0xFF263238),
+    );
+    canvas.drawCircle(
+        crank, w * 0.06, Paint()..color = const Color(0xFF202020));
+
+    final skin = Paint()
+      ..color = const Color(0xFFFFC590)
+      ..strokeWidth = w * 0.055
+      ..strokeCap = StrokeCap.round;
+    final pants = Paint()
+      ..color = const Color(0xFF1A237E)
+      ..strokeWidth = w * 0.07
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+        Offset(w * 0.50, h * 0.43), Offset(w * 0.40, h * 0.63), pants);
+    canvas.drawLine(
+        Offset(w * 0.55, h * 0.43), Offset(w * 0.64, h * 0.65), pants);
+    canvas.drawLine(
+        Offset(w * 0.42, h * 0.30), Offset(w * 0.72, h * 0.43), skin);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+            center: Offset(w * 0.49, h * 0.33),
+            width: w * 0.38,
+            height: h * 0.26),
+        const Radius.circular(9),
+      ),
+      Paint()..color = const Color(0xFFFF7043),
+    );
+    canvas.drawCircle(Offset(w * 0.48, h * 0.16), w * 0.12,
+        Paint()..color = const Color(0xFFFFC590));
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.34, h * 0.13)
+        ..quadraticBezierTo(w * 0.48, h * 0.03, w * 0.62, h * 0.13)
+        ..lineTo(w * 0.62, h * 0.17)
+        ..lineTo(w * 0.34, h * 0.17)
+        ..close(),
+      Paint()..color = const Color(0xFF212121),
+    );
+    canvas.drawCircle(Offset(w * 0.43, h * 0.16), 1.4,
+        Paint()..color = const Color(0xFF2D1B12));
+    canvas.drawCircle(Offset(w * 0.52, h * 0.16), 1.4,
+        Paint()..color = const Color(0xFF2D1B12));
   }
 
   void _renderManhole(Canvas canvas) {
@@ -1410,19 +2050,11 @@ class ObstacleComponent extends PositionComponent
     super.onCollisionStart(intersectionPoints, other);
     if (_hasHitPlayer) return;
     if (other is PlayerComponent) {
+      if (_paperedOnce && type != ObstacleType.car) return;
       _hasHitPlayer = true;
-      // Non-hazardous obstacles never damage the player — they react
-      // (knock over, get drenched, etc.) but the bike rolls through.
-      if (!isHazardous) {
-        if (isDrenching) {
-          gameRef.onPlayerDrenched();
-        }
-        // Trigger the obstacle's own paper-hit reaction so it visibly
-        // reacts to being run through (cone falls, dog tumbles, etc.).
-        onHitByPaper();
-        return;
-      }
-      gameRef.onPlayerHitObstacle();
+      if (isDrenching) gameRef.onPlayerDrenched();
+      onHitByPlayer();
+      gameRef.onPlayerHitObstacle(obstacle: this);
     }
   }
 }

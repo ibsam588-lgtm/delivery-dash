@@ -35,7 +35,6 @@ class StreetlampComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    // Long elliptical shadow trailing toward the road.
     final shadowDx = onRight ? -6.0 : 6.0;
     canvas.drawOval(
       Rect.fromCenter(
@@ -45,39 +44,80 @@ class StreetlampComponent extends PositionComponent
       ),
       Paint()..color = const Color(0x55000000),
     );
-    // Pole.
-    final pole = Paint()..color = const Color(0xFF2F2F33);
-    canvas.drawRect(
-      const Rect.fromLTWH(poleWidth / 2 - 2, 14, 4, poleHeight - 14),
-      pole,
-    );
-    // Arm extending over the road.
-    const armLen = 16.0;
-    const armStartX = poleWidth / 2;
-    final armEndX = onRight ? armStartX - armLen : armStartX + armLen;
-    canvas.drawRect(
-      Rect.fromLTRB(
-        armEndX < armStartX ? armEndX : armStartX,
-        12,
-        armEndX < armStartX ? armStartX : armEndX,
-        16,
+
+    final pole = Paint()
+      ..shader = Gradient.linear(
+        const Offset(6, 0),
+        const Offset(13, 0),
+        const [Color(0xFF111315), Color(0xFF4A4D50), Color(0xFF1B1D20)],
+        const [0.0, 0.45, 1.0],
+      )
+      ..strokeWidth = 4.2
+      ..strokeCap = StrokeCap.round;
+    final basePaint = Paint()..color = const Color(0xFF202326);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(3, 62, 12, 7),
+        const Radius.circular(2),
       ),
-      pole,
+      basePaint,
     );
-    // Lamp head.
-    final headCenter = Offset(armEndX, 14);
-    canvas.drawCircle(
-      headCenter,
-      6,
-      Paint()..color = const Color(0xFFFFE082),
+    for (final bx in [5.5, 12.5]) {
+      canvas.drawCircle(
+          Offset(bx, 65.5), 1.1, Paint()..color = const Color(0xFF73777A));
+    }
+
+    final polePath = Path()
+      ..moveTo(poleWidth / 2, poleHeight - 7)
+      ..lineTo(poleWidth / 2, 22)
+      ..quadraticBezierTo(
+        poleWidth / 2,
+        10,
+        onRight ? poleWidth / 2 - 10 : poleWidth / 2 + 10,
+        9,
+      );
+    canvas.drawPath(polePath, pole);
+
+    final armEnd = Offset(onRight ? -4 : poleWidth + 4, 11);
+    const armStart = Offset(poleWidth / 2, 16);
+    canvas.drawLine(armStart, armEnd, pole);
+
+    final headRect = Rect.fromCenter(
+      center: armEnd + Offset(onRight ? -3 : 3, 1),
+      width: 18,
+      height: 9,
     );
-    // Outer glow.
-    canvas.drawCircle(
-      headCenter,
-      11,
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(headRect, const Radius.circular(5)),
+      Paint()..color = const Color(0xFF202326),
+    );
+    final glowCenter = armEnd + Offset(onRight ? -4 : 4, 5);
+    canvas.drawOval(
+      Rect.fromCenter(center: glowCenter, width: 12, height: 7),
+      Paint()..color = const Color(0xFFFFF2A6),
+    );
+    final conePath = Path()
+      ..moveTo(glowCenter.dx - 6, glowCenter.dy)
+      ..lineTo(glowCenter.dx + 6, glowCenter.dy)
+      ..lineTo(glowCenter.dx + (onRight ? -22 : 22), poleHeight)
+      ..lineTo(glowCenter.dx + (onRight ? 6 : -6), poleHeight)
+      ..close();
+    canvas.drawPath(
+      conePath,
       Paint()
-        ..color = const Color(0x44FFE082)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+        ..shader = Gradient.linear(
+          glowCenter,
+          Offset(glowCenter.dx, poleHeight),
+          [const Color(0x33FFE082), const Color(0x00FFE082)],
+        ),
+    );
+    canvas.drawCircle(
+      glowCenter,
+      14,
+      Paint()
+        ..color = const Color(0x33FFE082)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
     );
   }
 }

@@ -1,10 +1,11 @@
 import 'package:flame/components.dart';
 
-/// Paperboy-style road layout with a wider road and readable sidewalks.
+/// Paperboy-style road layout with a stable road width and readable sidewalks.
 ///
-/// The playfield now keeps the road broad enough for clear traffic lanes while
+/// The playfield keeps the road broad enough for clear traffic lanes while
 /// preserving enough footpath/yard space for houses, mailboxes, dogs, workers,
-/// hydrants, and trash cans.
+/// hydrants, and trash cans. The road edges intentionally do not converge or
+/// expand as they move down the screen.
 class LaneManager {
   final Vector2 gameSize;
 
@@ -15,10 +16,11 @@ class LaneManager {
 
   double _t(double y) => (y / H).clamp(0.0, 1.0);
 
-  // Top:    30%..70% of screen width.
-  // Bottom: 15%..85% of screen width.
-  double roadLeftAt(double y) => W * (0.30 - 0.15 * _t(y));
-  double roadRightAt(double y) => W * (0.70 + 0.15 * _t(y));
+  static const double _roadLeftFrac = 0.24;
+  static const double _roadRightFrac = 0.76;
+
+  double roadLeftAt(double y) => W * _roadLeftFrac;
+  double roadRightAt(double y) => W * _roadRightFrac;
   double roadCenterAt(double y) => W * 0.50;
   double roadWidthAt(double y) => roadRightAt(y) - roadLeftAt(y);
 
@@ -37,6 +39,10 @@ class LaneManager {
 
   double leftSidewalkRightAt(double y) => roadLeftAt(y);
   double rightSidewalkLeftAt(double y) => roadRightAt(y);
+  double sidewalkPlayableWidthAt(double y) => (W * 0.075).clamp(58.0, 94.0);
+  double rideableLeftAt(double y) => roadLeftAt(y) - sidewalkPlayableWidthAt(y);
+  double rideableRightAt(double y) =>
+      roadRightAt(y) + sidewalkPlayableWidthAt(y);
   double scaleAt(double y) => (0.58 + 0.42 * _t(y)).clamp(0.58, 1.0);
 
   double roadXFromFraction(double f, [double? y]) {
@@ -50,6 +56,13 @@ class LaneManager {
   double clampToRoadAt(double y, double x, double halfWidth) {
     final lo = roadLeftAt(y) + halfWidth;
     final hi = roadRightAt(y) - halfWidth;
+    if (hi < lo) return roadCenterAt(y);
+    return x.clamp(lo, hi);
+  }
+
+  double clampToRideableAt(double y, double x, double halfWidth) {
+    final lo = rideableLeftAt(y) + halfWidth;
+    final hi = rideableRightAt(y) - halfWidth;
     if (hi < lo) return roadCenterAt(y);
     return x.clamp(lo, hi);
   }

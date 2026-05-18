@@ -14,8 +14,9 @@ class ConstructionZoneComponent extends PositionComponent
 
   bool _playerInside = false;
   bool _seeded = false;
+  final double? initialY;
 
-  ConstructionZoneComponent()
+  ConstructionZoneComponent({this.initialY})
       : super(
           size: Vector2(0, zoneHeight),
           anchor: Anchor.topLeft,
@@ -25,7 +26,7 @@ class ConstructionZoneComponent extends PositionComponent
   @override
   Future<void> onLoad() async {
     size = Vector2(gameRef.size.x, zoneHeight);
-    position = Vector2(0, -zoneHeight);
+    position = Vector2(0, initialY ?? -zoneHeight);
   }
 
   void _seedCones() {
@@ -41,6 +42,19 @@ class ConstructionZoneComponent extends PositionComponent
         initialPositionOverride: Vector2(
           lm.roadXFromFraction(fractions[i], position.y + yOff),
           position.y + yOff,
+        ),
+      ));
+    }
+
+    const workerFractions = [0.28, 0.72];
+    for (int i = 0; i < workerFractions.length; i++) {
+      final y = position.y + 72.0 + i * 92.0;
+      gameRef.add(ObstacleComponent(
+        type: ObstacleType.worker,
+        laneFraction: workerFractions[i],
+        initialPositionOverride: Vector2(
+          lm.roadXFromFraction(workerFractions[i], y),
+          y,
         ),
       ));
     }

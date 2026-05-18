@@ -28,8 +28,8 @@ class ParkedCarComponent extends PositionComponent
   @override
   Future<void> onLoad() async {
     final lm = gameRef.laneManager;
-    final spawnY = gameRef.size.y * 0.30;
-    final x = lm.roadXFromFraction(onRightCurb ? 0.84 : 0.16, spawnY);
+    final spawnY = -size.y * 0.75;
+    final x = lm.roadXFromFraction(onRightCurb ? 0.90 : 0.10, spawnY);
     position = Vector2(x, spawnY);
     add(RectangleHitbox(
       size: size * 0.82,
@@ -61,7 +61,7 @@ class ParkedCarComponent extends PositionComponent
   @override
   void render(Canvas canvas) {
     final h = gameRef.size.y;
-    final s = depthScale(position.y, h);
+    final s = depthScale(position.y, h).clamp(0.42, 1.0);
     final lm = gameRef.laneManager;
     final dx = depthXShiftDiag(
       worldX: position.x,
@@ -112,12 +112,12 @@ class ParkedCarComponent extends PositionComponent
 }
 
 const List<Color> _carPaints = [
-  Color(0xFFC62828),
-  Color(0xFF1565C0),
-  Color(0xFF2E7D32),
-  Color(0xFFFFB300),
-  Color(0xFF455A64),
-  Color(0xFFF5F5F5),
+  Color(0xFFE53935),
+  Color(0xFF0288D1),
+  Color(0xFF00A86B),
+  Color(0xFFFFC928),
+  Color(0xFF263238),
+  Color(0xFFF5F7FA),
 ];
 
 void renderTopDownCar(
@@ -126,83 +126,94 @@ void renderTopDownCar(
   double h,
   int variant, {
   bool isOncoming = false,
+  bool headlightsOn = false,
 }) {
   if (isOncoming) {
     canvas.save();
     canvas.translate(0, h);
     canvas.scale(1, -1);
-    _renderCarBody(canvas, w, h, variant);
+    _renderCarBody(canvas, w, h, variant, headlightsOn: headlightsOn);
     canvas.restore();
   } else {
-    _renderCarBody(canvas, w, h, variant);
+    _renderCarBody(canvas, w, h, variant, headlightsOn: headlightsOn);
   }
 }
 
-void _renderCarBody(Canvas canvas, double w, double h, int variant) {
+void _renderCarBody(Canvas canvas, double w, double h, int variant,
+    {bool headlightsOn = false}) {
   final base = _carPaints[variant % _carPaints.length];
-  final dark = _darken(base, 0.46);
-  final light = _lighten(base, 0.32);
-  final trim = Paint()..color = const Color(0xFF101010);
+  final dark = _darken(base, 0.50);
+  final darker = _darken(base, 0.68);
+  final light = _lighten(base, 0.36);
+  final trim = Paint()..color = const Color(0xFF111111);
 
-  for (final x in [w * 0.10, w * 0.90]) {
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
+  canvas.drawOval(
+    Rect.fromCenter(
+      center: Offset(w * 0.50, h * 0.98),
+      width: w * 0.78,
+      height: h * 0.08,
+    ),
+    Paint()..color = const Color(0x66000000),
+  );
+
+  for (final x in [w * 0.075, w * 0.925]) {
+    for (final y in [h * 0.27, h * 0.72]) {
+      final tire = RRect.fromRectAndRadius(
         Rect.fromCenter(
-          center: Offset(x, h * 0.27),
-          width: w * 0.16,
+          center: Offset(x, y),
+          width: w * 0.20,
           height: h * 0.18,
         ),
-        const Radius.circular(5),
-      ),
-      trim,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(x, h * 0.73),
-          width: w * 0.16,
-          height: h * 0.18,
+        const Radius.circular(7),
+      );
+      canvas.drawRRect(tire, trim);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(x, y),
+            width: w * 0.082,
+            height: h * 0.12,
+          ),
+          const Radius.circular(4),
         ),
-        const Radius.circular(5),
-      ),
-      trim,
-    );
+        Paint()..color = const Color(0xFF303030),
+      );
+      canvas.drawCircle(
+        Offset(x, y),
+        w * 0.025,
+        Paint()..color = const Color(0xFF8D8D8D),
+      );
+    }
   }
 
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.08, h * 0.39, w * 0.09, h * 0.07),
-      const Radius.circular(3),
-    ),
-    Paint()..color = const Color(0xFF212121),
-  );
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(
-      Rect.fromLTWH(w * 0.83, h * 0.39, w * 0.09, h * 0.07),
-      const Radius.circular(3),
-    ),
-    Paint()..color = const Color(0xFF212121),
-  );
+  for (final side in [-1.0, 1.0]) {
+    final mirror = Path()
+      ..moveTo(w * (0.50 + side * 0.36), h * 0.34)
+      ..lineTo(w * (0.50 + side * 0.48), h * 0.30)
+      ..lineTo(w * (0.50 + side * 0.47), h * 0.38)
+      ..close();
+    canvas.drawPath(mirror, Paint()..color = const Color(0xFF151515));
+  }
 
   final bodyPath = Path()
-    ..moveTo(w * 0.30, h * 0.03)
-    ..lineTo(w * 0.70, h * 0.03)
-    ..quadraticBezierTo(w * 0.84, h * 0.08, w * 0.86, h * 0.22)
-    ..lineTo(w * 0.82, h * 0.82)
-    ..quadraticBezierTo(w * 0.77, h * 0.97, w * 0.63, h * 0.98)
-    ..lineTo(w * 0.37, h * 0.98)
-    ..quadraticBezierTo(w * 0.23, h * 0.97, w * 0.18, h * 0.82)
-    ..lineTo(w * 0.14, h * 0.22)
-    ..quadraticBezierTo(w * 0.16, h * 0.08, w * 0.30, h * 0.03)
+    ..moveTo(w * 0.31, h * 0.02)
+    ..lineTo(w * 0.69, h * 0.02)
+    ..cubicTo(w * 0.82, h * 0.04, w * 0.91, h * 0.14, w * 0.90, h * 0.28)
+    ..lineTo(w * 0.84, h * 0.78)
+    ..cubicTo(w * 0.81, h * 0.94, w * 0.69, h * 0.99, w * 0.57, h * 0.99)
+    ..lineTo(w * 0.43, h * 0.99)
+    ..cubicTo(w * 0.31, h * 0.99, w * 0.19, h * 0.94, w * 0.16, h * 0.78)
+    ..lineTo(w * 0.10, h * 0.28)
+    ..cubicTo(w * 0.09, h * 0.14, w * 0.18, h * 0.04, w * 0.31, h * 0.02)
     ..close();
   canvas.drawPath(
     bodyPath,
     Paint()
       ..shader = Gradient.linear(
-        Offset(w * 0.16, 0),
-        Offset(w * 0.84, h),
-        [light, base, dark],
-        [0.0, 0.55, 1.0],
+        Offset(w * 0.18, h * 0.05),
+        Offset(w * 0.86, h * 0.98),
+        [light, base, dark, darker],
+        [0.0, 0.38, 0.74, 1.0],
       ),
   );
   canvas.drawPath(
@@ -217,22 +228,61 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
     ..color = const Color(0x77000000)
     ..strokeWidth = 1.2
     ..strokeCap = StrokeCap.round;
-  canvas.drawLine(Offset(w * 0.27, h * 0.23), Offset(w * 0.73, h * 0.23), seamPaint);
-  canvas.drawLine(Offset(w * 0.24, h * 0.78), Offset(w * 0.76, h * 0.78), seamPaint);
-  canvas.drawLine(Offset(w * 0.22, h * 0.24), Offset(w * 0.20, h * 0.74), seamPaint);
-  canvas.drawLine(Offset(w * 0.78, h * 0.24), Offset(w * 0.80, h * 0.74), seamPaint);
+  final panelPaint = Paint()
+    ..color = const Color(0x44000000)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.0;
+
+  final hood = Path()
+    ..moveTo(w * 0.30, h * 0.08)
+    ..lineTo(w * 0.70, h * 0.08)
+    ..lineTo(w * 0.76, h * 0.28)
+    ..lineTo(w * 0.24, h * 0.28)
+    ..close();
+  canvas.drawPath(
+    hood,
+    Paint()
+      ..shader = Gradient.linear(
+        Offset(w * 0.25, h * 0.08),
+        Offset(w * 0.75, h * 0.28),
+        [light.withValues(alpha: 0.38), const Color(0x00000000)],
+      ),
+  );
+  canvas.drawPath(hood, panelPaint);
+
+  canvas.drawLine(
+      Offset(w * 0.27, h * 0.30), Offset(w * 0.73, h * 0.30), seamPaint);
+  canvas.drawLine(
+      Offset(w * 0.24, h * 0.76), Offset(w * 0.76, h * 0.76), seamPaint);
+  canvas.drawLine(
+      Offset(w * 0.22, h * 0.24), Offset(w * 0.20, h * 0.74), seamPaint);
+  canvas.drawLine(
+      Offset(w * 0.78, h * 0.24), Offset(w * 0.80, h * 0.74), seamPaint);
+  canvas.drawLine(
+      Offset(w * 0.36, h * 0.08), Offset(w * 0.30, h * 0.22), seamPaint);
+  canvas.drawLine(
+      Offset(w * 0.64, h * 0.08), Offset(w * 0.70, h * 0.22), seamPaint);
+  canvas.drawLine(
+      Offset(w * 0.36, h * 0.82), Offset(w * 0.31, h * 0.92), seamPaint);
+  canvas.drawLine(
+      Offset(w * 0.64, h * 0.82), Offset(w * 0.69, h * 0.92), seamPaint);
 
   final glass = Paint()
     ..shader = Gradient.linear(
-      Offset(w * 0.28, h * 0.18),
-      Offset(w * 0.72, h * 0.74),
-      [const Color(0xFFE1F5FE), const Color(0xFF1976D2)],
+      Offset(w * 0.28, h * 0.27),
+      Offset(w * 0.72, h * 0.70),
+      [
+        const Color(0xFFE7F7FF),
+        const Color(0xFF5AA9E6),
+        const Color(0xFF1565A8)
+      ],
+      [0.0, 0.48, 1.0],
     );
   final windshield = Path()
-    ..moveTo(w * 0.32, h * 0.24)
-    ..lineTo(w * 0.68, h * 0.24)
-    ..lineTo(w * 0.73, h * 0.39)
-    ..lineTo(w * 0.27, h * 0.39)
+    ..moveTo(w * 0.31, h * 0.32)
+    ..lineTo(w * 0.69, h * 0.32)
+    ..lineTo(w * 0.74, h * 0.45)
+    ..lineTo(w * 0.26, h * 0.45)
     ..close();
   canvas.drawPath(windshield, glass);
   canvas.drawPath(
@@ -243,27 +293,32 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
       ..strokeWidth = 1.1,
   );
 
-  final cabin = RRect.fromRectAndRadius(
-    Rect.fromLTWH(w * 0.27, h * 0.41, w * 0.46, h * 0.20),
-    const Radius.circular(7),
-  );
-  canvas.drawRRect(cabin, Paint()..color = const Color(0xCC90CAF9));
-  canvas.drawRRect(
-    cabin,
-    Paint()
-      ..color = const Color(0x66000000)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.1,
-  );
-  canvas.drawLine(Offset(w * 0.50, h * 0.42), Offset(w * 0.50, h * 0.60), seamPaint);
+  final leftWindow = Path()
+    ..moveTo(w * 0.27, h * 0.48)
+    ..lineTo(w * 0.47, h * 0.48)
+    ..lineTo(w * 0.45, h * 0.63)
+    ..lineTo(w * 0.25, h * 0.62)
+    ..close();
+  final rightWindow = Path()
+    ..moveTo(w * 0.53, h * 0.48)
+    ..lineTo(w * 0.73, h * 0.48)
+    ..lineTo(w * 0.75, h * 0.62)
+    ..lineTo(w * 0.55, h * 0.63)
+    ..close();
+  canvas.drawPath(leftWindow, glass);
+  canvas.drawPath(rightWindow, glass);
+  canvas.drawPath(leftWindow, panelPaint);
+  canvas.drawPath(rightWindow, panelPaint);
+  canvas.drawLine(
+      Offset(w * 0.50, h * 0.47), Offset(w * 0.50, h * 0.65), seamPaint);
 
   final rear = Path()
-    ..moveTo(w * 0.27, h * 0.63)
-    ..lineTo(w * 0.73, h * 0.63)
-    ..lineTo(w * 0.66, h * 0.77)
-    ..lineTo(w * 0.34, h * 0.77)
+    ..moveTo(w * 0.29, h * 0.66)
+    ..lineTo(w * 0.71, h * 0.66)
+    ..lineTo(w * 0.66, h * 0.75)
+    ..lineTo(w * 0.34, h * 0.75)
     ..close();
-  canvas.drawPath(rear, Paint()..color = const Color(0xCC64B5F6));
+  canvas.drawPath(rear, Paint()..color = const Color(0xAA64B5F6));
   canvas.drawPath(
     rear,
     Paint()
@@ -273,45 +328,185 @@ void _renderCarBody(Canvas canvas, double w, double h, int variant) {
   );
 
   canvas.drawRRect(
-    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.24, h * 0.06, w * 0.17, h * 0.06), const Radius.circular(3)),
+    RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.20, h * 0.075, w * 0.20, h * 0.055),
+        const Radius.circular(4)),
     Paint()..color = const Color(0xFFFFFDE7),
   );
   canvas.drawRRect(
-    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.59, h * 0.06, w * 0.17, h * 0.06), const Radius.circular(3)),
+    RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.60, h * 0.075, w * 0.20, h * 0.055),
+        const Radius.circular(4)),
     Paint()..color = const Color(0xFFFFFDE7),
   );
-  canvas.drawRRect(
-    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.25, h * 0.90, w * 0.14, h * 0.05), const Radius.circular(3)),
-    Paint()..color = const Color(0xFFFF1744),
+  canvas.drawCircle(
+    Offset(w * 0.27, h * 0.10),
+    w * 0.055,
+    Paint()..color = const Color(0x33FFF9C4),
   );
+  canvas.drawCircle(
+    Offset(w * 0.73, h * 0.10),
+    w * 0.055,
+    Paint()..color = const Color(0x33FFF9C4),
+  );
+  if (headlightsOn) {
+    _renderHeadlightBeams(canvas, w, h);
+  }
   canvas.drawRRect(
-    RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.61, h * 0.90, w * 0.14, h * 0.05), const Radius.circular(3)),
+    RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.25, h * 0.90, w * 0.14, h * 0.05),
+        const Radius.circular(3)),
     Paint()..color = const Color(0xFFFF1744),
   );
   canvas.drawRRect(
     RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(w * 0.50, h * 0.92), width: w * 0.18, height: h * 0.035),
+        Rect.fromLTWH(w * 0.61, h * 0.90, w * 0.14, h * 0.05),
+        const Radius.circular(3)),
+    Paint()..color = const Color(0xFFFF1744),
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromCenter(
+          center: Offset(w * 0.50, h * 0.92),
+          width: w * 0.18,
+          height: h * 0.035),
       const Radius.circular(2),
     ),
     Paint()..color = const Color(0xFFECEFF1),
   );
 
+  final grillePaint = Paint()
+    ..color = const Color(0xFF263238)
+    ..strokeWidth = 1.2
+    ..strokeCap = StrokeCap.round;
+  for (int i = 0; i < 4; i++) {
+    final gy = h * (0.155 + i * 0.018);
+    canvas.drawLine(Offset(w * 0.39, gy), Offset(w * 0.61, gy), grillePaint);
+  }
+
+  for (final side in [-1.0, 1.0]) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(w * (0.50 + side * 0.31), h * 0.56),
+          width: w * 0.05,
+          height: h * 0.015,
+        ),
+        const Radius.circular(1),
+      ),
+      Paint()..color = const Color(0xAA111111),
+    );
+  }
+
+  final roofRect = RRect.fromRectAndRadius(
+    Rect.fromCenter(
+      center: Offset(w * 0.50, h * 0.49),
+      width: w * 0.48,
+      height: h * 0.34,
+    ),
+    const Radius.circular(13),
+  );
+  canvas.drawRRect(
+    roofRect,
+    Paint()
+      ..shader = Gradient.linear(
+        Offset(w * 0.32, h * 0.32),
+        Offset(w * 0.68, h * 0.66),
+        [
+          const Color(0xFFEAF9FF),
+          const Color(0xFF77BDE8),
+          const Color(0xFF0D3755),
+        ],
+        [0.0, 0.48, 1.0],
+      ),
+  );
+  canvas.drawRRect(
+    roofRect,
+    Paint()
+      ..color = const Color(0x66000000)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2,
+  );
+  canvas.drawRRect(
+    RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.50),
+        width: w * 0.25,
+        height: h * 0.24,
+      ),
+      const Radius.circular(10),
+    ),
+    Paint()..color = const Color(0x66263036),
+  );
+
+  final ledPaint = Paint()
+    ..color = const Color(0xFFE8F8FF)
+    ..strokeWidth = 2.2
+    ..strokeCap = StrokeCap.round;
   canvas.drawLine(
-    Offset(w * 0.38, h * 0.11),
-    Offset(w * 0.31, h * 0.72),
+      Offset(w * 0.26, h * 0.085), Offset(w * 0.42, h * 0.072), ledPaint);
+  canvas.drawLine(
+      Offset(w * 0.58, h * 0.072), Offset(w * 0.74, h * 0.085), ledPaint);
+  final tailPaint = Paint()
+    ..color = const Color(0xFFFF1744)
+    ..strokeWidth = 2.4
+    ..strokeCap = StrokeCap.round;
+  canvas.drawLine(
+      Offset(w * 0.28, h * 0.925), Offset(w * 0.42, h * 0.942), tailPaint);
+  canvas.drawLine(
+      Offset(w * 0.58, h * 0.942), Offset(w * 0.72, h * 0.925), tailPaint);
+
+  canvas.drawLine(
+    Offset(w * 0.35, h * 0.08),
+    Offset(w * 0.28, h * 0.70),
     Paint()
       ..color = const Color(0x66FFFFFF)
       ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round,
   );
   canvas.drawLine(
-    Offset(w * 0.58, h * 0.43),
-    Offset(w * 0.66, h * 0.55),
+    Offset(w * 0.58, h * 0.50),
+    Offset(w * 0.68, h * 0.60),
     Paint()
       ..color = const Color(0x88FFFFFF)
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round,
   );
+}
+
+void _renderHeadlightBeams(Canvas canvas, double w, double h) {
+  for (final x in [w * 0.30, w * 0.70]) {
+    final beam = Path()
+      ..moveTo(x - w * 0.06, h * 0.10)
+      ..quadraticBezierTo(x - w * 0.10, h * 0.00, x - w * 0.16, -h * 0.18)
+      ..lineTo(x + w * 0.16, -h * 0.18)
+      ..quadraticBezierTo(x + w * 0.10, h * 0.00, x + w * 0.06, h * 0.10)
+      ..close();
+    canvas.drawPath(
+      beam,
+      Paint()
+        ..shader = Gradient.linear(
+          Offset(x, -h * 0.18),
+          Offset(x, h * 0.12),
+          [
+            const Color(0x00FFF8CF),
+            const Color(0x4DFFF4C4),
+            const Color(0x11FFFDF0),
+          ],
+          [0.0, 0.45, 1.0],
+        ),
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(x, h * 0.06),
+        width: w * 0.18,
+        height: h * 0.11,
+      ),
+      Paint()
+        ..color = const Color(0x66FFF7C7)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0),
+    );
+  }
 }
 
 void _renderGlassCracks(Canvas canvas, double w, double h) {

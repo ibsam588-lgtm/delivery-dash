@@ -14,22 +14,28 @@ import '../difficulty.dart';
 
 class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   double _obstacleTimer = 0;
+  double _runTimer = 0;
   double _packDistanceMark = 0;
   double _lampDistanceMark = 0;
   double _parkedCarDistanceMark = 0;
-  double _intersectionDistanceMark = -300.0;
+  double _intersectionTimer = 0;
+  double _nextIntersectionDelay = firstIntersectionDelay;
   double _zoneDistanceMark = 0;
   double _catDistanceMark = 0;
   double _decorTimer = 0;
+  bool _spawnedOpeningTraffic = false;
+  bool _spawnedOpeningConstruction = false;
   final Random _rng = Random();
 
   static const double paperPackDistanceInterval = 400;
   static const double lampDistanceInterval = 90;
   static const double parkedCarDistanceInterval = 300;
-  static const double intersectionDistanceInterval = 560.0;
+  static const double firstIntersectionDelay = 12.0;
+  static const double intersectionTimeInterval = 24.0;
   static const double constructionZoneDistanceInterval = 650;
   static const double catDistanceInterval = 620;
   static const double decorSpawnInterval = 1.4;
+  static const double openingTrafficGrace = 2.2;
 
   static const List<Color> _leafColors = [
     Color(0xFFD84315),
@@ -46,16 +52,29 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     final speedFactor = scroll > 1 ? cfg.startSpeed / scroll : 1.0;
     final diffMult = gameRef.config.spawnIntervalMultiplier;
     final upper = base * diffMult;
-    return (base * speedFactor * diffMult).clamp(0.60, upper < 0.60 ? 0.60 : upper);
+    return (base * speedFactor * diffMult)
+        .clamp(0.60, upper < 0.60 ? 0.60 : upper);
   }
 
   @override
   void update(double dt) {
     super.update(dt);
     if (gameRef.state != GameState.playing) return;
+    _runTimer += dt;
+
+    if (!_spawnedOpeningTraffic && _runTimer >= 1.1) {
+      _spawnedOpeningTraffic = true;
+      _spawnTrafficCar(laneFraction: _rng.nextBool() ? 0.30 : 0.70);
+    }
+
+    if (!_spawnedOpeningConstruction && _runTimer >= 0.25) {
+      _spawnedOpeningConstruction = true;
+      _spawnConstructionZone(initialY: gameRef.size.y * 0.10);
+    }
 
     _obstacleTimer += dt;
-    if (_obstacleTimer >= _obstacleInterval) {
+    if (_runTimer >= openingTrafficGrace &&
+        _obstacleTimer >= _obstacleInterval) {
       _obstacleTimer = 0;
       _spawnObstacle();
     }
@@ -64,6 +83,13 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
     if (_decorTimer >= decorSpawnInterval) {
       _decorTimer = 0;
       _spawnDecor();
+    }
+
+    _intersectionTimer += dt;
+    if (_intersectionTimer >= _nextIntersectionDelay) {
+      _intersectionTimer = 0;
+      _nextIntersectionDelay = intersectionTimeInterval;
+      _spawnIntersection();
     }
 
     final d = gameRef.totalDistanceMeters;
@@ -79,10 +105,6 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
       _parkedCarDistanceMark = d;
       if (_rng.nextDouble() < 0.50) _spawnParkedCar();
     }
-    if (d - _intersectionDistanceMark >= intersectionDistanceInterval) {
-      _intersectionDistanceMark = d;
-      _spawnIntersection();
-    }
     if (d - _zoneDistanceMark >= constructionZoneDistanceInterval) {
       _zoneDistanceMark = d;
       if (_rng.nextDouble() < 0.55) _spawnConstructionZone();
@@ -97,38 +119,53 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   void _spawnObstacle() {
     final roll = _rng.nextDouble();
     final ObstacleType type;
-    if (roll < 0.24) {
-      type = ObstacleType.car;
-    } else if (roll < 0.36) {
-      type = ObstacleType.dog;
-    } else if (roll < 0.43) {
-      type = ObstacleType.kidBike;
-    } else if (roll < 0.51) {
-      type = ObstacleType.worker;
-    } else if (roll < 0.62) {
-      type = ObstacleType.cone;
-    } else if (roll < 0.72) {
-      type = ObstacleType.barrier;
-    } else if (roll < 0.78) {
-      type = ObstacleType.pothole;
-    } else if (roll < 0.84) {
-      type = ObstacleType.manhole;
-    } else if (roll < 0.91) {
-      type = ObstacleType.trashBin;
+    if (gameRef.config.zone == RouteZone.city) {
+      if (roll < 0.34) {
+        type = ObstacleType.car;
+      } else if (roll < 0.46) {
+        type = ObstacleType.eBike;
+      } else if (roll < 0.58) {
+        type = ObstacleType.skateboarder;
+      } else if (roll < 0.66) {
+        type = ObstacleType.worker;
+      } else if (roll < 0.76) {
+        type = ObstacleType.cone;
+      } else if (roll < 0.84) {
+        type = ObstacleType.barrier;
+      } else if (roll < 0.91) {
+        type = ObstacleType.manhole;
+      } else if (roll < 0.96) {
+        type = ObstacleType.trashBin;
+      } else {
+        type = ObstacleType.hydrant;
+      }
     } else {
-      type = ObstacleType.hydrant;
+      if (roll < 0.24) {
+        type = ObstacleType.car;
+      } else if (roll < 0.36) {
+        type = ObstacleType.dog;
+      } else if (roll < 0.43) {
+        type = ObstacleType.kidBike;
+      } else if (roll < 0.51) {
+        type = ObstacleType.worker;
+      } else if (roll < 0.62) {
+        type = ObstacleType.cone;
+      } else if (roll < 0.72) {
+        type = ObstacleType.barrier;
+      } else if (roll < 0.78) {
+        type = ObstacleType.pothole;
+      } else if (roll < 0.84) {
+        type = ObstacleType.manhole;
+      } else if (roll < 0.91) {
+        type = ObstacleType.trashBin;
+      } else {
+        type = ObstacleType.hydrant;
+      }
     }
 
     switch (type) {
       case ObstacleType.car:
-        gameRef.add(ObstacleComponent(
-          type: type,
-          laneFraction: _frontCarLaneFraction(),
-          // Faster than road scroll so cars visibly drive toward the player.
-          speedFactor: 1.22 + _rng.nextDouble() * 0.18,
-          isOvertaker: false,
-          isOncoming: false,
-        ));
+        _spawnTrafficCar();
         break;
       case ObstacleType.worker:
         gameRef.add(ObstacleComponent(
@@ -151,6 +188,20 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
         break;
       case ObstacleType.kidBike:
         gameRef.add(ObstacleComponent(type: type, laneFraction: 0.34));
+        break;
+      case ObstacleType.skateboarder:
+        gameRef.add(ObstacleComponent(
+          type: type,
+          laneFraction: 0.28 + _rng.nextDouble() * 0.44,
+          speedFactor: 1.08,
+        ));
+        break;
+      case ObstacleType.eBike:
+        gameRef.add(ObstacleComponent(
+          type: type,
+          laneFraction: _frontCarLaneFraction(),
+          speedFactor: 1.35,
+        ));
         break;
       case ObstacleType.trashBin:
         gameRef.add(ObstacleComponent(
@@ -176,6 +227,17 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
         ));
         break;
     }
+  }
+
+  void _spawnTrafficCar({double? laneFraction}) {
+    gameRef.add(ObstacleComponent(
+      type: ObstacleType.car,
+      laneFraction: laneFraction ?? _frontCarLaneFraction(),
+      // Much faster than road scroll so cars read as active traffic.
+      speedFactor: 1.72 + _rng.nextDouble() * 0.55,
+      isOvertaker: false,
+      isOncoming: false,
+    ));
   }
 
   double _frontCarLaneFraction() {
@@ -214,7 +276,9 @@ class Spawner extends Component with HasGameRef<DeliveryDashGame> {
   }
 
   void _spawnIntersection() => gameRef.add(IntersectionComponent());
-  void _spawnConstructionZone() => gameRef.add(ConstructionZoneComponent());
+
+  void _spawnConstructionZone({double? initialY}) =>
+      gameRef.add(ConstructionZoneComponent(initialY: initialY));
 
   void _spawnCat() {
     final lm = gameRef.laneManager;

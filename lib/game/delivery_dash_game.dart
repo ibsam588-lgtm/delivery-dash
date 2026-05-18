@@ -56,6 +56,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   bool _isShaking = false;
   double _shakeTimer = 0;
   double _shakeIntensity = 6.0;
+  final Vector2 _shakeOffset = Vector2.zero();
   static const double _shakeDuration = 0.2;
   final Random _rng = Random();
 
@@ -98,6 +99,7 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   Color backgroundColor() => const Color(0xFF101218);
 
   bool _initialized = false;
+  bool _audioGestureRequested = false;
 
   @override
   Future<void> onLoad() async {
@@ -153,17 +155,23 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     _zoneSlow = 1.0;
     _drenchTimer = 0;
     _hitFlashTimer = 0;
+    _audioGestureRequested = false;
     state = GameState.playing;
 
     add(RoadBackground(gameSize: size));
 
     final rows = (size.y / HouseComponent.rowSpacing).ceil() + 2;
     for (int i = 0; i < rows; i++) {
-      add(HouseComponent(index: i));
-      add(HouseComponent(index: i + 1, onRight: true));
+      add(HouseComponent(index: i * 2));
+      add(HouseComponent(index: i * 2 + 1, onRight: true));
     }
 
-    player = PlayerComponent(isVip: config.vipSkin);
+    player = PlayerComponent(
+      isVip: config.vipSkin,
+      avatar: config.avatar,
+      outfitId: config.outfitId,
+      bikeId: config.bikeId,
+    );
     add(player);
 
     hud = Hud();
@@ -183,10 +191,11 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
     if (!_hasShownTutorial) {
       _hasShownTutorial = true;
-      overlays.add('Tutorial');
-      Future.delayed(const Duration(seconds: 3), () {
-        overlays.remove('Tutorial');
-      });
+      add(FloatingText(
+        text: 'DRAG TO MOVE / TAP TO THROW',
+        position: Vector2(size.x * 0.5, size.y * 0.70),
+        color: const Color(0xFFFFD54F),
+      ));
     }
   }
 
@@ -231,9 +240,9 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
       _shakeTimer -= dt;
       if (_shakeTimer <= 0) {
         _isShaking = false;
-        camera.viewfinder.position = Vector2.zero();
+        _shakeOffset.setZero();
       } else {
-        camera.viewfinder.position = Vector2(
+        _shakeOffset.setValues(
           (_rng.nextDouble() - 0.5) * _shakeIntensity,
           (_rng.nextDouble() - 0.5) * _shakeIntensity,
         );
@@ -255,7 +264,13 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
 
   @override
   void render(Canvas canvas) {
+    canvas.save();
+    if (_shakeOffset.x != 0 || _shakeOffset.y != 0) {
+      canvas.translate(_shakeOffset.x, _shakeOffset.y);
+    }
     super.render(canvas);
+    canvas.restore();
+
     if (_drenchTimer > 0) {
       final phase = _drenchTimer / _drenchDuration;
       final alpha = (1 - (phase - 0.5).abs() * 2) * 0.4;
@@ -291,23 +306,30 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     hud.updatePapers(papers);
 
     AudioService.instance.playLevelUp();
-    overlays.add('LevelUp');
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      overlays.remove('LevelUp');
-    });
+    add(FloatingText(
+      text: 'LEVEL $level',
+      position: Vector2(size.x * 0.5, size.y * 0.36),
+      color: const Color(0xFF00E676),
+    ));
     hud.updateLevel(level);
   }
 
   void onDragMoveTo(double worldX) {
     if (state != GameState.playing) return;
-    AudioService.instance.playBgm();
+    _unlockAudioOnce();
     player.moveTo(worldX);
   }
 
   void onTap(double tapX) {
     if (state != GameState.playing) return;
-    AudioService.instance.playBgm();
+    _unlockAudioOnce();
     _throwPaper(throwLeft: tapX < size.x / 2);
+  }
+
+  void _unlockAudioOnce() {
+    if (_audioGestureRequested) return;
+    _audioGestureRequested = true;
+    AudioService.instance.playBgm(fromUserGesture: true);
   }
 
   void pauseGame() {
@@ -476,6 +498,11 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
         count: 10,
         spread: 110,
       ));
+      add(FloatingText(
+        text: 'STOPPED!',
+        position: position - Vector2(0, 20),
+        color: const Color(0xFFFF5252),
+      ));
       _playGlassCue();
     } else {
       add(ParticleBurst(
@@ -538,10 +565,11 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     ));
   }
 
-  void onPlayerHitObstacle() {
+  void onPlayerHitObstacle({ObstacleComponent? obstacle}) {
     if (isInvincible || state != GameState.playing) return;
     final direction = player.position.x < size.x * 0.5 ? -1.0 : 1.0;
-    player.triggerCrash(direction: direction);
+    final hitCar = obstacle?.type == ObstacleType.car;
+    player.triggerCrash(direction: direction, hard: true);
     lives--;
     isInvincible = true;
     invincibilityTimer = 1.5;
@@ -550,6 +578,18 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
     hud.updateCombo(0, 1);
     _triggerShake(intensity: 8.0);
     AudioService.instance.playHit();
+    add(ParticleBurst(
+      position: player.position.clone() - Vector2(0, 12),
+      color: hitCar ? const Color(0xFFFFD54F) : const Color(0xFFFF8A65),
+      color2: const Color(0xFFFFFFFF),
+      count: hitCar ? 14 : 10,
+      spread: hitCar ? 150 : 125,
+    ));
+    add(FloatingText(
+      text: 'WIPEOUT!',
+      position: player.position.clone() - Vector2(0, 78),
+      color: const Color(0xFFFFD54F),
+    ));
     if (lives <= 0) _endGame();
   }
 

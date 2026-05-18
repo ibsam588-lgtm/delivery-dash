@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import '../delivery_dash_game.dart';
+import '../difficulty.dart';
 import 'house_window.dart';
 import 'mailbox.dart';
 
@@ -18,12 +19,54 @@ class _Palette {
 }
 
 const List<_Palette> _palettes = [
-  _Palette(Color(0xFFF5E6C8), Color(0xFFD9C190), Color(0xFFB89D6A), Color(0xFFB39A6E), Color(0xFFC0392B), Color(0xFF85221A), Color(0xFF6D3A20)),
-  _Palette(Color(0xFFFFE082), Color(0xFFE5B850), Color(0xFFC09238), Color(0xFFB89035), Color(0xFF4A4A4A), Color(0xFF2A2A2A), Color(0xFF2E7D32)),
-  _Palette(Color(0xFFFAFAFA), Color(0xFFE4E4E4), Color(0xFFB8B8B8), Color(0xFFB0B0B0), Color(0xFF1E88E5), Color(0xFF0D47A1), Color(0xFFC62828)),
-  _Palette(Color(0xFFFFAB91), Color(0xFFE57373), Color(0xFFBC5C4D), Color(0xFFBC5C4D), Color(0xFF388E3C), Color(0xFF1B5E20), Color(0xFFEEEEEE)),
-  _Palette(Color(0xFFB3E5FC), Color(0xFF81D4FA), Color(0xFF4FB3E0), Color(0xFF60A8C8), Color(0xFFB55B2A), Color(0xFF7A3E1A), Color(0xFF3E2723)),
-  _Palette(Color(0xFFD7C18D), Color(0xFFB89A5A), Color(0xFF8E7642), Color(0xFF8B713A), Color(0xFF7B1FA2), Color(0xFF4A148C), Color(0xFF5C3018)),
+  _Palette(
+      Color(0xFFF5E6C8),
+      Color(0xFFD9C190),
+      Color(0xFFB89D6A),
+      Color(0xFFB39A6E),
+      Color(0xFFC0392B),
+      Color(0xFF85221A),
+      Color(0xFF6D3A20)),
+  _Palette(
+      Color(0xFFFFE082),
+      Color(0xFFE5B850),
+      Color(0xFFC09238),
+      Color(0xFFB89035),
+      Color(0xFF4A4A4A),
+      Color(0xFF2A2A2A),
+      Color(0xFF2E7D32)),
+  _Palette(
+      Color(0xFFFAFAFA),
+      Color(0xFFE4E4E4),
+      Color(0xFFB8B8B8),
+      Color(0xFFB0B0B0),
+      Color(0xFF1E88E5),
+      Color(0xFF0D47A1),
+      Color(0xFFC62828)),
+  _Palette(
+      Color(0xFFFFAB91),
+      Color(0xFFE57373),
+      Color(0xFFBC5C4D),
+      Color(0xFFBC5C4D),
+      Color(0xFF388E3C),
+      Color(0xFF1B5E20),
+      Color(0xFFEEEEEE)),
+  _Palette(
+      Color(0xFFB3E5FC),
+      Color(0xFF81D4FA),
+      Color(0xFF4FB3E0),
+      Color(0xFF60A8C8),
+      Color(0xFFB55B2A),
+      Color(0xFF7A3E1A),
+      Color(0xFF3E2723)),
+  _Palette(
+      Color(0xFFD7C18D),
+      Color(0xFFB89A5A),
+      Color(0xFF8E7642),
+      Color(0xFF8B713A),
+      Color(0xFF7B1FA2),
+      Color(0xFF4A148C),
+      Color(0xFF5C3018)),
 ];
 
 const List<Color> _curtainColors = [
@@ -42,12 +85,20 @@ const List<Color> _flowerColors = [
   Color(0xFFFF5252),
 ];
 
+Color _lighten(Color c, double amount) {
+  return Color.lerp(c, const Color(0xFFFFFFFF), amount) ?? c;
+}
+
+Color _darken(Color c, double amount) {
+  return Color.lerp(c, const Color(0xFF000000), amount) ?? c;
+}
+
 /// Stable side house. It only scrolls vertically and never randomizes X or
 /// jitters/oscillates horizontally.
 class HouseComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  static const double rowSpacing = 340.0;
-  static const double fixedHeight = 270.0;
+  static const double rowSpacing = 360.0;
+  static const double fixedHeight = 292.0;
   static const double _parallaxFactor = 1.0;
 
   int _index;
@@ -75,13 +126,36 @@ class HouseComponent extends PositionComponent
 
   @override
   Future<void> onLoad() async {
+    final isCity = gameRef.config.zone == RouteZone.city;
+    final lm = gameRef.laneManager;
+    final sidewalkWidth =
+        (gameRef.size.x * (isCity ? 0.075 : 0.060)).clamp(58.0, 94.0);
+    final grassGap = isCity ? 10.0 : 16.0;
+    final footpathOuterLeft = lm.roadLeft - sidewalkWidth;
+    final footpathOuterRight = lm.roadRight + sidewalkWidth;
     final sideWidth = onRight
-        ? gameRef.size.x - gameRef.laneManager.roadRight
-        : gameRef.laneManager.roadLeft;
-    size = Vector2(sideWidth.clamp(78.0, 132.0), fixedHeight);
-    _pinnedX = onRight ? gameRef.size.x - size.x : 0.0;
+        ? gameRef.size.x - footpathOuterRight - grassGap
+        : footpathOuterLeft - grassGap;
+    final minHouseWidth = isCity ? 72.0 : 60.0;
+    final maxHouseWidth = isCity ? 176.0 : 132.0;
+    final houseWidth = sideWidth >= minHouseWidth
+        ? sideWidth.clamp(minHouseWidth, maxHouseWidth).toDouble()
+        : sideWidth.clamp(44.0, maxHouseWidth).toDouble();
+    size = Vector2(
+      houseWidth,
+      isCity ? fixedHeight * 1.18 : fixedHeight,
+    );
+    if (onRight) {
+      final desiredX = footpathOuterRight + grassGap;
+      final maxX = gameRef.size.x - size.x;
+      _pinnedX = desiredX <= maxX ? desiredX : maxX;
+    } else {
+      final desiredRight = footpathOuterLeft - grassGap;
+      final desiredX = desiredRight - size.x;
+      _pinnedX = desiredX >= 0 ? desiredX : 0.0;
+    }
     final slot = _index ~/ 2;
-    position = Vector2(_pinnedX, -fixedHeight - slot * rowSpacing);
+    position = Vector2(_pinnedX, gameRef.size.y - slot * rowSpacing);
     _spawnWindows();
     _regenerateMailbox();
     _maybeSpawnDoorMat();
@@ -119,11 +193,11 @@ class HouseComponent extends PositionComponent
 
   void _layoutWindows() {
     if (_windows.isEmpty) return;
-    final winW = size.x * 0.24;
-    final winH = size.y * 0.18;
+    final winW = size.x * 0.22;
+    final winH = size.y * 0.15;
     final winSize = Vector2(winW, winH);
-    final yy = size.y * 0.42;
-    final xs = onRight ? const [0.80, 0.55] : const [0.20, 0.45];
+    final yy = size.y * 0.44;
+    const xs = [0.34, 0.66];
     for (int i = 0; i < 2 && i < _windows.length; i++) {
       _windows[i]
         ..size = winSize
@@ -138,7 +212,7 @@ class HouseComponent extends PositionComponent
     if (!_hasDoorMat) return;
     final mat = DoorMatComponent();
     final matY = size.y * 0.91;
-    final matCenter = onRight ? size.x * 0.70 : size.x * 0.30;
+    final matCenter = onRight ? size.x * 0.32 : size.x * 0.68;
     mat.position = Vector2(matCenter - mat.size.x / 2, matY);
     add(mat);
     _doorMat = mat;
@@ -146,16 +220,124 @@ class HouseComponent extends PositionComponent
 
   @override
   void render(Canvas canvas) {
-    if (onRight) {
-      canvas.save();
-      canvas.translate(size.x, 0);
-      canvas.scale(-1, 1);
-      _renderHouse(canvas);
-      canvas.restore();
+    if (gameRef.config.zone == RouteZone.city) {
+      _renderCityBuilding(canvas);
     } else {
       _renderHouse(canvas);
     }
     super.render(canvas);
+  }
+
+  void _renderCityBuilding(Canvas canvas) {
+    final w = size.x;
+    final h = size.y;
+    final baseColors = [
+      const Color(0xFF546E7A),
+      const Color(0xFF455A64),
+      const Color(0xFF6D5D4D),
+      const Color(0xFF607D8B),
+    ];
+    final wall = baseColors[_index % baseColors.length];
+    final bodyTop = h * 0.08;
+    final bodyBottom = h * 0.92;
+    final body = Rect.fromLTRB(w * 0.06, bodyTop, w * 0.94, bodyBottom);
+
+    canvas.drawOval(
+      Rect.fromLTWH(4, h - 12, w - 8, 16),
+      Paint()..color = const Color(0x66000000),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(body, const Radius.circular(2)),
+      Paint()
+        ..shader = Gradient.linear(
+          body.topLeft,
+          body.bottomRight,
+          [_lighten(wall, 0.16), wall, _darken(wall, 0.24)],
+          [0.0, 0.62, 1.0],
+        ),
+    );
+
+    final trimPaint = Paint()
+      ..color = const Color(0x55000000)
+      ..strokeWidth = 1.0;
+    for (double y = body.top + 22; y < body.bottom - 42; y += 28) {
+      canvas.drawLine(Offset(body.left, y), Offset(body.right, y), trimPaint);
+    }
+
+    final windowPaints = [
+      const Color(0xFFB3E5FC),
+      const Color(0xFFFFF59D),
+      const Color(0xFF90CAF9),
+    ];
+    for (int row = 0; row < 5; row++) {
+      for (int col = 0; col < 2; col++) {
+        final wx = body.left + w * (0.18 + col * 0.34);
+        final wy = body.top + h * 0.10 + row * h * 0.105;
+        final rect = Rect.fromLTWH(wx, wy, w * 0.18, h * 0.055);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+          Paint()..color = windowPaints[(_index + row + col) % 3],
+        );
+        canvas.drawRect(
+          Rect.fromLTWH(rect.left, rect.top, rect.width, rect.height * 0.20),
+          Paint()..color = const Color(0x55FFFFFF),
+        );
+      }
+    }
+
+    final shopRect = Rect.fromLTWH(body.left, h * 0.69, body.width, h * 0.19);
+    canvas.drawRect(shopRect, Paint()..color = const Color(0xFF263238));
+    final awningY = shopRect.top - h * 0.035;
+    final stripeW = body.width / 5;
+    for (int i = 0; i < 5; i++) {
+      canvas.drawRect(
+        Rect.fromLTWH(body.left + stripeW * i, awningY, stripeW, h * 0.045),
+        Paint()
+          ..color =
+              i.isEven ? const Color(0xFFE53935) : const Color(0xFFFFF8E1),
+      );
+    }
+
+    final doorCenter = onRight ? w * 0.32 : w * 0.68;
+    final door = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(doorCenter, h * 0.82),
+        width: w * 0.24,
+        height: h * 0.20,
+      ),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(door, Paint()..color = const Color(0xFF4E342E));
+    canvas.drawRRect(
+      door,
+      Paint()
+        ..color = const Color(0xFF212121)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+    canvas.drawCircle(
+      Offset(doorCenter + w * 0.07, h * 0.82),
+      2.0,
+      Paint()..color = const Color(0xFFFFD54F),
+    );
+
+    final walkPaint = Paint()..color = const Color(0xFFB8B9B2);
+    final walkEndX = onRight ? 0.0 : w;
+    final walkPath = Path()
+      ..moveTo(doorCenter - w * 0.13, bodyBottom)
+      ..lineTo(doorCenter + w * 0.13, bodyBottom)
+      ..lineTo(walkEndX, h)
+      ..lineTo(walkEndX + (onRight ? w * 0.12 : -w * 0.12), h)
+      ..close();
+    canvas.drawPath(walkPath, walkPaint);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(body, const Radius.circular(2)),
+      Paint()
+        ..color = const Color(0xAA111111)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
   }
 
   void _renderHouse(Canvas canvas) {
@@ -164,120 +346,106 @@ class HouseComponent extends PositionComponent
     final p = _palette();
 
     canvas.drawOval(
-      Rect.fromLTWH(4, h - 10, w - 8, 14),
+      Rect.fromLTWH(4, h - 12, w - 8, 16),
       Paint()..color = const Color(0x55000000),
     );
 
-    final fRight = w * 0.65;
-    final fTop = h * 0.28;
-    final fBot = h * 0.92;
-    final sTop = h * 0.16;
-    final sBot = h * 0.82;
-    final sRight = w * 0.97;
-    final peakX = w * 0.30;
-    final peakY = h * 0.04;
-    final sidePeakX = w * 0.78;
-    final sidePeakY = h * 0.00;
+    final bodyLeft = w * 0.09;
+    final bodyRight = w * 0.91;
+    final bodyTop = h * 0.25;
+    final bodyBottom = h * 0.90;
+    final bodyRect = Rect.fromLTRB(bodyLeft, bodyTop, bodyRight, bodyBottom);
 
-    final frontRect = Rect.fromLTRB(0, fTop, fRight, fBot);
-    canvas.drawRect(
-      frontRect,
+    final roofPeak = Offset(w * 0.50, h * 0.06);
+    final roofPath = Path()
+      ..moveTo(w * 0.02, bodyTop + h * 0.02)
+      ..lineTo(roofPeak.dx, roofPeak.dy)
+      ..lineTo(w * 0.98, bodyTop + h * 0.02)
+      ..lineTo(w * 0.90, bodyTop + h * 0.12)
+      ..lineTo(w * 0.10, bodyTop + h * 0.12)
+      ..close();
+    canvas.drawPath(
+      roofPath,
       Paint()
         ..shader = Gradient.linear(
-          Offset(0, fTop),
-          Offset(0, fBot),
+          Offset(w * 0.20, roofPeak.dy),
+          Offset(w * 0.80, bodyTop + h * 0.13),
+          [p.roofFront, p.roofSide],
+        ),
+    );
+    canvas.drawPath(
+      roofPath,
+      Paint()
+        ..color = const Color(0xAA1E1E1E)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4,
+    );
+
+    final shingle = Paint()
+      ..color = const Color(0x44000000)
+      ..strokeWidth = 0.9;
+    for (double y = bodyTop + h * 0.035; y < bodyTop + h * 0.11; y += 9) {
+      canvas.drawLine(Offset(w * 0.14, y), Offset(w * 0.86, y), shingle);
+    }
+
+    final chimneyRect = Rect.fromLTWH(w * 0.66, h * 0.075, w * 0.11, h * 0.16);
+    canvas.drawRect(chimneyRect, Paint()..color = const Color(0xFF8B3A2A));
+    canvas.drawRect(
+      chimneyRect,
+      Paint()
+        ..color = const Color(0xFF4E1F18)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(w * 0.64, h * 0.065, w * 0.15, h * 0.022),
+      Paint()..color = const Color(0xFF5D2A22),
+    );
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bodyRect, const Radius.circular(3)),
+      Paint()
+        ..shader = Gradient.linear(
+          Offset(0, bodyTop),
+          Offset(0, bodyBottom),
           [p.wallTop, p.wallBot],
         ),
     );
 
-    final brickPaint = Paint()
+    final sidingPaint = Paint()
       ..color = p.brickLine
       ..strokeWidth = 0.8;
-    for (double y = fTop + 10; y < fBot - 2; y += 10) {
-      canvas.drawLine(Offset(0, y), Offset(fRight, y), brickPaint);
+    for (double y = bodyTop + 12; y < bodyBottom - 4; y += 13) {
+      canvas.drawLine(
+          Offset(bodyLeft + 3, y), Offset(bodyRight - 3, y), sidingPaint);
     }
 
-    canvas.drawRect(
-      frontRect,
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bodyRect, const Radius.circular(3)),
       Paint()
         ..color = const Color(0x33000000)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.8,
+        ..strokeWidth = 1.0,
     );
 
-    final sidePath = Path()
-      ..moveTo(fRight, fTop)
-      ..lineTo(sRight, sTop)
-      ..lineTo(sRight, sBot)
-      ..lineTo(fRight, fBot)
-      ..close();
-    canvas.drawPath(sidePath, Paint()..color = p.wallSide);
-    canvas.drawPath(
-      sidePath,
+    final doorCenter = onRight ? w * 0.32 : w * 0.68;
+    final doorW = w * 0.24;
+    final doorL = doorCenter - doorW / 2;
+    final doorR = doorCenter + doorW / 2;
+    final doorTop = h * 0.61;
+    final doorBot = bodyBottom - 2;
+    final doorRect = Rect.fromLTRB(doorL, doorTop, doorR, doorBot);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(doorRect, const Radius.circular(4)),
       Paint()
         ..shader = Gradient.linear(
-          Offset(fRight, 0),
-          Offset(sRight, 0),
-          [const Color(0x00000000), const Color(0x55000000)],
+          Offset(doorL, doorTop),
+          Offset(doorR, doorBot),
+          [p.doorColor, const Color(0xFF2A1808)],
         ),
     );
-
-    final sWinL = fRight + (sRight - fRight) * 0.25;
-    final sWinR = fRight + (sRight - fRight) * 0.75;
-    final sWinT = sTop + (fTop - sTop) * 0.55;
-    final sWinB = sBot + (fBot - sBot) * 0.30;
-    final sWinPath = Path()
-      ..moveTo(sWinL, sWinT)
-      ..lineTo(sWinR, sWinT)
-      ..lineTo(sWinR, sWinB)
-      ..lineTo(sWinL, sWinB)
-      ..close();
-    canvas.drawPath(sWinPath, Paint()..color = const Color(0xCFB3CFE0));
-    canvas.drawPath(
-      sWinPath,
-      Paint()
-        ..color = const Color(0xFF3E2A1E)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
-    );
-
-    final roofFrontPath = Path()
-      ..moveTo(-w * 0.04, fTop + 2)
-      ..lineTo(fRight + 2, fTop + 2)
-      ..lineTo(peakX, peakY)
-      ..close();
-    canvas.drawPath(roofFrontPath, Paint()..color = p.roofFront);
-
-    final roofSidePath = Path()
-      ..moveTo(fRight + 2, fTop + 2)
-      ..lineTo(sRight + 2, sTop + 2)
-      ..lineTo(sidePeakX, sidePeakY)
-      ..lineTo(peakX, peakY)
-      ..close();
-    canvas.drawPath(roofSidePath, Paint()..color = p.roofSide);
-
-    canvas.drawRect(
-      Rect.fromLTWH(-w * 0.04, fTop, fRight + w * 0.08, 4),
-      Paint()..color = p.roofSide.withValues(alpha: 0.45),
-    );
-
-    final chL = w * 0.66;
-    final chR = chL + w * 0.10;
-    final chTop = peakY - h * 0.04;
-    final chBot = fTop - h * 0.02;
-    canvas.drawRect(
-      Rect.fromLTRB(chL, chTop, chR, chBot),
-      Paint()..color = const Color(0xFF8B3A2A),
-    );
-
-    final doorL = w * 0.20;
-    final doorR = w * 0.40;
-    final doorTop = h * 0.62;
-    final doorBot = fBot - 2;
-    final doorRect = Rect.fromLTRB(doorL, doorTop, doorR, doorBot);
-    canvas.drawRect(doorRect, Paint()..color = p.doorColor);
-    canvas.drawRect(
-      doorRect,
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(doorRect, const Radius.circular(4)),
       Paint()
         ..color = const Color(0xFF2A1808)
         ..style = PaintingStyle.stroke
@@ -289,19 +457,34 @@ class HouseComponent extends PositionComponent
       Paint()..color = const Color(0xFFFFD600),
     );
 
-    canvas.drawRect(
-      Rect.fromLTWH(doorL - 4, doorBot - 2, (doorR - doorL) + 8, 4),
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(doorL - 6, doorBot - 3, doorW + 12, 5),
+        const Radius.circular(2),
+      ),
       Paint()..color = const Color(0xFFCCCCCC),
     );
 
     canvas.drawRect(
-      Rect.fromLTWH(0, fBot, w, h - fBot),
+      Rect.fromLTWH(0, bodyBottom, w, h - bodyBottom),
       Paint()..color = const Color(0xFF4CAF50),
     );
 
+    final walkPaint = Paint()..color = const Color(0xFFC9B18B);
+    final walkEndX = onRight ? 0.0 : w;
+    final walkPath = Path()
+      ..moveTo(doorCenter - doorW * 0.34, bodyBottom)
+      ..lineTo(doorCenter + doorW * 0.34, bodyBottom)
+      ..lineTo(walkEndX + (onRight ? w * 0.08 : -w * 0.08), h)
+      ..lineTo(walkEndX, h)
+      ..close();
+    canvas.drawPath(walkPath, walkPaint);
+
     final flowerColor = _flowerColors[_index % _flowerColors.length];
-    for (final fx in [w * 0.08, w * 0.55]) {
-      _drawFlowerCluster(canvas, Offset(fx, fBot + (h - fBot) * 0.45), flowerColor);
+    for (final fx in [w * 0.14, w * 0.50, w * 0.86]) {
+      if ((fx - doorCenter).abs() < w * 0.20) continue;
+      _drawFlowerCluster(canvas,
+          Offset(fx, bodyBottom + (h - bodyBottom) * 0.46), flowerColor);
     }
 
     _renderFence(canvas, w, h);
@@ -310,7 +493,12 @@ class HouseComponent extends PositionComponent
   void _drawFlowerCluster(Canvas canvas, Offset center, Color flowerColor) {
     final petal = Paint()..color = flowerColor;
     final center2 = Paint()..color = const Color(0xFFFFEB3B);
-    for (final off in [const Offset(-3, 0), const Offset(3, 0), const Offset(0, -3), const Offset(0, 3)]) {
+    for (final off in [
+      const Offset(-3, 0),
+      const Offset(3, 0),
+      const Offset(0, -3),
+      const Offset(0, 3)
+    ]) {
       canvas.drawCircle(center + off, 2.2, petal);
     }
     canvas.drawCircle(center, 1.6, center2);
@@ -327,10 +515,12 @@ class HouseComponent extends PositionComponent
     final fenceTop = railY - picketH;
     double px = 1.0;
     while (px < w - 2) {
-      canvas.drawRect(Rect.fromLTWH(px, fenceTop, picketW, picketH), picketPaint);
+      canvas.drawRect(
+          Rect.fromLTWH(px, fenceTop, picketW, picketH), picketPaint);
       px += 9.0;
     }
-    canvas.drawLine(Offset(0, fenceTop + 4), Offset(w, fenceTop + 4), railPaint);
+    canvas.drawLine(
+        Offset(0, fenceTop + 4), Offset(w, fenceTop + 4), railPaint);
   }
 
   @override
@@ -341,9 +531,9 @@ class HouseComponent extends PositionComponent
     if (gameRef.state != GameState.playing) return;
     position.y += gameRef.scrollSpeed * _parallaxFactor * dt;
 
-    if (position.y > gameRef.size.y + fixedHeight) {
+    if (position.y > gameRef.size.y + size.y) {
       _cycle++;
-      position.y = -fixedHeight;
+      position.y = -size.y * 0.05;
       _index = (_index + 2) % _palettes.length;
       _layoutWindows();
       for (final win in _windows) {
@@ -400,7 +590,8 @@ class DoorMatComponent extends PositionComponent
     final w = size.x;
     final h = size.y;
 
-    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), Paint()..color = const Color(0xFF8D6E63));
+    canvas.drawRect(
+        Rect.fromLTWH(0, 0, w, h), Paint()..color = const Color(0xFF8D6E63));
     canvas.drawRect(
       Rect.fromLTWH(0, 0, w, h),
       Paint()

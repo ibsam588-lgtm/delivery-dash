@@ -30,16 +30,25 @@ class _GameScreenState extends State<GameScreen> {
     // Difficulty is passed from the main menu's launch buttons (defaults to
     // medium if the screen is opened without one).
     final arg = ModalRoute.of(context)?.settings.arguments;
-    final difficulty = arg is Difficulty ? arg : Difficulty.medium;
+    final selection = arg is RunSelection
+        ? arg
+        : RunSelection(
+            difficulty: arg is Difficulty ? arg : Difficulty.medium,
+          );
+    final difficulty = selection.difficulty;
 
     final store = StoreService.instance;
     final config = GameConfig(
       difficulty: difficulty,
+      avatar: selection.avatar,
+      zone: selection.zone,
       hasShield: store.shieldOwned,
       speedBoostStart: store.speedBoostOwned,
       doubleCoins: store.doubleCoinsOwned,
       paperBlitz: store.paperBlitzOwned,
       vipSkin: store.vipSkinOwned,
+      outfitId: store.selectedOutfit,
+      bikeId: store.selectedBike,
     );
 
     _game = DeliveryDashGame(config: config)
@@ -197,13 +206,11 @@ class _TutorialOverlay extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 28),
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 24),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.black.withValues(alpha: 0.78),
               borderRadius: BorderRadius.circular(14),
-              border:
-                  Border.all(color: const Color(0xFFFFC107), width: 1.5),
+              border: Border.all(color: const Color(0xFFFFC107), width: 1.5),
             ),
             child: Text(
               'DRAG to move  •  TAP LEFT/RIGHT to throw',
@@ -268,13 +275,11 @@ class _LevelUpOverlayState extends State<_LevelUpOverlay>
         ),
         Center(
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 32, vertical: 22),
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 22),
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A2E),
               borderRadius: BorderRadius.circular(18),
-              border:
-                  Border.all(color: const Color(0xFF00E676), width: 2),
+              border: Border.all(color: const Color(0xFF00E676), width: 2),
               boxShadow: const [
                 BoxShadow(color: Color(0x8000E676), blurRadius: 32),
                 BoxShadow(color: Colors.black87, blurRadius: 24),
