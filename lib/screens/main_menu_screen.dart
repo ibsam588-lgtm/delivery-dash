@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +8,14 @@ import '../services/ad_service.dart';
 import '../services/audio_service.dart';
 import '../services/score_service.dart';
 import '../services/store_service.dart';
+
+const _kBg = Color(0xFF0B1020);
+const _kBgDeep = Color(0xFF050813);
+const _kAccent = Color(0xFFFFC93C);
+const _kAccentDeep = Color(0xFFFF8A00);
+const _kSurface = Color(0xCC121A2E);
+const _kStroke = Color(0x22FFFFFF);
+const _kTextDim = Color(0xB3FFFFFF);
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -26,7 +35,7 @@ class _MainMenuScreenState extends State<MainMenuScreen>
     super.initState();
     _animCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 4200),
     )..repeat();
     _load();
   }
@@ -77,42 +86,76 @@ class _MainMenuScreenState extends State<MainMenuScreen>
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF15202A),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFFFC928), width: 2),
-        ),
-        title: Text(
-          'EXIT ROUTE?',
-          style: GoogleFonts.pressStart2p(color: Colors.white, fontSize: 13),
-        ),
-        content: const Text(
-          'Are you sure you want to leave the paper route?',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(
-              'STAY',
-              style: GoogleFonts.pressStart2p(
-                color: const Color(0xFFFFC928),
-                fontSize: 10,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
+              decoration: BoxDecoration(
+                color: const Color(0xE6121A2E),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: _kStroke),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Exit route?',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your progress is saved. You can pick up the route any time.',
+                    style: GoogleFonts.inter(
+                      color: _kTextDim,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(
+                          'Stay',
+                          style: GoogleFonts.outfit(
+                            color: _kAccent,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: Text(
+                          'Exit',
+                          style: GoogleFonts.outfit(
+                            color: const Color(0xFFFF6B6B),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'EXIT',
-              style: GoogleFonts.pressStart2p(
-                color: const Color(0xFFFF5252),
-                fontSize: 10,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
     return result == true;
@@ -128,44 +171,48 @@ class _MainMenuScreenState extends State<MainMenuScreen>
         if (exit) SystemNavigator.pop();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF0D1820),
+        backgroundColor: _kBgDeep,
         body: Stack(
           children: [
             Positioned.fill(
               child: AnimatedBuilder(
                 animation: _animCtrl,
                 builder: (context, _) => CustomPaint(
-                  painter: _LandingScenePainter(t: _animCtrl.value),
+                  painter: _AuroraBackgroundPainter(t: _animCtrl.value),
                 ),
               ),
             ),
             SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 10, 18, 8),
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 8),
                 child: Column(
                   children: [
                     Row(
                       children: [
-                        _StatBadge(label: 'BEST', value: _highScore.toString()),
+                        _StatBadge(
+                          icon: Icons.emoji_events_rounded,
+                          label: 'BEST',
+                          value: _highScore.toString(),
+                        ),
                         const Spacer(),
                         _CoinBadge(coins: _coins),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    _TitleCard(),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 18),
+                    const _TitleCard(),
+                    const SizedBox(height: 10),
                     AnimatedBuilder(
                       animation: _animCtrl,
                       builder: (context, _) {
-                        final bob = sin(_animCtrl.value * 2 * pi) * 4;
+                        final bob = sin(_animCtrl.value * 2 * pi) * 5;
                         return Transform.translate(
                           offset: Offset(0, bob),
-                          child: const _CourierHero(),
+                          child: const _CourierAvatar(),
                         );
                       },
                     ),
-                    const SizedBox(height: 8),
-                    const _ObstacleGuide(),
+                    const SizedBox(height: 10),
+                    const _RouteBriefing(),
                     const Spacer(),
                     _RouteCard(
                       onEasy: () => _onPlay(Difficulty.easy),
@@ -173,14 +220,15 @@ class _MainMenuScreenState extends State<MainMenuScreen>
                       onHard: () => _onPlay(Difficulty.hard),
                       onStore: _onStore,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Text(
-                      'DELIVER PAPERS  •  DODGE TRAFFIC  •  SURVIVE THE ROUTE',
+                      'Deliver papers  ·  Dodge traffic  ·  Survive the route',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.pressStart2p(
-                        fontSize: 7,
-                        color: Colors.white70,
-                        letterSpacing: 0.7,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: _kTextDim,
+                        letterSpacing: 0.4,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -196,32 +244,42 @@ class _MainMenuScreenState extends State<MainMenuScreen>
   }
 }
 
-class _ObstacleGuide extends StatelessWidget {
-  const _ObstacleGuide();
+class _RouteBriefing extends StatelessWidget {
+  const _RouteBriefing();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xE615202A),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFFC928), width: 1.5),
-        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 8)],
-      ),
+    return _GlassCard(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'ROUTE BRIEFING',
-            style: GoogleFonts.pressStart2p(
-              fontSize: 9,
-              color: const Color(0xFFFFC928),
-              letterSpacing: 1.2,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: _kAccent,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(color: _kAccent, blurRadius: 8),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Route briefing',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           const Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -249,23 +307,23 @@ class _GuideChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A1922),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0x55FFC928)),
+        color: const Color(0x331C2540),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _kStroke),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(icon, style: const TextStyle(fontSize: 11)),
-          const SizedBox(width: 4),
+          Text(icon, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 6),
           Text(
             text,
-            style: const TextStyle(
+            style: GoogleFonts.inter(
               color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -274,9 +332,48 @@ class _GuideChip extends StatelessWidget {
   }
 }
 
-class _LandingScenePainter extends CustomPainter {
+class _GlassCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets padding;
+  final BorderRadius? borderRadius;
+
+  const _GlassCard({
+    required this.child,
+    required this.padding,
+    this.borderRadius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = borderRadius ?? BorderRadius.circular(20);
+    return ClipRRect(
+      borderRadius: radius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: _kSurface,
+            borderRadius: radius,
+            border: Border.all(color: _kStroke),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x66000000),
+                blurRadius: 24,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _AuroraBackgroundPainter extends CustomPainter {
   final double t;
-  _LandingScenePainter({required this.t});
+  _AuroraBackgroundPainter({required this.t});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -287,189 +384,327 @@ class _LandingScenePainter extends CustomPainter {
       Offset.zero & size,
       Paint()
         ..shader = const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF6EC6FF), Color(0xFFBEE7A6), Color(0xFF2F9E44)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0E1530), _kBg, _kBgDeep],
         ).createShader(Offset.zero & size),
     );
 
-    final horizon = h * 0.30;
-    _drawSkyline(canvas, w, horizon);
+    final blobs = [
+      _Blob(Offset(w * (0.18 + 0.04 * sin(t * 2 * pi)), h * 0.18),
+          w * 0.65, const Color(0x55FF8A00)),
+      _Blob(Offset(w * (0.85 + 0.05 * cos(t * 2 * pi)), h * 0.32),
+          w * 0.55, const Color(0x33FFC93C)),
+      _Blob(Offset(w * 0.5, h * (0.65 + 0.03 * sin(t * 4 * pi))),
+          w * 0.85, const Color(0x33334BFF)),
+    ];
+    for (final b in blobs) {
+      canvas.drawCircle(
+        b.center,
+        b.radius,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [b.color, b.color.withValues(alpha: 0)],
+          ).createShader(Rect.fromCircle(center: b.center, radius: b.radius))
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 40),
+      );
+    }
 
-    final road = Path()
-      ..moveTo(w * 0.26, h)
-      ..lineTo(w * 0.74, h)
-      ..lineTo(w * 0.60, horizon)
-      ..lineTo(w * 0.40, horizon)
-      ..close();
-    canvas.drawPath(
-      road,
+    final rng = Random(7);
+    final star = Paint()..color = const Color(0xCCFFFFFF);
+    for (int i = 0; i < 38; i++) {
+      final x = rng.nextDouble() * w;
+      final y = rng.nextDouble() * h * 0.55;
+      final base = 0.4 + rng.nextDouble() * 0.6;
+      final twinkle =
+          0.5 + 0.5 * sin(t * 2 * pi * (0.6 + rng.nextDouble()) + i);
+      canvas.drawCircle(
+        Offset(x, y),
+        base,
+        star..color = Color.fromARGB((180 * twinkle).round(), 255, 255, 255),
+      );
+    }
+
+    final horizon = h * 0.62;
+    canvas.drawRect(
+      Rect.fromLTWH(0, horizon, w, h - horizon),
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: const [Color(0xFF3B4042), Color(0xFF202426)],
+          colors: const [Color(0x00000000), Color(0xAA000000)],
         ).createShader(Rect.fromLTWH(0, horizon, w, h - horizon)),
     );
 
-    final curb = Paint()
-      ..color = const Color(0xFFF5F1E5)
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(w * 0.40, horizon), Offset(w * 0.26, h), curb);
-    canvas.drawLine(Offset(w * 0.60, horizon), Offset(w * 0.74, h), curb);
-
-    final dashPaint = Paint()..color = const Color(0xFFF8F6E8);
-    final offset = (t * 52) % 52;
-    for (double y = horizon + offset - 52; y < h; y += 52) {
+    final laneDash = Paint()..color = const Color(0x55FFFFFF);
+    final offset = (t * 70) % 70;
+    for (double y = horizon + offset - 70; y < h; y += 70) {
       final prog = ((y - horizon) / (h - horizon)).clamp(0.0, 1.0);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromCenter(
             center: Offset(w / 2, y),
-            width: 3 + prog * 5,
-            height: 18 + prog * 18,
+            width: 2 + prog * 4,
+            height: 14 + prog * 18,
           ),
-          const Radius.circular(2),
+          const Radius.circular(3),
         ),
-        dashPaint,
+        laneDash..color = Color.fromARGB((90 * prog).round(), 255, 255, 255),
       );
-    }
-
-    _drawMenuHouses(canvas, size, left: true);
-    _drawMenuHouses(canvas, size, left: false);
-  }
-
-  void _drawSkyline(Canvas canvas, double w, double horizon) {
-    final trunk = Paint()..color = const Color(0xFF5D4037);
-    final leaf = Paint()..color = const Color(0xFF1E6F2A);
-    for (double x = 0; x < w; x += 58) {
-      canvas.drawRect(Rect.fromLTWH(x + 22, horizon - 24, 7, 24), trunk);
-      canvas.drawCircle(Offset(x + 25, horizon - 30), 18, leaf);
-      canvas.drawCircle(Offset(x + 15, horizon - 24), 12, leaf);
-      canvas.drawCircle(Offset(x + 36, horizon - 24), 12, leaf);
-    }
-  }
-
-  void _drawMenuHouses(Canvas canvas, Size size, {required bool left}) {
-    final w = size.width;
-    final h = size.height;
-    final baseX = left ? 8.0 : w - 92.0;
-    final colors = [
-      const Color(0xFFF5E6C8),
-      const Color(0xFFFFE082),
-      const Color(0xFFB3E5FC),
-    ];
-    for (int i = 0; i < 3; i++) {
-      final y = h * 0.38 + i * 90;
-      final x = baseX + (left ? 0 : -i * 2);
-      const houseW = 82.0;
-      const houseH = 58.0;
-      canvas.drawRect(Rect.fromLTWH(x, y + 20, houseW, houseH), Paint()..color = colors[i % colors.length]);
-      final roof = Path()
-        ..moveTo(x - 4, y + 22)
-        ..lineTo(x + houseW / 2, y)
-        ..lineTo(x + houseW + 4, y + 22)
-        ..close();
-      canvas.drawPath(roof, Paint()..color = const Color(0xFFB54A2A));
-      canvas.drawRect(Rect.fromLTWH(x + 12, y + 38, 16, 16), Paint()..color = const Color(0xFF90CAF9));
-      canvas.drawRect(Rect.fromLTWH(x + 52, y + 38, 16, 16), Paint()..color = const Color(0xFF90CAF9));
-      canvas.drawRect(Rect.fromLTWH(x + 34, y + 50, 16, 28), Paint()..color = const Color(0xFF6D3A20));
     }
   }
 
   @override
-  bool shouldRepaint(covariant _LandingScenePainter oldDelegate) => oldDelegate.t != t;
+  bool shouldRepaint(covariant _AuroraBackgroundPainter oldDelegate) =>
+      oldDelegate.t != t;
+}
+
+class _Blob {
+  final Offset center;
+  final double radius;
+  final Color color;
+  _Blob(this.center, this.radius, this.color);
 }
 
 class _TitleCard extends StatelessWidget {
+  const _TitleCard();
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xE60A1922),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFFC928), width: 3),
-        boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 12, offset: Offset(0, 5))],
-      ),
-      child: Column(
-        children: [
-          Text(
-            'DELIVERY',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.pressStart2p(
-              fontSize: 24,
-              color: Colors.white,
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0x33FFC93C),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0x66FFC93C)),
+          ),
+          child: Text(
+            'PAPER RUN',
+            style: GoogleFonts.outfit(
+              fontSize: 10,
+              color: _kAccent,
+              fontWeight: FontWeight.w700,
               letterSpacing: 3,
-              shadows: const [Shadow(color: Colors.black, blurRadius: 5)],
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
+        ),
+        const SizedBox(height: 10),
+        ShaderMask(
+          shaderCallback: (rect) => const LinearGradient(
+            colors: [Colors.white, Color(0xFFE0E7FF)],
+          ).createShader(rect),
+          child: Text(
+            'Delivery',
+            style: GoogleFonts.outfit(
+              fontSize: 30,
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              height: 1.0,
+            ),
+          ),
+        ),
+        ShaderMask(
+          shaderCallback: (rect) => const LinearGradient(
+            colors: [_kAccent, _kAccentDeep],
+          ).createShader(rect),
+          child: Text(
             'DASH',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.pressStart2p(
-              fontSize: 36,
-              color: const Color(0xFFFFC928),
-              letterSpacing: 8,
-              shadows: const [Shadow(color: Color(0xFFFF6D00), blurRadius: 10), Shadow(color: Colors.black, blurRadius: 4)],
+            style: GoogleFonts.outfit(
+              fontSize: 56,
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 4,
+              height: 1.0,
+              shadows: const [
+                Shadow(color: Color(0x66FF8A00), blurRadius: 24),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _CourierHero extends StatelessWidget {
-  const _CourierHero();
+class _CourierAvatar extends StatelessWidget {
+  const _CourierAvatar();
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(size: const Size(118, 104), painter: _CourierHeroPainter());
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          width: 170,
+          height: 170,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                _kAccent.withValues(alpha: 0.35),
+                _kAccent.withValues(alpha: 0.0),
+              ],
+            ),
+          ),
+        ),
+        CustomPaint(size: const Size(140, 124), painter: _CourierPainter()),
+      ],
+    );
   }
 }
 
-class _CourierHeroPainter extends CustomPainter {
+class _CourierPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    canvas.drawOval(Rect.fromCenter(center: Offset(w / 2, h - 6), width: w * 0.72, height: 12), Paint()..color = const Color(0x77000000));
-    _drawWheel(canvas, Offset(w * 0.32, h * 0.75), 15);
-    _drawWheel(canvas, Offset(w * 0.68, h * 0.75), 15);
-    _drawWheel(canvas, Offset(w * 0.50, h * 0.55), 13);
-    final frame = Paint()
-      ..color = const Color(0xFFD71920)
-      ..strokeWidth = 4.2
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(w * 0.50, h * 0.48), Offset(w * 0.50, h * 0.65), frame);
-    canvas.drawLine(Offset(w * 0.50, h * 0.65), Offset(w * 0.32, h * 0.75), frame);
-    canvas.drawLine(Offset(w * 0.50, h * 0.65), Offset(w * 0.68, h * 0.75), frame);
-    canvas.drawLine(Offset(w * 0.50, h * 0.48), Offset(w * 0.50, h * 0.55), frame);
-    canvas.drawLine(Offset(w * 0.30, h * 0.38), Offset(w * 0.70, h * 0.38), Paint()..color = const Color(0xFF222222)..strokeWidth = 4..strokeCap = StrokeCap.round);
-    final body = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(w * 0.50, h * 0.36), width: 38, height: 31), const Radius.circular(10));
-    canvas.drawRRect(body, Paint()..color = const Color(0xFF1565C0));
-    canvas.drawLine(Offset(w * 0.40, h * 0.22), Offset(w * 0.61, h * 0.49), Paint()..color = const Color(0xFFFFC928)..strokeWidth = 4.5..strokeCap = StrokeCap.round);
-    final bag = RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.20, h * 0.42, 28, 30), const Radius.circular(7));
-    canvas.drawRRect(bag, Paint()..color = const Color(0xFFFFC928));
-    canvas.drawRRect(bag, Paint()..color = const Color(0xFF6D4C00)..style = PaintingStyle.stroke..strokeWidth = 1.8);
-    canvas.drawCircle(Offset(w * 0.50, h * 0.18), 14, Paint()..color = const Color(0xFFFFC590));
+
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h - 6),
+        width: w * 0.78,
+        height: 14,
+      ),
+      Paint()..color = const Color(0x55000000),
+    );
+
+    _drawWheel(canvas, Offset(w * 0.30, h * 0.78), 17);
+    _drawWheel(canvas, Offset(w * 0.70, h * 0.78), 17);
+
+    final frameStroke = Paint()
+      ..color = const Color(0xFFE0263A)
+      ..strokeWidth = 4.6
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    final framePath = Path()
+      ..moveTo(w * 0.30, h * 0.78)
+      ..lineTo(w * 0.50, h * 0.60)
+      ..lineTo(w * 0.70, h * 0.78)
+      ..moveTo(w * 0.50, h * 0.60)
+      ..lineTo(w * 0.50, h * 0.46)
+      ..moveTo(w * 0.30, h * 0.78)
+      ..lineTo(w * 0.50, h * 0.46)
+      ..lineTo(w * 0.66, h * 0.46);
+    canvas.drawPath(framePath, frameStroke);
+
+    canvas.drawLine(
+      Offset(w * 0.34, h * 0.40),
+      Offset(w * 0.70, h * 0.40),
+      Paint()
+        ..color = const Color(0xFF1A1A2E)
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round,
+    );
+
+    final bagRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(w * 0.22, h * 0.55),
+        width: 28,
+        height: 30,
+      ),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(
+      bagRect,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_kAccent, _kAccentDeep],
+        ).createShader(bagRect.outerRect),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(w * 0.22, h * 0.50),
+          width: 22,
+          height: 6,
+        ),
+        const Radius.circular(2),
+      ),
+      Paint()..color = const Color(0xFFFFF6D6),
+    );
+
+    final body = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.36),
+        width: 42,
+        height: 34,
+      ),
+      const Radius.circular(12),
+    );
+    canvas.drawRRect(
+      body,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF3B82F6), Color(0xFF1E40AF)],
+        ).createShader(body.outerRect),
+    );
+    canvas.drawLine(
+      Offset(w * 0.40, h * 0.22),
+      Offset(w * 0.62, h * 0.50),
+      Paint()
+        ..color = _kAccent
+        ..strokeWidth = 4.5
+        ..strokeCap = StrokeCap.round,
+    );
+
+    canvas.drawCircle(
+      Offset(w * 0.50, h * 0.18),
+      15,
+      Paint()..color = const Color(0xFFFFD2A8),
+    );
+
     final cap = Path()
-      ..moveTo(w * 0.35, h * 0.15)
-      ..quadraticBezierTo(w * 0.50, h * 0.02, w * 0.65, h * 0.15)
-      ..quadraticBezierTo(w * 0.50, h * 0.11, w * 0.35, h * 0.15)
+      ..moveTo(w * 0.34, h * 0.16)
+      ..quadraticBezierTo(w * 0.50, h * 0.02, w * 0.66, h * 0.16)
+      ..quadraticBezierTo(w * 0.50, h * 0.12, w * 0.34, h * 0.16)
       ..close();
-    canvas.drawPath(cap, Paint()..color = const Color(0xFFFDF9ED));
-    canvas.drawPath(cap, Paint()..color = const Color(0xFFD71920)..style = PaintingStyle.stroke..strokeWidth = 2.2);
+    canvas.drawPath(
+      cap,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFFFFFFFF), Color(0xFFF1F5F9)],
+        ).createShader(cap.getBounds()),
+    );
+    canvas.drawPath(
+      cap,
+      Paint()
+        ..color = const Color(0xFFE0263A)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2,
+    );
+
+    canvas.drawCircle(
+      Offset(w * 0.50, h * 0.13),
+      2.8,
+      Paint()..color = const Color(0xFFE0263A),
+    );
   }
 
   void _drawWheel(Canvas canvas, Offset c, double r) {
-    canvas.drawCircle(c, r, Paint()..color = const Color(0xFF0B0B0B));
-    canvas.drawCircle(c, r * 0.75, Paint()..color = const Color(0xFF616161));
-    canvas.drawCircle(c, r * 0.55, Paint()..color = const Color(0xFFE0E0E0));
+    canvas.drawCircle(c, r, Paint()..color = const Color(0xFF0B0B0F));
+    canvas.drawCircle(c, r * 0.78, Paint()..color = const Color(0xFF505563));
+    canvas.drawCircle(c, r * 0.55, Paint()..color = const Color(0xFFE8EAF0));
+    canvas.drawCircle(c, r * 0.20, Paint()..color = const Color(0xFF1A1A2E));
+    final spoke = Paint()
+      ..color = const Color(0xFFB0B7C2)
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 6; i++) {
+      final a = i * pi / 3;
+      canvas.drawLine(
+        c,
+        Offset(c.dx + cos(a) * r * 0.7, c.dy + sin(a) * r * 0.7),
+        spoke,
+      );
+    }
   }
 
   @override
@@ -482,43 +717,101 @@ class _RouteCard extends StatelessWidget {
   final VoidCallback onHard;
   final VoidCallback onStore;
 
-  const _RouteCard({required this.onEasy, required this.onMedium, required this.onHard, required this.onStore});
+  const _RouteCard({
+    required this.onEasy,
+    required this.onMedium,
+    required this.onHard,
+    required this.onStore,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xEE15202A),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFFFC928), width: 2),
-        boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 12)],
-      ),
+    return _GlassCard(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Column(
         children: [
-          Text('CHOOSE ROUTE', style: GoogleFonts.pressStart2p(fontSize: 12, color: Colors.white, letterSpacing: 1.5)),
+          Row(
+            children: [
+              Text(
+                'Choose route',
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Tap to start',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: _kTextDim,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _RouteButton(label: 'EASY', color: const Color(0xFF43A047), onTap: onEasy)),
+              Expanded(
+                child: _RouteButton(
+                  label: 'Easy',
+                  sub: 'Cruise',
+                  colors: const [Color(0xFF22D3A8), Color(0xFF059669)],
+                  onTap: onEasy,
+                ),
+              ),
               const SizedBox(width: 8),
-              Expanded(child: _RouteButton(label: 'MED', color: const Color(0xFFFB8C00), onTap: onMedium)),
+              Expanded(
+                child: _RouteButton(
+                  label: 'Medium',
+                  sub: 'Rush',
+                  colors: const [Color(0xFFFBBF24), Color(0xFFEA580C)],
+                  onTap: onMedium,
+                ),
+              ),
               const SizedBox(width: 8),
-              Expanded(child: _RouteButton(label: 'HARD', color: const Color(0xFFE53935), onTap: onHard)),
+              Expanded(
+                child: _RouteButton(
+                  label: 'Hard',
+                  sub: 'Chaos',
+                  colors: const [Color(0xFFFB7185), Color(0xFFB91C1C)],
+                  onTap: onHard,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           GestureDetector(
             onTap: onStore,
             child: Container(
-              height: 42,
+              height: 48,
               decoration: BoxDecoration(
-                color: const Color(0xFF0A1922),
+                gradient: const LinearGradient(
+                  colors: [Color(0x331C2540), Color(0x111C2540)],
+                ),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFFFC928), width: 1.5),
+                border: Border.all(color: const Color(0x55FFC93C)),
               ),
-              child: Center(child: Text('STORE  •  UPGRADES', style: GoogleFonts.pressStart2p(fontSize: 10, color: const Color(0xFFFFC928), letterSpacing: 1.0))),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.storefront_rounded,
+                      color: _kAccent, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Store  ·  Upgrades',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      color: _kAccent,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -529,23 +822,61 @@ class _RouteCard extends StatelessWidget {
 
 class _RouteButton extends StatelessWidget {
   final String label;
-  final Color color;
+  final String sub;
+  final List<Color> colors;
   final VoidCallback onTap;
 
-  const _RouteButton({required this.label, required this.color, required this.onTap});
+  const _RouteButton({
+    required this.label,
+    required this.sub,
+    required this.colors,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 48,
+        height: 60,
         decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.45), blurRadius: 10)],
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: colors,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: colors.last.withValues(alpha: 0.45),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
-        child: Center(child: Text(label, style: GoogleFonts.pressStart2p(fontSize: 11, color: Colors.white, letterSpacing: 1.0))),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              sub,
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                color: Colors.white.withValues(alpha: 0.8),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -557,33 +888,86 @@ class _CoinBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _StatBadge(label: 'COINS', value: coins.toString(), gold: true);
-  }
-}
-
-class _StatBadge extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool gold;
-
-  const _StatBadge({required this.label, required this.value, this.gold = false});
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: gold ? const Color(0xFFFFC928) : const Color(0xE60A1922),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFFC928), width: gold ? 0 : 1.5),
-        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 8)],
+        gradient: const LinearGradient(
+          colors: [_kAccent, _kAccentDeep],
+        ),
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: const [
+          BoxShadow(color: Color(0x55FF8A00), blurRadius: 16),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text('$label ', style: GoogleFonts.pressStart2p(fontSize: 8, color: gold ? const Color(0xFF15202A) : const Color(0xFFFFC928))),
-          Text(value, style: GoogleFonts.pressStart2p(fontSize: 11, color: gold ? const Color(0xFF15202A) : Colors.white)),
+          const Text('🪙', style: TextStyle(fontSize: 13)),
+          const SizedBox(width: 6),
+          Text(
+            coins.toString(),
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              color: const Color(0xFF1A1A2E),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _StatBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _StatBadge({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: _kSurface,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: _kStroke),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: _kAccent, size: 14),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  color: _kTextDim,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                value,
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
