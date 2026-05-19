@@ -125,9 +125,18 @@ class AvatarConfig {
   static String label(CourierAvatar avatar) {
     switch (avatar) {
       case CourierAvatar.boy:
-        return 'BOY';
+        return 'ALEX';
       case CourierAvatar.girl:
-        return 'DOLL';
+        return 'MAYA';
+    }
+  }
+
+  static String tagline(CourierAvatar avatar) {
+    switch (avatar) {
+      case CourierAvatar.boy:
+        return 'RED ROCKET';
+      case CourierAvatar.girl:
+        return 'PINK FLASH';
     }
   }
 }

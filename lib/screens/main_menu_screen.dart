@@ -251,6 +251,9 @@ class _HomeHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final city = zone == RouteZone.city;
+    final isGirl = avatar == CourierAvatar.girl;
+    final nameAccent =
+        isGirl ? const Color(0xFFFF5FB7) : const Color(0xFF4A7DFF);
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxHeight < 300;
@@ -258,7 +261,7 @@ class _HomeHero extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _TitleCard(compact: compact),
-            SizedBox(height: compact ? 8 : 14),
+            SizedBox(height: compact ? 6 : 12),
             Transform.translate(
               offset: Offset(0, sin(t * 2 * pi) * 3),
               child: CustomPaint(
@@ -267,6 +270,49 @@ class _HomeHero extends StatelessWidget {
                   avatar: avatar,
                   city: city,
                 ),
+              ),
+            ),
+            SizedBox(height: compact ? 4 : 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xDD061217),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: nameAccent, width: 1.4),
+                boxShadow: [
+                  BoxShadow(
+                      color: nameAccent.withValues(alpha: 0.45),
+                      blurRadius: 10),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration:
+                        BoxDecoration(color: nameAccent, shape: BoxShape.circle),
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    AvatarConfig.label(avatar),
+                    style: GoogleFonts.pressStart2p(
+                      fontSize: 10,
+                      color: Colors.white,
+                      letterSpacing: 1.6,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    AvatarConfig.tagline(avatar),
+                    style: GoogleFonts.pressStart2p(
+                      fontSize: 7,
+                      color: nameAccent,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1410,81 +1456,140 @@ class _AvatarChoice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isGirl = avatar == CourierAvatar.girl;
-    final accent = isGirl ? const Color(0xFFFF5FB7) : const Color(0xFF42A5F5);
+    final accent = isGirl ? const Color(0xFFFF5FB7) : const Color(0xFF4A7DFF);
+    final secondary =
+        isGirl ? const Color(0xFF26C6DA) : const Color(0xFFE53935);
     final locked = !owned;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        height: 92,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        duration: const Duration(milliseconds: 180),
+        height: 142,
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
         decoration: BoxDecoration(
-          color: selected
-              ? accent.withValues(alpha: 0.23)
-              : locked
-                  ? const Color(0xFF111820)
-                  : const Color(0xFF0A1922),
-          borderRadius: BorderRadius.circular(14),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: selected
+                ? [
+                    accent.withValues(alpha: 0.32),
+                    const Color(0xFF0A1922),
+                  ]
+                : locked
+                    ? const [
+                        Color(0xFF101820),
+                        Color(0xFF0A1018),
+                      ]
+                    : const [
+                        Color(0xFF132431),
+                        Color(0xFF0A1922),
+                      ],
+          ),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? accent : const Color(0x3364B5F6),
-            width: selected ? 2 : 1,
+            color: selected
+                ? accent
+                : locked
+                    ? const Color(0x33FFC928)
+                    : const Color(0x4464B5F6),
+            width: selected ? 2.2 : 1.2,
           ),
           boxShadow: selected
               ? [
                   BoxShadow(
-                      color: accent.withValues(alpha: 0.24), blurRadius: 12)
+                    color: accent.withValues(alpha: 0.42),
+                    blurRadius: 14,
+                    spreadRadius: 0.5,
+                  ),
                 ]
               : const [],
         ),
-        child: Row(
+        child: Stack(
           children: [
-            CustomPaint(
-              size: const Size(66, 72),
-              painter: _AvatarPortraitPainter(
-                avatar: avatar,
-                selected: selected,
-              ),
-            ),
-            const SizedBox(width: 9),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    AvatarConfig.label(avatar),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.pressStart2p(
-                      fontSize: 9,
-                      color: Colors.white,
-                      letterSpacing: 1.0,
+            Column(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: CustomPaint(
+                      size: const Size(86, 92),
+                      painter: _AvatarPortraitPainter(
+                        avatar: avatar,
+                        selected: selected,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    locked
-                        ? 'BUY $price'
-                        : isGirl
-                            ? 'DOLL STAR'
-                            : 'COOL RIDER',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.pressStart2p(
-                      fontSize: 6,
-                      color: locked
-                          ? (coins >= price
-                              ? const Color(0xFFFFC928)
-                              : const Color(0xFFEF5350))
-                          : selected
-                              ? accent
-                              : Colors.white60,
-                      letterSpacing: 0.7,
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  AvatarConfig.label(avatar),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.pressStart2p(
+                    fontSize: 10,
+                    color: Colors.white,
+                    letterSpacing: 1.4,
+                    shadows: const [
+                      Shadow(color: Colors.black87, blurRadius: 3),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  locked ? 'BUY $price' : AvatarConfig.tagline(avatar),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.pressStart2p(
+                    fontSize: 6,
+                    color: locked
+                        ? (coins >= price
+                            ? const Color(0xFFFFC928)
+                            : const Color(0xFFEF5350))
+                        : selected
+                            ? secondary
+                            : Colors.white70,
+                    letterSpacing: 0.9,
+                  ),
+                ),
+              ],
             ),
+            if (selected)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.4),
+                  ),
+                  child: const Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: 12,
+                  ),
+                ),
+              ),
+            if (locked)
+              Positioned(
+                top: 0,
+                left: 0,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF15202A),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFFC928)),
+                  ),
+                  child: const Icon(
+                    Icons.lock,
+                    color: Color(0xFFFFC928),
+                    size: 10,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
