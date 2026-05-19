@@ -97,8 +97,8 @@ Color _darken(Color c, double amount) {
 /// jitters/oscillates horizontally.
 class HouseComponent extends PositionComponent
     with HasGameRef<DeliveryDashGame> {
-  static const double rowSpacing = 360.0;
-  static const double fixedHeight = 292.0;
+  static const double rowSpacing = 320.0;
+  static const double fixedHeight = 200.0;
   static const double _parallaxFactor = 1.0;
 
   int _index;
