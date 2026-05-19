@@ -342,7 +342,6 @@ class DeliveryDashGame extends FlameGame with HasCollisionDetection {
   void resumeGame() {
     if (state == GameState.paused) {
       state = GameState.playing;
-      AudioService.instance.resumeBgm();
       AudioService.instance.playBgm();
     }
   }

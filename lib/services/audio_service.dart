@@ -1,8 +1,9 @@
 import 'package:flame_audio/flame_audio.dart';
+import 'package:flutter/widgets.dart';
 
 /// Wraps FlameAudio so missing sound files never crash the game.
 /// All play methods are fire-and-forget; failures are swallowed.
-class AudioService {
+class AudioService with WidgetsBindingObserver {
   static final AudioService instance = AudioService._();
   AudioService._();
 
@@ -17,10 +18,18 @@ class AudioService {
   static const _levelup = 'levelup.wav';
   static const _gameOver = 'gameover.wav';
 
-  bool _bgmPlaying = false;
+  // _bgmDesired tracks the user's intent: true when the user wants the
+  // soundtrack on (i.e. between playBgm() and stopBgm()). It stays true
+  // across pauseBgm()/resumeBgm() and across app lifecycle transitions,
+  // because flame_audio's built-in observer can leave the underlying
+  // AudioPlayer paused without resuming (e.g. after Android audio focus
+  // loss). We use this flag from our own lifecycle observer to force a
+  // restart of the BGM when the app comes back to the foreground.
+  bool _bgmDesired = false;
   bool _initialized = false;
   bool _hasNewBgm = false;
   bool _hasWindowSmash = false;
+  bool _lifecycleObserverRegistered = false;
   Future<void>? _initFuture;
 
   Future<void> init() {
@@ -35,6 +44,13 @@ class AudioService {
     try {
       FlameAudio.bgm.initialize();
     } catch (_) {}
+
+    if (!_lifecycleObserverRegistered) {
+      try {
+        WidgetsBinding.instance.addObserver(this);
+        _lifecycleObserverRegistered = true;
+      } catch (_) {}
+    }
 
     // Load required legacy files first.
     try {
@@ -67,42 +83,71 @@ class AudioService {
     _initialized = true;
   }
 
+  Future<void> _startBgm() async {
+    try {
+      await FlameAudio.bgm.play(_hasNewBgm ? _bgm : _fallbackBgm, volume: 0.58);
+    } catch (_) {}
+  }
+
   Future<void> playBgm({bool fromUserGesture = false}) async {
     await init();
-    if (_bgmPlaying) {
+    _bgmDesired = true;
+    // If flame_audio thinks the BGM is already playing, just make sure it's
+    // not paused. Otherwise start a fresh playback. This handles cases where
+    // an OS interruption (audio focus loss, headphone unplug, lifecycle
+    // transient) left the underlying player paused or stopped.
+    if (FlameAudio.bgm.isPlaying) {
       try {
         await FlameAudio.bgm.resume();
       } catch (_) {}
       return;
     }
-    _bgmPlaying = true;
-    try {
-      await FlameAudio.bgm.play(_hasNewBgm ? _bgm : _fallbackBgm, volume: 0.58);
-    } catch (_) {
-      _bgmPlaying = false;
-    }
+    await _startBgm();
   }
 
   Future<void> stopBgm() async {
-    if (!_bgmPlaying) return;
-    _bgmPlaying = false;
+    if (!_bgmDesired) return;
+    _bgmDesired = false;
     try {
       await FlameAudio.bgm.stop();
     } catch (_) {}
   }
 
   Future<void> pauseBgm() async {
-    if (!_bgmPlaying) return;
+    if (!_bgmDesired) return;
     try {
       await FlameAudio.bgm.pause();
     } catch (_) {}
   }
 
   Future<void> resumeBgm() async {
-    if (!_bgmPlaying) return;
+    if (!_bgmDesired) return;
     try {
       await FlameAudio.bgm.resume();
     } catch (_) {}
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // flame_audio's Bgm installs its own observer that pauses on every
+    // non-resumed state and only resumes if the internal isPlaying flag and
+    // audioPlayer.state line up exactly. In practice Android audio focus
+    // changes (notification pulldown, brief interruptions, SFX taking focus)
+    // can leave the player in a state where the auto-resume silently no-ops,
+    // killing music for the rest of the run. Our observer is a safety net:
+    // whenever the app returns to the foreground and the user's intent is
+    // to keep music on, force a resume — and if that doesn't kick the player
+    // back to playing, start a fresh BGM playback.
+    if (state != AppLifecycleState.resumed) return;
+    if (!_bgmDesired) return;
+    () async {
+      try {
+        await FlameAudio.bgm.resume();
+      } catch (_) {}
+      if (!FlameAudio.bgm.isPlaying) {
+        await _startBgm();
+      }
+    }();
   }
 
   void playDelivery() => _play(_delivery, volume: 0.85);
